@@ -1,0 +1,9 @@
+{
+  "browser": {
+    "launchOptions": {
+      "args": [
+        "--unsafely-treat-insecure-origin-as-secure=http://host.lima.internal:3000"
+      ]
+    }
+  }
+}

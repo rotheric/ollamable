@@ -1,6 +1,13 @@
 SHELL := /bin/zsh
 
-.PHONY: install clean build test test-unit test-e2e start dev help
+.PHONY: install clean build test test-unit test-e2e start dev dev-remote help
+
+# Host that a non-local browser (Lima VM, phone, other LAN machine) uses to
+# reach this machine. NEXT_PUBLIC_WS_URL is inlined at dev-server startup, so
+# it must name a host the *browser* can resolve, not this machine's loopback.
+REMOTE_HOST ?= host.lima.internal
+FRONTEND_PORT ?= 3000
+BACKEND_PORT ?= 3001
 
 help: ## Show this help
 	@grep -E '^[a-zA-Z0-9_-]+:.* ## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*## "}; {printf "  \033[36m%-15s\033[0m %s\n", $$1, $$2}'
@@ -31,3 +38,9 @@ start: build ## Build and start production server (port 3000)
 dev: ## Clean and start frontend + backend dev servers
 	$(MAKE) clean
 	npm run dev:auto
+
+dev-remote: ## Start dev servers reachable from the Lima VM / LAN (override REMOTE_HOST)
+	$(MAKE) clean
+	npx concurrently -n next,server -c cyan,magenta \
+	  "NEXT_PUBLIC_WS_URL=ws://$(REMOTE_HOST):$(BACKEND_PORT) npm run dev -- --hostname 0.0.0.0 --port $(FRONTEND_PORT)" \
+	  "PORT=$(BACKEND_PORT) npm run dev:server"
