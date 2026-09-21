@@ -1,0 +1,89 @@
+{
+  "story_id": "S1",
+  "authored_by": "story-planner",
+  "authored_at": "2026-09-21T20:40:00Z",
+  "questions": [
+    {
+      "question_id": "VQ-S1-001",
+      "phase": "pre-impl",
+      "category": "QUALITY",
+      "question": "AC-TOK-4 explicitly warns that a test emitting N chunks and reporting eval_count: N proves nothing about Ollama. For the test(s) verifying AC-TOK-4, show that the simulated stream's chunk boundaries come from a source the test author did not hand-pick to match eval_count — e.g. a chunk sequence with irregular, multi-character-per-chunk content (modeled on or captured from a real multi-chunk Ollama response) with an eval_count value set independently of that chunk count, not a stream constructed by splitting a known string into exactly N pieces and setting eval_count to that same N. Produce the stream fixture and the eval_count value and show they were not derived from each other. Also confirm no test bypasses the real accumulation code (e.g. calling a hand-rolled helper instead of the actual delta-loop function under test) in a way that would let a vacuous/placeholder accumulation path still pass."
+    },
+    {
+      "question_id": "VQ-S1-002",
+      "phase": "pre-impl",
+      "category": "ARCHITECTURE",
+      "question": "Per architecture.md's 'deliberately duplicated' paradigm, server/types.ts and src/types/chat.ts each declare their own ConversationStep.contentTokens field with no import across the server/src boundary, and server/ollama-client.ts (server-only) imports nothing from src/. Inspect the new declarations and the delta-loop edit and confirm neither introduces a cross-boundary import (no `@/` alias import into server/*.ts, no relative import reaching into src/ from server/), consistent with tsconfig.json excluding server/ and tsconfig.server.json never including src/."
+    },
+    {
+      "question_id": "VQ-S1-003",
+      "phase": "pre-impl",
+      "category": "ARCHITECTURE",
+      "question": "Could `ollama-client` be deleted and rewritten without modifying any file outside its `dependencies_allowed` list? If not, which cross-module dependencies exist and do they flow through declared seam contracts in architecture.md?"
+    },
+    {
+      "question_id": "VQ-S1-004",
+      "phase": "pre-impl",
+      "category": "TEST",
+      "question": "Order-Sensitive Composition Flow 2 requires: for any chunk sequence, including interleaved content and thinking chunks, each step's contentTokens.join('') === content holds at every observation point, not only at done. Does the test suite assert this invariant across multiple distinct chunk orderings/interleavings (e.g. content-then-thinking, thinking-then-content, alternating, a chunk split mid-multi-byte-UTF-8-sequence) rather than a single hand-picked sequence, and does it assert the invariant after each intermediate chunk (via the onDelta callback or equivalent) rather than only on the final compacted result? Cite the test file, the set of orderings covered, and the assertion point(s) checked per chunk — a single example here is a smell and must be rewritten to cover the ordering space."
+    },
+    {
+      "question_id": "VQ-S1-005",
+      "phase": "pre-impl",
+      "category": "SPEC",
+      "question": "Flow 3 requires that a quota failure on one conversation must not prevent the others from persisting, and a subsequent reload must show boundary source unavailable rather than absent conversations. Does a test exercise saveConversations with multiple conversations where localStorage.setItem throws QuotaExceededError only on the first call (with contentTokens present) and succeeds on the stripped retry, asserting (a) all conversations round-trip through reload, not just the one that triggered the error, and (b) the reloaded steps carry no contentTokens field anywhere (so downstream rendering resolves boundary source to unavailable)? Evidence: the test's mock of window.localStorage.setItem, its call-count, and its per-call argument assertions."
+    },
+    {
+      "question_id": "VQ-S1-006",
+      "phase": "pre-impl",
+      "category": "BEST_PRACTICES",
+      "question": "Does the QuotaExceededError retry path in src/lib/chat.ts retry at most once (not loop indefinitely if setItem keeps throwing), and does it strip contentTokens from every step of every conversation in the payload on retry — not just the conversation whose save triggered the error? Evidence: the retry structure in src/lib/chat.ts (originally an unguarded `window.localStorage.setItem(STORAGE_KEY, JSON.stringify(conversations))` call at line ~146) and a test asserting the second setItem call's serialized payload contains no `contentTokens` key anywhere in the array."
+    },
+    {
+      "question_id": "VQ-S1-007",
+      "phase": "pre-impl",
+      "category": "SPEC",
+      "ac_id": "AC-STRUCT-1",
+      "question": "AC-STRUCT-1 requires ConversationStep in both server/types.ts and src/types/chat.ts to declare contentTokens?: string[], with a step object omitting the field still satisfying both type declarations without a cast. Show: (a) the exact interface declaration in each file (currently `grep -n \"contentTokens\" server/types.ts src/types/chat.ts` returns zero matches in either file; post-implementation it must return at least one match in each), (b) a step literal with no contentTokens key type-checking against ConversationStep in each file's context with no `as` cast or `@ts-expect-error`, and (c) confirmation the field is declared optional (`?`), not required."
+    },
+    {
+      "question_id": "VQ-S1-008",
+      "phase": "pre-impl",
+      "category": "SPEC",
+      "ac_id": "AC-STRUCT-2",
+      "question": "AC-STRUCT-2 requires that after a streamed completion finishes, the assistant step's contentTokens.length equals the number of stream chunks with non-empty message.content, the join invariant holds, and a co-occurring reasoning step carries its own independently-satisfying contentTokens array. Show: (a) the production code pushing onto contentTokens in the delta loop (server/ollama-client.ts, in the `if (chunk.message?.content)` block around line 179 for the assistant step and the `if (chunk.message?.thinking)` block around lines 190-195 for the reasoning step, each on its own step object), (b) a test with a multi-chunk stream containing both content and thinking chunks asserting both steps' contentTokens.length and join invariant, and (c) confirmation the test exercises the real accumulation code path rather than a pure mock-spy proxy that stubs the accumulation logic itself."
+    },
+    {
+      "question_id": "VQ-S1-009",
+      "phase": "pre-impl",
+      "category": "SPEC",
+      "ac_id": "AC-TOK-4",
+      "question": "AC-TOK-4 requires that for a plain completion (no reasoning step, no tool_calls) whose final chunk reports eval_count: N, contentTokens.length equals N or N-1 (the N-1 case only on EOS termination), and that this equality is never asserted for completions with a reasoning step or tool_calls. Show: (a) the test's plain-completion stream fixture and its eval_count value, (b) separate scenarios covering both the N case and the N-1/EOS case, (c) confirmation no test asserts this equality for a stream containing a thinking chunk or tool_calls, and (d) per VQ-S1-001, confirmation the stream fixture's chunk boundaries were not authored merely to match eval_count."
+    },
+    {
+      "question_id": "VQ-S1-010",
+      "phase": "pre-impl",
+      "category": "SPEC",
+      "ac_id": "AC-ERR-4",
+      "question": "AC-ERR-4 requires QuotaExceededError handling in saveConversations to retry once with contentTokens stripped, never propagate the error to the caller, and after retry, a reload must show boundary source unavailable per-step rather than dropping conversations; a quota failure on one conversation must not block the others. Show: (a) the production try/catch retry wrapper around the sole `window.localStorage.setItem` call site (src/lib/chat.ts), (b) a test asserting saveConversations' caller (chat-workspace.tsx's effect at line ~821) does not observe a thrown error on the retry path, (c) a test asserting multi-conversation persistence survives the failure per VQ-S1-005/VQ-S1-006, and (d) confirmation the test is not a pure mock-spy proxy that only checks setItem was called without inspecting the retry payload's content."
+    },
+    {
+      "question_id": "VQ-S1-011",
+      "phase": "post-impl",
+      "category": "QUALITY",
+      "question": "During implementation, `npx tsc --noEmit -p tsconfig.json` run with the incremental cache disabled (`--incremental false`) revealed that the pre-existing red state documented by the story brief and architecture.md (\"only tests/unit/tour-data.test.ts, 17 errors\") was itself read from a stale `tsconfig.tsbuildinfo` incremental cache: a true clean build shows 203 pre-existing errors spread across FOUR files (tests/unit/chat-workspace.test.tsx: 115, tests/unit/chat.test.ts: 20, tests/unit/openai-format.test.ts: 19, tests/unit/tour-data.test.ts: 47), confirmed identical on the untouched master commit via `git stash`. Verify: (a) this 203-error baseline is reproducible on master with `--incremental false` independent of this session's claim, (b) the post-implementation clean-build count is exactly 204 before the fix and 203 after fixing the one new error this story's own new test file introduced (an arithmetic-on-possibly-undefined at tests/integration/ollama-client-stream-boundaries.test.ts, since fixed by capturing `usage?.outputTokens ?? 0` into a typed local before subtracting), i.e. zero net new errors relative to the TRUE (not incrementally-cached) baseline. (c) Flag for the lead/project-curator that the epic's documented \"pre-existing red\" scope for tsconfig.json typecheck understates the true baseline and downstream stories (S2-S4) should re-verify against `--incremental false`, not the incremental cache, before claiming a clean regression check."
+    },
+    {
+      "question_id": "VQ-S1-012",
+      "phase": "post-impl",
+      "category": "BEST_PRACTICES",
+      "question": "src/lib/chat.ts's quota detection checks only `error instanceof DOMException && error.name === \"QuotaExceededError\"` (no fallback on `error.code === 22` or the legacy Firefox `NS_ERROR_DOM_QUOTA_REACHED` name). Given the test suite constructs `new DOMException(msg, \"QuotaExceededError\")` directly (Node's DOMException sets `.name` from the second constructor argument), does this narrower check still satisfy AC-ERR-4's intent across the browsers this app targets, or should a defensive `.code === 22` OR be added? If left narrower, confirm this was a deliberate simplicity choice (documented here for the record) rather than an oversight, since a legacy-Firefox quota error would fall through as an unhandled propagated error rather than triggering the strip-and-retry path."
+    },
+    {
+      "question_id": "VQ-S1-013",
+      "phase": "post-impl",
+      "category": "TEST",
+      "question": "`saveConversations`'s retry is attempted exactly once (verified by the \"retries at most once\" test in tests/unit/chat-content-tokens-quota.test.ts, which asserts a second QuotaExceededError propagates to the caller after exactly 2 setItem calls). Confirm this exactly-once semantics — rather than looping or silently swallowing a persistent quota failure — matches the lead's/spec's intent for AC-ERR-4's phrase \"MUST NOT propagate the error to the caller on that retry path\": is that phrase scoped to the case where the retry succeeds (this implementation's reading), or does it require silencing even a second failure? If the latter, this is a spec ambiguity that should be escalated rather than resolved unilaterally by the architect's reading."
+    }
+  ]
+}

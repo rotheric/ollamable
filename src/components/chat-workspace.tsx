@@ -98,6 +98,7 @@ import {
 } from "@/src/lib/ollama";
 import { useWebSocket } from "@/src/lib/use-websocket";
 import { BackendClient, WS_URL } from "@/src/lib/backend-client";
+import { TokenViewStepContent } from "@/src/components/token-view-step-content";
 import { buildOpenAIRequestBody, toOpenAIMessages } from "@/shared/openai-format";
 import {
   tourSteps,
@@ -383,6 +384,7 @@ export function ChatWorkspace() {
     toolsSectionOpen: false,
     clientSectionOpen: false,
     renderMarkdown: true,
+    showTokens: false,
     showTour: true,
     showExamples: true,
     collapseReasoning: false,
@@ -416,6 +418,7 @@ export function ChatWorkspace() {
     toolsSectionOpen,
     clientSectionOpen,
     renderMarkdown,
+    showTokens,
     showTour,
     showExamples,
     collapseReasoning,
@@ -2237,6 +2240,8 @@ export function ChatWorkspace() {
                               <Button variant="contained" onClick={() => void handleSaveStepEdit(step.id)}>Send</Button>
                             </Stack>
                           </Stack>
+                        ) : (showTokens && (step.kind === "assistant" || step.kind === "user" || step.kind === "reasoning")) ? (
+                          <TokenViewStepContent step={step} />
                         ) : ((step.kind === "assistant" || step.kind === "user" || step.kind === "reasoning") && renderMarkdown) ? (
                           <Box sx={{ lineHeight: 1.7, color: "text.primary", "& pre": { fontFamily: "monospace", whiteSpace: "pre-wrap", backgroundColor: "var(--surface-inset)", p: 1.5, borderRadius: 1, overflow: "auto" }, "& code": { fontFamily: "monospace", fontSize: "0.9em" }, "& p:first-of-type": { mt: 0 }, "& p:last-of-type": { mb: 0 }, "& table": { borderCollapse: "collapse", width: "100%", my: 1 }, "& th, & td": { border: "1px solid", borderColor: "divider", px: 1.5, py: 0.75, textAlign: "left" }, "& th": { backgroundColor: "var(--surface-inset)", fontWeight: 600 } }}>
                             <Markdown remarkPlugins={[remarkGfm]}>{step.content.replace(/^\n+|\n+$/g, "")}</Markdown>
@@ -2857,6 +2862,16 @@ export function ChatWorkspace() {
                             />
                           }
                           label={<Typography variant="body2">Render markdown</Typography>}
+                        />
+                        <FormControlLabel
+                          control={
+                            <Checkbox
+                              checked={showTokens}
+                              onChange={() => updateSidebar({ showTokens: !showTokens })}
+                              size="small"
+                            />
+                          }
+                          label={<Typography variant="body2">Show tokens</Typography>}
                         />
                         <FormControlLabel
                           control={

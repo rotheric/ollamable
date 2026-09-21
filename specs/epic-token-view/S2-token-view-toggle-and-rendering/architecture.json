@@ -1,0 +1,71 @@
+{
+  "module_name": "token-view",
+  "purpose": "Own separator formatting (U+2502), whitespace markers (↵ per newline, · per 2+ space run), and boundary-source resolution (stream/computed/pending/unavailable) for the showTokens transcript display mode. Wires a showTokens sidebar preference and switch, and a token-view render branch, into chat-workspace.tsx without duplicating the formatting/resolution logic there (AC-STRUCT-3).",
+  "public_api": [
+    {
+      "name": "SEPARATOR",
+      "signature": "const SEPARATOR: string",
+      "description": "The single token-boundary glyph, U+2502 (BOX DRAWINGS LIGHT VERTICAL). Never ASCII '|'."
+    },
+    {
+      "name": "NEWLINE_MARKER",
+      "signature": "const NEWLINE_MARKER: string",
+      "description": "U+21B5 (DOWNWARDS ARROW WITH CORNER LEFTWARDS), inserted immediately before every literal '\\n' in content."
+    },
+    {
+      "name": "SPACE_RUN_MARKER",
+      "signature": "const SPACE_RUN_MARKER: string",
+      "description": "U+00B7 (MIDDLE DOT), substituted 1:1 for each space character that is part of a run of 2+ consecutive spaces in content."
+    },
+    {
+      "name": "BoundarySource",
+      "signature": "type BoundarySource = \"stream\" | \"computed\" | \"pending\" | \"unavailable\"",
+      "description": "Exactly one of four boundary-source states for a step (public-contract-boundary-source in ownership-ledger.json)."
+    },
+    {
+      "name": "TokenBoundaryResult",
+      "signature": "interface TokenBoundaryResult { source: BoundarySource; tokens: string[]; reason?: string }",
+      "description": "Result shape returned by useTokenBoundaries / resolveBoundarySource. tokens is [] for pending/unavailable. reason is set only for unavailable."
+    },
+    {
+      "name": "resolveBoundarySource",
+      "signature": "resolveBoundarySource(step: ConversationStep, computedState?: { status: \"pending\" | \"resolved\" | \"error\"; tokens?: string[] }): TokenBoundaryResult",
+      "description": "Pure resolution function: stream wins whenever step.contentTokens is defined (read live off the array, not cached, per invariant-delta-step-identity); otherwise defers to the supplied computedState, defaulting to unavailable when none is supplied. No re-tokenization fallback (AC-ERR-1)."
+    },
+    {
+      "name": "useTokenBoundaries",
+      "signature": "useTokenBoundaries(step: ConversationStep, options?: { computedSource?: (step: ConversationStep) => Promise<string[]> }): TokenBoundaryResult",
+      "description": "Hook shell. Stream branch is resolved directly and synchronously off step.contentTokens on every render (no id-keyed cache, so a growing contentTokens array under a stable step id is reflected immediately). When no contentTokens and no computedSource is supplied (S2's default production wiring, pre-S3), resolves to unavailable. When a computedSource is supplied (S2's own tests via MOCK-02-001, and S3's eventual real wiring), tracks a pending/resolved/error cycle keyed by (step.id, step.content) so stale in-flight requests for since-changed content are ignored on resolution."
+    },
+    {
+      "name": "formatTokenViewText",
+      "signature": "formatTokenViewText(content: string, tokens: string[] | null): string",
+      "description": "Single-pass formatter producing one display string: inserts SEPARATOR at token-boundary offsets derived from tokens (skipped when tokens is null, i.e. unavailable/pending sources render unseparated), and unconditionally augments every '\\n' with a preceding NEWLINE_MARKER and substitutes SPACE_RUN_MARKER for each space in a 2+ run — both independent of tokens/boundary source per AC-UX-4's unconditional phrasing. Requires tokens.join(\"\") === content when tokens is non-null (caller contract; violated only by a producer bug upstream)."
+    },
+    {
+      "name": "getBoundaryNotice",
+      "signature": "getBoundaryNotice(result: TokenBoundaryResult): { label: string; detail: string } | null",
+      "description": "Returns the visible label/caveat for stream (\"stream boundaries\" + merge caveat) and computed (\"computed boundaries\" + standalone-tokenization caveat) sources, a named reason for unavailable, and null for pending (AC-ERR-1's no-flash requirement)."
+    }
+  ],
+  "private_files": [
+    "src/lib/token-view.ts (computeSpaceRunFlags, computeBoundaryOffsets — internal to formatTokenViewText)"
+  ],
+  "owned_data": [
+    "None persisted. showTokens is a SidebarState field owned by chat persistence (src/lib/chat.ts), read by this module's consumer (chat-workspace.tsx), not owned by token-view itself."
+  ],
+  "dependencies_allowed": [
+    "src/types/chat.ts (ConversationStep, StepKind — structural read only)"
+  ],
+  "dependencies_forbidden": [
+    "No import of server/* (tsconfig.json excludes server/ outright)",
+    "No import of src/lib/backend-client.ts's tokenize() in this story — the real computed branch is S3's; S2's computedSource is injected only by tests (MOCK-02-001)"
+  ],
+  "external_ports": [],
+  "events_emitted": [],
+  "events_consumed": [],
+  "test_targets": [
+    "tests/unit/token-view.test.ts (new) — AC-UX-2, AC-UX-4, AC-UX-8, AC-ERR-1, AC-STRUCT-3's formatting/resolution-placement requirement, direct unit coverage of useTokenBoundaries with an injected fake computedSource (MOCK-02-001)",
+    "tests/unit/chat-workspace-token-view.test.tsx (new) — AC-UX-1, AC-UX-2, AC-UX-3, AC-UX-4, AC-UX-8, AC-ERR-1, AC-UX-7 (cross-cutting, spanned_by S1+S2) rendered through the real chat-workspace.tsx render branch and sidebar switch"
+  ]
+}

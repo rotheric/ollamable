@@ -1,0 +1,71 @@
+{
+  "story_id": "S4",
+  "authored_by": "story-planner",
+  "authored_at": "2026-09-21T20:40:00Z",
+  "questions": [
+    {
+      "question_id": "VQ-S4-001",
+      "phase": "pre-impl",
+      "category": "QUALITY",
+      "question": "Does the reconciliation readout compute a real content-token count via a genuine tokenize()/steps[0..i)-filtering pipeline, rather than a placeholder/stand-in constant, a hardcoded 'difference equals template overhead' label with no real subtraction, or a load-bearing dependency on S3's backend-client.tokenize() that silently degrades to a fixed or zero count when tokenize() is unavailable (e.g. the WebSocket is offline) without surfacing that degradation to the user as an explicit unavailable state?"
+    },
+    {
+      "question_id": "VQ-S4-002",
+      "phase": "pre-impl",
+      "category": "ARCHITECTURE",
+      "question": "Per Implementation Constraint 5, the reconciliation's step-filtering logic must mirror toOllamaMessages' rules independently, since chat-workspace.tsx (src/) cannot import server/ollama-client.ts's toOllamaMessages across the tsconfig-enforced server/src boundary. Confirm the reconciliation filtering is implemented as its own function (ideally in a lib helper, per the story's notes, to preserve chat-workspace.tsx's line budget) whose logic matches toOllamaMessages' filtering rules (server/ollama-client.ts ~245-301 — e.g. its tool_call/tool_result/system-step handling) rather than importing across the boundary or silently diverging from those rules."
+    },
+    {
+      "question_id": "VQ-S4-003",
+      "phase": "pre-impl",
+      "category": "ARCHITECTURE",
+      "question": "Could `workspace` be deleted and rewritten without modifying any file outside its `dependencies_allowed` list? If not, which cross-module dependencies exist and do they flow through declared seam contracts in architecture.md?"
+    },
+    {
+      "question_id": "VQ-S4-004",
+      "phase": "pre-impl",
+      "category": "TEST",
+      "question": "Do tests cover, as distinct assertions: (a) AC-UX-5's │-separated request-preview rendering reusing S2's TokenSeparatorFormatter export from src/lib/token-view.ts (not a separator formatter re-implemented locally in this story), (b) the verbatim chat-template string display sourced from POST /api/show's `template` field, distinct from the pre-existing model-metadata dialog's own template display (chat-workspace.tsx ~3039), (c) AC-UX-6's three-figure reconciliation display asserting the actual overhead-label text (not just that three numbers render), and (d) the tool_call-turn unavailable-with-named-reason path?"
+    },
+    {
+      "question_id": "VQ-S4-005",
+      "phase": "pre-impl",
+      "category": "SPEC",
+      "question": "Per the adversarial review's specific trap: reconciliation must filter via toOllamaMessages' rules, never the displayed OpenAI-shaped requestJsonPreview (which uses buildOpenAIRequestBody/toOpenAIMessages, chat-workspace.tsx ~918-935). Show a test that would fail if the reconciliation implementation were swapped to simply count tokens in requestJsonPreview's rendered string instead — e.g. a fixture conversation containing a system step and a tool_call/tool_result pair, where toOllamaMessages' filtering and toOpenAIMessages' filtering produce a different effective message set, and the reconciliation count must match the toOllamaMessages-filtered figure, not the OpenAI-shaped one. Evidence: currently `grep -in \"reconcil\" src/components/chat-workspace.tsx` matches nothing; post-implementation the reconciliation function/identifier must exist and must not reference `requestJsonPreview` or `buildOpenAIRequestBody` in its own computation path."
+    },
+    {
+      "question_id": "VQ-S4-006",
+      "phase": "pre-impl",
+      "category": "SECURITY",
+      "question": "The request-preview panel now displays the model's chat-template string verbatim, sourced from an external server (POST /api/show) that a misconfigured OLLAMA_URL could point at an untrusted host. Confirm this string is rendered as literal text — never interpreted as HTML/markdown, no dangerouslySetInnerHTML — consistent with how modelMeta.template is already displayed elsewhere in this component via the existing renderTextSection pattern (chat-workspace.tsx ~3039), so this new display site introduces no HTML-injection surface."
+    },
+    {
+      "question_id": "VQ-S4-007",
+      "phase": "pre-impl",
+      "category": "SPEC",
+      "ac_id": "AC-UX-5",
+      "question": "AC-UX-5 requires the request-preview panel to render outgoing message contents with │ separators and to display /api/show's `template` field verbatim, never a reconstructed template. Show: (a) the panel's new separator-rendering code reusing S2's exported formatTokens/token-view.ts utility (currently `grep -n \"token-view\" src/components/chat-workspace.tsx` matches nothing; post-implementation it must show an import near the request-preview section), (b) the verbatim template field display distinct from any app-side template reconstruction, and (c) confirmation the test is not a pure mock-spy proxy that only checks a prop was passed without checking the rendered DOM text."
+    },
+    {
+      "question_id": "VQ-S4-008",
+      "phase": "pre-impl",
+      "category": "SPEC",
+      "ac_id": "AC-UX-6",
+      "question": "AC-UX-6 requires displaying the computed content-token count, the reported prompt_eval_count, and their difference labelled as chat-template overhead — never as a mismatch/error/warning — with tool_call-containing turns reporting reconciliation-unavailable with a named reason. Show: (a) the three-figure display code and the exact label text used for the difference, (b) a test asserting the label text does not contain 'mismatch', 'error', or 'warning', and (c) the tool_call-turn detection code and its distinct unavailable-with-reason rendering, grounded in Implementation Constraint 4 (compactSteps drops the empty assistant step; ws-handler.ts:163-171 mints a synthetic no-usage replacement, so only the final loop iteration reliably carries usage)."
+    },
+    {
+      "question_id": "VQ-S4-009",
+      "phase": "pre-impl",
+      "category": "SPEC",
+      "ac_id": "AC-TOK-5",
+      "question": "AC-TOK-5 (live-gated) requires, for a system+user-only conversation, the computed content-token count to be strictly less than Ollama's reported prompt_eval_count for the chat request built from those steps, with the difference equal to the template scaffolding's token count, computed from steps[0..i) — the steps preceding the assistant step carrying usage — filtered exactly as toOllamaMessages filters them, never from the live requestJsonPreview (which includes the assistant step itself and uses toOpenAIMessages filtering). Show the live-gated test, its gating against the same AC-ERR-3 mechanism, and confirm the computed figure comes from the reconciliation function verified in VQ-S4-002/VQ-S4-005 rather than any reference to requestJsonPreview."
+    },
+    {
+      "question_id": "VQ-S4-010",
+      "phase": "pre-impl",
+      "category": "SPEC",
+      "ac_id": "AC-STRUCT-3",
+      "question": "AC-STRUCT-3 (cross-cutting, spanned by S2, S3, S4) caps the net line count added to src/components/chat-workspace.tsx by this entire epic — S2's toggle/switch/render-branch, S3's minimal wiring (if any), and S4's request-preview panel additions — at 60, measured as `git diff --numstat 4568f350ee65a73824efc56b2f9a524eacde71f2 -- src/components/chat-workspace.tsx | awk '{print $1-$2}'` (insertions minus deletions, not --stat's combined figure), against the baseline_sha recorded in epic-state.json (currently this command against the unmodified tree produces no output line, since HEAD equals the baseline SHA). Run this exact command after S4 lands — the last story in story_order to touch this file — and confirm the resulting net-line figure is at most 60. Also confirm the separator formatting, boundary-source resolution, whitespace-marker logic, and debounced tokenize round trip all live in src/lib/token-view.ts and its useTokenBoundaries hook, not inline in chat-workspace.tsx (cross-reference VQ-S2-002)."
+    }
+  ]
+}

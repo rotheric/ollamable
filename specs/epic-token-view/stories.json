@@ -1,0 +1,338 @@
+{
+  "epic_name": "token-view",
+  "created_at": "2026-09-21T18:26:00Z",
+  "total_stories": 4,
+  "stories": [
+    {
+      "id": "S1",
+      "name": "stream-boundary-retention",
+      "title": "Stream Boundary Retention",
+      "description": "Persist per-delta stream boundaries through ConversationStep.contentTokens on both server and client wire types. Push each non-empty content chunk onto contentTokens in ollama-client's existing delta loop, for both the assistant step and the reasoning step, enforcing contentTokens.join(\"\") === content at every observation point (Order-Sensitive Composition Flow 2). Wrap chat.ts's saveConversations so a QuotaExceededError retries once with contentTokens stripped from every step, never propagating the error and never letting a quota failure on one conversation block the others (Flow 3).",
+      "acceptance_criteria": [
+        "AC-STRUCT-1",
+        "AC-STRUCT-2",
+        "AC-TOK-4",
+        "AC-ERR-4"
+      ],
+      "scope": {
+        "includes": [
+          "server/types.ts: ConversationStep.contentTokens?: string[]",
+          "src/types/chat.ts: mirrored ConversationStep.contentTokens?: string[] (deliberately duplicated per the paradigm, not imported across the server/src boundary)",
+          "server/ollama-client.ts: push each non-empty message.content chunk onto assistantStep.contentTokens in the delta loop (~line 190); same treatment for the reasoning step's contentTokens in the thinking-chunk block (~190-195), on its own step object",
+          "src/lib/chat.ts: wrap saveConversations's window.localStorage.setItem call (line 146) with a QuotaExceededError catch that retries once with contentTokens stripped from every step of every conversation"
+        ],
+        "excludes": [
+          "Rendering contentTokens as separators (S2 owns this; named here as deferred, not built ahead)",
+          "Server-side tokenization of input text and the computed boundary source (S3)",
+          "Reconciliation against prompt_eval_count (S4 consumes this story's usage field, unmodified by this story)"
+        ]
+      },
+      "complexity": "medium",
+      "mock_dependencies": [],
+      "introduces_mocks": [],
+      "test_fixtures": [],
+      "status": "done",
+      "owning_module": "ollama-client",
+      "creates_seam": true,
+      "consumes_seams": [],
+      "notes": "Primary owning_module is ollama-client because the story's behavioral core is the delta-accumulation join invariant (AC-STRUCT-2, AC-TOK-4; Order-Sensitive Composition Flow 2). The story also makes small, additive edits to wire types (server/types.ts, src/types/chat.ts \u2014 a field declaration, not new logic) and to chat persistence (src/lib/chat.ts \u2014 a quota-retry wrapper around saveConversations's single call site, per Implementation Constraint 7) as grouped by the spec's own S1 stub. Neither of those touches constitutes owning new logic in those modules beyond what AC-STRUCT-1/AC-ERR-4 require. Defines (creates_seam) the ConversationStepContentTokens contract that S2 consumes as its stream boundary source, and the pre-existing usage/prompt_eval_count field that S4 relies on as its reconciliation oracle (architecture.md's S1 -> S4 seam) \u2014 that field is untouched by this story, so it is tracked as a seam without a creates_seam claim over it."
+    },
+    {
+      "id": "S2",
+      "name": "token-view-toggle-and-rendering",
+      "title": "Token View Toggle and Separator Rendering",
+      "description": "Add the showTokens sidebar preference and its switch beside renderMarkdown, and a src/lib/token-view.ts module owning separator formatting (U+2502), whitespace markers (\u21b5, \u00b7), and boundary-source resolution. In token view, assistant/user/reasoning steps render as a single monospace text node with markdown suppressed, without applying the leading/trailing-newline strip. A step's boundary source is labelled (\"stream boundaries\" with its merge caveat, or a computed-boundary notice) and an unavailable step renders unseparated with a visible reason; a pending step renders unseparated with no notice. Verified with the stream source (from S1) and an injected fake computed source, per AC-UX-2's explicit no-S3-dependency clause.",
+      "acceptance_criteria": [
+        "AC-UX-1",
+        "AC-UX-2",
+        "AC-UX-3",
+        "AC-UX-4",
+        "AC-UX-8",
+        "AC-ERR-1"
+      ],
+      "scope": {
+        "includes": [
+          "src/lib/token-view.ts (new): separator formatting (\u2502 U+2502, distinguished from a literal | in content), whitespace markers (\u21b5 per newline character, \u00b7 per run of 2+ spaces), boundary-source resolution and labels/caveats for stream/computed/pending/unavailable",
+          "src/components/chat-workspace.tsx: showTokens: false added to the sidebar preference initializer (~385) and a labelled switch beside renderMarkdown (~2854); a token-view render branch ahead of the markdown branch (~2240) that bypasses react-markdown whenever showTokens is true, regardless of renderMarkdown",
+          "useTokenBoundaries hook shell: resolves stream/pending/unavailable directly and exposes a computed slot that this story's own tests satisfy with an injected fake (MOCK-02-001), per architecture.md's explicit S3 -> S2 seam note that S2 does not block on S3"
+        ],
+        "excludes": [
+          "The real useTokenBoundaries computed branch backed by backend-client.tokenize() (S3 owns this; named here as deferred, not built ahead)",
+          "Request-preview panel rendering and reconciliation (S4)"
+        ]
+      },
+      "complexity": "medium",
+      "mock_dependencies": [
+        "MOCK-02-001"
+      ],
+      "introduces_mocks": [
+        {
+          "mock_id": "MOCK-02-001",
+          "description": "Fake computed boundary-source provider standing in for S3's real useTokenBoundaries computed branch, so AC-UX-2/AC-UX-3/AC-UX-4/AC-UX-8/AC-ERR-1 are verifiable against a computed source without a live tokenizer.",
+          "interface_mocked": "useTokenBoundaries computed branch (backed in production by backend-client.tokenize())",
+          "resolution_story": "S3"
+        }
+      ],
+      "test_fixtures": [],
+      "status": "done",
+      "owning_module": "token-view",
+      "creates_seam": true,
+      "consumes_seams": [
+        "ConversationStepContentTokens"
+      ],
+      "notes": "Primary owning_module is token-view (the new src/lib/token-view.ts module is this story's deliverable, per AC-STRUCT-3's requirement that formatting/whitespace/boundary-source logic not live inline in chat-workspace.tsx); the story also makes minimal wiring edits to the existing workspace module (toggle switch, sidebar preference field, render-branch delegation) directed by token-view's exports. Defines (creates_seam) the TokenBoundaryResult shape (source/tokens) that S3 fulfils for real, and the TokenSeparatorFormatter utility that S4 reuses for the request-preview panel."
+    },
+    {
+      "id": "S3",
+      "name": "ollama-tokenizer-and-client",
+      "title": "Server-Side Ollama Tokenizer and Client",
+      "description": "Build server/tokenizer.ts: acquire vocab/merge tables from POST {OLLAMA_URL}/show with verbose:true, cache per (baseUrl, model) with a shared in-flight promise so concurrent first calls issue exactly one request (Order-Sensitive Composition Flow 1), apply the qwen2 pre-tokenizer split before BPE merges, handle special tokens, and fail closed on an unsupported pre value. Add the tokenize WebSocket request/response pair routed by ProviderConfig.type, the backend-client.tokenize() promise API keyed by requestId (independent of the conversationId-gated message guard), the real useTokenBoundaries computed branch (debounced, per-step cached) fulfilling the contract S2 mocked, the committed qwen3:1.7b vocab and golden fixtures plus their capture script, and the live-gate skip guard distinguishing host-unreachable from model-not-pulled.",
+      "acceptance_criteria": [
+        "AC-DEP-1",
+        "AC-DEP-2",
+        "AC-TOK-1",
+        "AC-TOK-2",
+        "AC-TOK-3",
+        "AC-TOK-6",
+        "AC-TOK-7",
+        "AC-PERF-1",
+        "AC-ERR-2",
+        "AC-ERR-3"
+      ],
+      "scope": {
+        "includes": [
+          "server/tokenizer.ts (new): loadVocab(baseUrl, model) with a shared in-flight-promise cache; qwen2 pre-tokenizer split; GPT-2 byte<->unicode mapping; BPE merge application by rank; special-token matching ahead of splitting; tokenize() returning {tokens, tokenIds}",
+          "server/ws-handler.ts: tokenize case alongside chat.send/chat.stop, routed on ProviderConfig.type === \"ollama\", replying tokenize.error{reason:\"unsupported_provider\"} otherwise",
+          "server/types.ts / src/types/chat.ts: ClientMessage tokenize variant; ServerMessage tokenize.result and tokenize.error(reason: unsupported_provider | vocab_unavailable | internal) variants",
+          "src/lib/backend-client.ts: tokenize(model, text) minting a requestId and resolving on the matching tokenize.result, sitting ahead of/independent of the conversationId-drop guard (Implementation Constraint 1)",
+          "src/lib/token-view.ts: the real useTokenBoundaries computed branch (debounce, per-step cache, calls backend-client.tokenize())",
+          "scripts/capture-vocab-fixture.mjs (new); tests/fixtures/qwen3-1.7b-vocab.json (gzipped per Implementation Constraint 8) and tests/fixtures/qwen3-1.7b-goldens.json",
+          "tests/integration (vitest.server.config.ts, node env): conformance suite including the AC-TOK-6 property test over fc.fullUnicodeString, with the property-testing library added as a dev dependency"
+        ],
+        "excludes": [
+          "Rendering of computed boundaries in the transcript (S2, already landed against a fake; this story only replaces the fake with the real branch)",
+          "Content-token reconciliation display and template string display (S4)"
+        ]
+      },
+      "complexity": "high",
+      "mock_dependencies": [],
+      "introduces_mocks": [],
+      "test_fixtures": [
+        {
+          "fixture_id": "FIXTURE-03-001",
+          "description": "Committed snapshot of model_info[\"tokenizer.ggml.tokens\"], [\"tokenizer.ggml.merges\"], and the scalar tokenizer.ggml.* fields for qwen3:1.7b, gzipped.",
+          "interface": "server/tokenizer.ts loadVocab() input shape, served by a stubbed /api/show in tests",
+          "reason": "External-service double: lets the conformance suite run without a live Ollama host (Design Decision 9). Permanent test infrastructure, not resolved/removed at epic end.",
+          "permanent": true
+        },
+        {
+          "fixture_id": "FIXTURE-03-002",
+          "description": "Committed expected tokenIds sequences for the fixture set, captured from a reference tokenizer (llama.cpp llama-tokenize or HF tokenizers).",
+          "interface": "AC-TOK-7 exact-sequence assertion oracle",
+          "reason": "Pins segmentation correctness independent of a live host (Design Decision 10); a tokenizer that only round-trips or only respects vocab membership would otherwise pass without consulting the merge table. Permanent test infrastructure.",
+          "permanent": true
+        }
+      ],
+      "status": "pending",
+      "owning_module": "tokenizer",
+      "creates_seam": true,
+      "consumes_seams": [],
+      "notes": "Primary owning_module is tokenizer (server/tokenizer.ts is this story's substantial new deliverable and the module named by AC-DEP-1/AC-DEP-2/AC-TOK-1/2/3/6/7/AC-PERF-1). The story also touches ws-handler (one new case), wire types (three new message variants), backend-client (one new client function), and token-view.ts's useTokenBoundaries computed branch \u2014 all of these are wiring a single new capability (server-side tokenization) out to its two callers (WS protocol, client hook) rather than each constituting a separately owned concept, and none of them re-creates logic another module already owns. Resolves MOCK-02-001 by replacing S2's injected fake computed source with the real round trip; fulfils (creates_seam) the TokenBoundaryResult contract S2 defined, and creates the BackendClientTokenizeAPI contract S4 consumes."
+    },
+    {
+      "id": "S4",
+      "name": "content-token-reconciliation-and-template-display",
+      "title": "Content-Token Reconciliation and Template Display",
+      "description": "In the request-preview panel, render the outgoing message contents with \u2502 separators (reusing S2's formatting utilities) and display the model's chat-template string verbatim from /api/show's template field, never a reconstructed template. After a completion reporting prompt_eval_count, show the computed content-token count, the reported prompt_eval_count, and their difference labelled as chat-template overhead (never as a mismatch/error/warning) \u2014 computed from steps[0..i), filtered exactly as toOllamaMessages filters them, never from the live requestJsonPreview. For a turn containing any tool_call step, report reconciliation as unavailable and name the reason, since that step's usage describes only the last of several requests (Implementation Constraint 4).",
+      "acceptance_criteria": [
+        "AC-UX-5",
+        "AC-UX-6",
+        "AC-TOK-5"
+      ],
+      "scope": {
+        "includes": [
+          "src/components/chat-workspace.tsx request-preview panel: \u2502-separated rendering of outgoing message contents via S2's token-view.ts formatting utilities; verbatim template string display",
+          "Reconciliation readout: content-token count vs. prompt_eval_count vs. labelled template-overhead difference; steps[0..i) filtering that mirrors toOllamaMessages exactly, independent of requestJsonPreview (Implementation Constraint 5); tool_call-turn detection reporting reconciliation-unavailable with a named reason"
+        ],
+        "excludes": [
+          "Any change to contentTokens capture, the tokenizer, or the transcript-region token view toggle (S1/S2/S3, already landed)"
+        ]
+      },
+      "complexity": "medium",
+      "mock_dependencies": [],
+      "introduces_mocks": [],
+      "test_fixtures": [],
+      "status": "pending",
+      "owning_module": "workspace",
+      "creates_seam": false,
+      "consumes_seams": [
+        "BackendClientTokenizeAPI",
+        "StepUsagePromptEvalCount",
+        "TokenSeparatorFormatter"
+      ],
+      "notes": "owning_module is workspace: all of this story's deliverables live in the request-preview section of chat-workspace.tsx. Depends on S3's tokenize() to compute the content-token count, S1's (pre-existing, untouched) usage.inputTokens/prompt_eval_count field as the reconciliation oracle, and S2's separator-formatting utilities for visual consistency between the transcript and the preview panel. Counts toward AC-STRUCT-3's shared 60-net-line chat-workspace.tsx budget alongside S2; implementers should keep the reconciliation arithmetic in a lib helper (e.g. token-view.ts) rather than inline, to leave headroom in that budget, though this story does not mandate a specific file for it."
+    }
+  ],
+  "story_order": [
+    "S1",
+    "S2",
+    "S3",
+    "S4"
+  ],
+  "dependency_notes": "Confirms the spec's four-story prior (S1 stream retention, S2 toggle+rendering, S3 tokenizer+client, S4 reconciliation+template) after dependency analysis; no re-partition was warranted. Key decisions:\n\n1. S2 has no hard dependency on S3, per architecture.md's explicit S3->S2 seam note and AC-UX-2's own text ('it does not require S3'). S2 introduces MOCK-02-001 (a fake computed boundary-source provider) so AC-UX-2/UX-3/UX-4/UX-8/ERR-1 are fully verifiable before S3 lands; S3 resolves that mock by replacing the fake with the real useTokenBoundaries computed branch. story_order still places S3 before S4 (S4 has a genuine, non-mockable dependency on S3's tokenize() to compute a real content-token count) and after S2 (S3 extends S2's token-view.ts module rather than creating a parallel one), but S2 and S3 are not forced into that relative order by any test-time coupling between them.\n\n2. No FR-A7 integration story was emitted. architecture.md's Order-Sensitive Composition section names three order-sensitive flows, but none produced a 'Spans modules:'-tagged cross-cutting AC in acceptance-criteria.md (Mode 1 was deliberately skipped for this epic per the lead's brief, and the flows already map onto single-story ACs: Flow 1/concurrent vocab acquisition -> AC-PERF-1 (S3), Flow 2/delta accumulation ordering -> AC-STRUCT-2 + AC-TOK-4 (S1), Flow 3/persistence under quota failure -> AC-ERR-4 (S1)). Per the FR-A7 conservative default, absence of the on-disk 'Spans modules:' signal means no integration story and no is_integration_story marker on any story.\n\n3. cross_cutting_acs: AC-UX-7 (innerHTML round-trip / step.content non-mutation) is placed under acceptance-criteria.md's Cross-Cutting Invariants header rather than any single story's header, and reasoning over its subject matter puts it at the producer/consumer boundary between S1 (owns the contentTokens/content step-data shape the invariant protects) and S2 (owns the rendering/toggle implementation that must not mutate it) -- spanned_by: [S1, S2]. Its own verification, like AC-UX-2's, can be exercised with S2's injected fake computed source and does not require S3 or S4 (the request-preview panel is a different DOM region, [data-tour=\"transcript\"] is not touched by S4). AC-STRUCT-3 (token-view.ts/useTokenBoundaries placement plus the 60-net-line chat-workspace.tsx cap) spans every story that edits either file: S2 (creates token-view.ts's formatting/whitespace/boundary-resolution exports and the chat-workspace.tsx toggle/switch/render-branch lines), S3 (extends token-view.ts with the debounced tokenize round trip), and S4 (adds chat-workspace.tsx request-preview panel lines against the same shared line budget) -- spanned_by: [S2, S3, S4]. S1 touches neither file and is excluded from that span.\n\n4. Module ownership: S1 and S3 each make small, additive edits to more than one architecture.md module (S1: ollama-client + wire types + chat persistence; S3: tokenizer + ws-handler + wire types + backend-client + token-view.ts). Each story's owning_module names the module holding its substantial, newly-owned logic (ollama-client's delta-accumulation invariant for S1; tokenizer's BPE implementation for S3); the remaining touches are minimal wiring edits to existing modules directed by that owned logic, not separately owned concepts, and are itemized in each story's notes and scope.includes so the boundary stays auditable. No two stories share an owning_module (ollama-client, token-view, tokenizer, workspace are all distinct); S2's created token-view module and S4's workspace module are distinct despite S4 reusing S2's formatting utilities via the TokenSeparatorFormatter seam.\n\n5. lighter_path is false for all four stories: every story's file targets include non-markdown source (.ts/.tsx) files, so files_code is non-empty in every case, which alone forces lighter_path=false under AC-STORY-2/AC-STORY-3's conservative default -- none of the other two predicates needed evaluation.\n\n6. Two seams are added beyond architecture.md's four listed ones: TokenSeparatorFormatter (S2->S4, the shared separator/whitespace-marker rendering utility reused by the request-preview panel) and an explicit contract shape for the pre-existing S1->S4 usage/prompt_eval_count seam architecture.md already named, so its field shape and tool_call-turn caveat are pinned before S4 is implemented.",
+  "mock_resolution_plan": "MOCK-02-001 (S2's injected fake computed boundary-source provider) is resolved when S3 lands the real useTokenBoundaries computed branch backed by server/tokenizer.ts via backend-client.tokenize(). No other temporary mocks are introduced by this epic; the two S3 test fixtures (FIXTURE-03-001, FIXTURE-03-002) are permanent test infrastructure per the Mock Strategy's Test Fixture category and are not tracked for resolution.",
+  "seams": [
+    {
+      "data": "Per-step stream boundary array captured from Ollama deltas",
+      "contract": {
+        "type_name": "ConversationStepContentTokens",
+        "fields": [
+          {
+            "name": "contentTokens",
+            "type": "string[]",
+            "optional": true
+          }
+        ],
+        "invariants": [
+          "When present, contentTokens.join(\"\") === content, checked at every observation point during streaming, not only at done",
+          "Absence of contentTokens means boundary source is unavailable and MUST NOT be substituted with a re-tokenized guess"
+        ]
+      },
+      "source": {
+        "story": "S1",
+        "artifact": "server/types.ts#ConversationStep.contentTokens (mirrored in src/types/chat.ts); populated in server/ollama-client.ts's delta loop"
+      },
+      "destination": {
+        "story": "S2",
+        "artifact": "src/lib/token-view.ts boundary-source resolution (stream source)"
+      }
+    },
+    {
+      "data": "The computed boundary-source result for a step whose boundaries were derived via a tokenize() round trip",
+      "contract": {
+        "type_name": "TokenBoundaryResult",
+        "fields": [
+          {
+            "name": "source",
+            "type": "\"stream\" | \"computed\" | \"pending\" | \"unavailable\""
+          },
+          {
+            "name": "tokens",
+            "type": "string[] | null"
+          }
+        ],
+        "invariants": [
+          "When source === \"computed\", tokens is the tokenize() result for the step's text under the conversation's current model, tokenized as a standalone string",
+          "S2's test double for this contract stands in for S3's real implementation and must satisfy the same shape (AC-UX-2's injected-fake clause)"
+        ]
+      },
+      "source": {
+        "story": "S3",
+        "artifact": "src/lib/token-view.ts useTokenBoundaries computed branch (calls backend-client.tokenize())"
+      },
+      "destination": {
+        "story": "S2",
+        "artifact": "src/components/chat-workspace.tsx token-view render branch"
+      }
+    },
+    {
+      "data": "Promise-based tokenize(model, text) round trip over the tokenize WebSocket message pair",
+      "contract": {
+        "type_name": "BackendClientTokenizeAPI",
+        "fields": [
+          {
+            "name": "model",
+            "type": "string"
+          },
+          {
+            "name": "text",
+            "type": "string"
+          },
+          {
+            "name": "returns",
+            "type": "Promise<{ tokens: string[]; tokenIds: number[] }>"
+          }
+        ],
+        "invariants": [
+          "Resolves only on a tokenize.result whose requestId matches the one minted for this call",
+          "Rejects (or surfaces a typed error) on a matching tokenize.error, carrying its reason (unsupported_provider | vocab_unavailable | internal)",
+          "Multiple concurrent calls are independently tracked by requestId, unaffected by the conversationId-keyed pending map or its message-drop guard"
+        ]
+      },
+      "source": {
+        "story": "S3",
+        "artifact": "src/lib/backend-client.ts tokenize()"
+      },
+      "destination": {
+        "story": "S4",
+        "artifact": "src/components/chat-workspace.tsx request-preview content-token count"
+      }
+    },
+    {
+      "data": "prompt_eval_count reported on the assistant step's usage payload, used as the reconciliation oracle",
+      "contract": {
+        "type_name": "StepUsagePromptEvalCount",
+        "fields": [
+          {
+            "name": "usage.inputTokens",
+            "type": "number",
+            "optional": true
+          }
+        ],
+        "invariants": [
+          "Present only on the assistant step carrying the final /api/chat call's usage for that turn",
+          "A turn whose steps include any tool_call MUST be treated as reconciliation-unavailable, since that step's usage describes only the last of several requests (Implementation Constraint 4)"
+        ]
+      },
+      "source": {
+        "story": "S1",
+        "artifact": "server/ollama-client.ts usage capture (assistantStep.usage) \u2014 pre-existing code, unmodified by S1, relied upon by S4"
+      },
+      "destination": {
+        "story": "S4",
+        "artifact": "reconciliation readout comparing computed content-token count against prompt_eval_count"
+      }
+    },
+    {
+      "data": "Shared \u2502-separator and whitespace-marker formatting for rendering tokenized text",
+      "contract": {
+        "type_name": "TokenSeparatorFormatter",
+        "fields": [
+          {
+            "name": "formatTokens",
+            "type": "(tokens: string[]) => string | ReactNode"
+          }
+        ],
+        "invariants": [
+          "Produces the same U+2502 separator and \u21b5/\u00b7 whitespace-marker rules used by the transcript region, so the request-preview panel's separator rendering never diverges from the transcript's"
+        ]
+      },
+      "source": {
+        "story": "S2",
+        "artifact": "src/lib/token-view.ts separator/whitespace-marker formatting functions"
+      },
+      "destination": {
+        "story": "S4",
+        "artifact": "src/components/chat-workspace.tsx request-preview panel \u2502-separated content rendering (AC-UX-5)"
+      }
+    }
+  ],
+  "cross_cutting_acs": [
+    {
+      "ac_id": "AC-UX-7",
+      "spanned_by": [
+        "S1",
+        "S2"
+      ]
+    },
+    {
+      "ac_id": "AC-STRUCT-3",
+      "spanned_by": [
+        "S2",
+        "S3",
+        "S4"
+      ]
+    }
+  ],
+  "updated_at": "2026-09-21T20:26:51Z"
+}

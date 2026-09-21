@@ -1,0 +1,50 @@
+{
+  "generated_at": "2026-09-21",
+  "focuses": [
+    "similar-features",
+    "architecture",
+    "testing-and-conventions"
+  ],
+  "prior_learnings": [
+    {
+      "id": "vitest-cannot-test-exports-map-rejection",
+      "relevance": "not applicable \u2014 this epic tests no package exports map; confirmed by testing explorer"
+    }
+  ],
+  "key_anchors": {
+    "sidebar_state_iface": "src/lib/chat.ts:16-73",
+    "save_conversations_unguarded": "src/lib/chat.ts:146-148",
+    "save_conversations_sole_caller": "src/components/chat-workspace.tsx:821",
+    "sidebar_initializer": "src/components/chat-workspace.tsx:~385",
+    "render_markdown_checkbox": "src/components/chat-workspace.tsx:~2854",
+    "step_content_render_branch": "src/components/chat-workspace.tsx:~2240",
+    "request_preview_memo": "src/components/chat-workspace.tsx:918-935",
+    "transcript_region": "src/components/chat-workspace.tsx:2003 [data-tour=transcript]",
+    "known_failing_button": "src/components/chat-workspace.tsx:1759",
+    "delta_accumulation": "server/ollama-client.ts:179-187",
+    "thinking_accumulation": "server/ollama-client.ts:190-195",
+    "usage_capture": "server/ollama-client.ts:218-226",
+    "compact_steps_drops_empty": "server/ollama-client.ts:233-243",
+    "synthetic_assistant_no_usage": "server/ws-handler.ts:163-171",
+    "ws_dispatch": "server/ws-handler.ts:77-107",
+    "provider_type_gate_precedent": "server/llm-router.ts:112-126",
+    "ollama_url_default": "server/provider-config.ts:29 (http://localhost:11434/api)",
+    "non_verbose_show": "server/ollama-client.ts:59-74",
+    "backend_client_guard": "src/lib/backend-client.ts:60",
+    "fetch_stub_pattern": "tests/integration/ws-handler.test.ts:187-192"
+  },
+  "gaps_to_fill": [
+    "requestId correlation: no precedent; backend-client guard at :60 drops conversationId-less messages",
+    "debounce: no utility or precedent anywhere in src/",
+    "typed error reason enum: first in the WS protocol",
+    "tests/fixtures/: directory does not exist; no large-fixture or LFS convention",
+    "fast-check: absent from package.json; epic adds it"
+  ],
+  "pre_existing_red": {
+    "unit_suite": "43 passed / 1 failed \u2014 chat-workspace.test.tsx:175 vs chat-workspace.tsx:1759",
+    "integration_suite": "17 passed / 0 failed",
+    "lint": "npm run lint non-functional \u2014 no ESLint config, next lint prompts interactively",
+    "typecheck_frontend": "npx tsc --noEmit -p tsconfig.json already red (tour-data.test.ts vitest globals)",
+    "typecheck_server": "npx tsc --noEmit -p tsconfig.server.json clean"
+  }
+}

@@ -23,6 +23,7 @@ export interface SidebarState {
   toolsSectionOpen: boolean;
   clientSectionOpen: boolean;
   renderMarkdown: boolean;
+  showTokens: boolean;
   showTour: boolean;
   showExamples: boolean;
   /** Collapse reasoning steps by default */
@@ -49,6 +50,7 @@ const DEFAULT_SIDEBAR_STATE: SidebarState = {
   toolsSectionOpen: false,
   clientSectionOpen: false,
   renderMarkdown: true,
+  showTokens: false,
   showTour: true,
   showExamples: true,
   collapseReasoning: false,
@@ -143,8 +145,52 @@ export function inferTitle(steps: ConversationStep[]): string {
   return firstUserStep.content.slice(0, 42) || "New conversation";
 }
 
+/**
+ * Quota detection across browsers. Modern engines throw a DOMException named
+ * "QuotaExceededError"; legacy Firefox used "NS_ERROR_DOM_QUOTA_REACHED", and
+ * older engines surface the numeric code 22 instead of a recognisable name.
+ * Kept deliberately wide to match `createId`'s degrade-gracefully posture a few
+ * lines above, rather than assuming a modern-browser-only audience that nothing
+ * in this file actually enforces.
+ */
+function isQuotaExceeded(error: unknown): boolean {
+  if (!(error instanceof DOMException)) return false;
+  return (
+    error.name === "QuotaExceededError" ||
+    error.name === "NS_ERROR_DOM_QUOTA_REACHED" ||
+    error.code === 22
+  );
+}
+
 export function saveConversations(conversations: Conversation[]): void {
-  window.localStorage.setItem(STORAGE_KEY, JSON.stringify(conversations));
+  try {
+    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(conversations));
+  } catch (error) {
+    if (!isQuotaExceeded(error)) {
+      throw error;
+    }
+
+    const stripped = conversations.map((conversation) => ({
+      ...conversation,
+      steps: conversation.steps.map((step) => {
+        const { contentTokens, ...rest } = step;
+        return rest;
+      }),
+    }));
+
+    try {
+      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(stripped));
+    } catch (retryError) {
+      if (!isQuotaExceeded(retryError)) {
+        throw retryError;
+      }
+      // Stripping contentTokens still wasn't enough (e.g. a large
+      // transcript). MUST NOT propagate on this retry path — the sole
+      // caller is a useEffect, and an uncaught throw there is an
+      // unhandled React error that can tear down the workspace.
+      console.warn("saveConversations: quota exceeded even after stripping contentTokens; conversations not persisted");
+    }
+  }
 }
 
 export function loadConversationOrder(): string[] | null {

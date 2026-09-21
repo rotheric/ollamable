@@ -45,6 +45,7 @@ export interface ConversationStep {
   toolResult?: ToolResultPayload;
   metaEvent?: MetaEventPayload;
   usage?: UsagePayload;
+  contentTokens?: string[];
   model?: string;
 }
 

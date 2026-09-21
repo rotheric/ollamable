@@ -1,0 +1,112 @@
+{
+  "story_id": "S2",
+  "authored_by": "story-planner",
+  "authored_at": "2026-09-21T20:40:00Z",
+  "questions": [
+    {
+      "question_id": "VQ-S2-001",
+      "phase": "pre-impl",
+      "category": "QUALITY",
+      "question": "Does src/lib/token-view.ts's boundary-source resolution logic distinguish stream, computed, pending, and unavailable via real conditional logic driven by the step's actual contentTokens/tokenize-cache state, rather than a placeholder that always returns one fixed source or a frozen stand-in constant? Show the resolution function's branching and a test asserting at least three of the four sources are individually reachable from distinct step states within this story's own test doubles (stream from a step carrying contentTokens; computed from MOCK-02-001's injected fake; unavailable from a step with neither; pending is covered separately by AC-ERR-1's dedicated question). Confirm the resolution function does not silently degrade to 'unavailable' for every input when MOCK-02-001 is not wired in — i.e. the computed branch is genuinely exercised, not merely declared."
+    },
+    {
+      "question_id": "VQ-S2-002",
+      "phase": "pre-impl",
+      "category": "ARCHITECTURE",
+      "question": "AC-STRUCT-3 requires the separator formatting, boundary-source resolution, and whitespace-marker logic to live in src/lib/token-view.ts, not inline in chat-workspace.tsx. Inspect chat-workspace.tsx's token-view render branch (the new branch ahead of the markdown branch near line ~2240) and confirm it only calls exported functions from src/lib/token-view.ts — no inline regex or character-substitution logic for ↵, ·, or │ living directly in chat-workspace.tsx itself (a bare JSX reference to already-formatted output returned by token-view.ts is fine; a local reimplementation of the same logic is not)."
+    },
+    {
+      "question_id": "VQ-S2-003",
+      "phase": "pre-impl",
+      "category": "ARCHITECTURE",
+      "question": "Could `token-view` be deleted and rewritten without modifying any file outside its `dependencies_allowed` list? If not, which cross-module dependencies exist and do they flow through declared seam contracts in architecture.md?"
+    },
+    {
+      "question_id": "VQ-S2-004",
+      "phase": "pre-impl",
+      "category": "TEST",
+      "question": "Do tests cover, as distinct assertions rather than one assertion incidentally covering several ACs: the single-monospace-text-node structural check (AC-UX-2, via a DOM query showing one text node/element rather than one per token, plus the literal-`|`-vs-│ disambiguation case), the react-markdown bypass (AC-UX-3, absence of h1/strong elements alongside presence of literal `#` and `**`), the newline/space marker counts (AC-UX-4, including a single token containing `\\n\\n` yielding two ↵ glyphs, and the leading/trailing-newline non-strip case), the label/caveat text for both stream and computed sources (AC-UX-8), and the unavailable-vs-pending distinction, including a localStorage-loaded step with no contentTokens field (AC-ERR-1)?"
+    },
+    {
+      "question_id": "VQ-S2-005",
+      "phase": "pre-impl",
+      "category": "SPEC",
+      "question": "AC-UX-2's own text states this AC does not require S3 and is verified with the stream source and an injected fake computed source (MOCK-02-001). Confirm the test suite actually exercises both sources — not only stream — using MOCK-02-001's fake computed provider, and confirm MOCK-02-001 is registered in specs/epic-token-view/mocks-registry.json with resolution_story S3, so its resolution is tracked to completion when S3 lands and replaces the fake with the real useTokenBoundaries computed branch."
+    },
+    {
+      "question_id": "VQ-S2-006",
+      "phase": "pre-impl",
+      "category": "SECURITY",
+      "question": "Token view renders arbitrary LLM- or user-authored step.content as text split by the separator formatter. Inspect the rendering path (src/lib/token-view.ts and the chat-workspace.tsx render branch that consumes it) and confirm content and separators/markers are rendered as React text — never via dangerouslySetInnerHTML or any other raw-HTML injection — so a step containing `<script>` or an `onerror` attribute string renders as visible literal text rather than being interpreted as markup, matching how the existing markdown branch already avoids raw HTML injection outside of react-markdown's own sanitized rendering."
+    },
+    {
+      "question_id": "VQ-S2-007",
+      "phase": "pre-impl",
+      "category": "SPEC",
+      "ac_id": "AC-UX-1",
+      "question": "AC-UX-1 requires a labelled switch bound to the showTokens sidebar preference, persisted through the same updateSidebar path as renderMarkdown, surviving a page reload. Show: (a) the `showTokens: false` addition to the sidebar preference initializer (chat-workspace.tsx ~385), (b) the switch's onChange calling updateSidebar exactly as the existing renderMarkdown checkbox does (~2854), and (c) a test toggling the switch, asserting the persisted sidebar state includes showTokens, and simulating a reload (re-reading persisted state) to confirm the value survives."
+    },
+    {
+      "question_id": "VQ-S2-008",
+      "phase": "pre-impl",
+      "category": "SPEC",
+      "ac_id": "AC-UX-2",
+      "question": "AC-UX-2 requires a stream/computed-sourced step to render as a single monospace text node with │ (U+2502) between adjacent tokens, no one-element-per-token DOM structure, and a literal `|` in content to render as `|` (never as │) at that position so content and boundary stay distinguishable. Show: (a) the DOM-structure assertion (element/text-node count), (b) the │-separator placement assertion against both the stream source and MOCK-02-001's fake computed source, and (c) a dedicated test case with a step whose content contains a literal `|`, asserting the rendered output contains that `|` unchanged and does not contain a │ at that character's position."
+    },
+    {
+      "question_id": "VQ-S2-009",
+      "phase": "pre-impl",
+      "category": "SPEC",
+      "ac_id": "AC-UX-3",
+      "question": "AC-UX-3 requires that in token view, assistant/user/reasoning steps are never rendered through react-markdown regardless of renderMarkdown, and that a step whose content is \"# Heading\\n\\n**bold**\" renders the literal characters `#` and `**` with no h1 or strong element. Show the test asserting this exact content case with both renderMarkdown: true and renderMarkdown: false, querying the DOM for absence of `h1`/`strong` elements and presence of the literal substrings, and confirm the token-view render branch sits ahead of the markdown branch in the conditional (chat-workspace.tsx ~2240) so it short-circuits react-markdown entirely."
+    },
+    {
+      "question_id": "VQ-S2-010",
+      "phase": "pre-impl",
+      "category": "SPEC",
+      "ac_id": "AC-UX-4",
+      "question": "AC-UX-4 requires one ↵ per newline character (not per token — a token containing \\n\\n yields two), one · per run of two-or-more spaces, no leading/trailing-newline strip in token view (unlike the `.replace(/^\\n+|\\n+$/g, '')` applied outside token view at chat-workspace.tsx:2242/2246), and neither glyph appearing when showTokens is false. Show: (a) a test with a single token containing \\n\\n asserting exactly two ↵ glyphs, (b) a test with content beginning or ending in \\n asserting that boundary newline's ↵ is present (proving the strip is bypassed), (c) a space-run test distinguishing a single space (no ·) from a 2+ run (one · per run), and (d) a showTokens: false test asserting no ↵ or · appears anywhere in rendered step content."
+    },
+    {
+      "question_id": "VQ-S2-011",
+      "phase": "pre-impl",
+      "category": "SPEC",
+      "ac_id": "AC-UX-8",
+      "question": "AC-UX-8 requires a stream-sourced step to display the label \"stream boundaries\" with a merge caveat, and a computed-sourced step to display a notice that boundaries were computed under the conversation's current model tokenizing the step's text as a standalone string — neither label claiming exact model-emitted tokens. Show the rendered label/notice text for both sources (stream via a real contentTokens step, computed via MOCK-02-001) and a test asserting the caveat/notice text is present and does not claim boundaries are the model's exact emitted tokens."
+    },
+    {
+      "question_id": "VQ-S2-012",
+      "phase": "pre-impl",
+      "category": "SPEC",
+      "ac_id": "AC-ERR-1",
+      "question": "AC-ERR-1 requires an unavailable-sourced step (including any assistant step loaded from localStorage with no contentTokens field) to render unseparated content with a visible reason, never a re-tokenized-guess substitution, while a pending-sourced step renders unseparated content with no reason text. Show: (a) a test loading a step from a localStorage-shaped fixture lacking contentTokens and asserting the visible reason notice, (b) confirmation no code path re-tokenizes that step's content to synthesize boundaries, and (c) a pending-state test asserting no notice text renders (so toggling does not flash a notice for every step while round trips are in flight)."
+    },
+    {
+      "question_id": "VQ-S2-013",
+      "phase": "pre-impl",
+      "category": "SPEC",
+      "ac_id": "AC-UX-7",
+      "question": "AC-UX-7 (cross-cutting, spanned by S1 and S2) requires that toggling showTokens on and then off returns the transcript region ([data-tour=\"transcript\"], chat-workspace.tsx ~2003) to an innerHTML string byte-identical to its pre-toggle value, for both renderMarkdown: true and renderMarkdown: false, and that token view never mutates step.content. Show a test capturing [data-tour=\"transcript\"].innerHTML before toggling showTokens true then false again, asserting byte-identical equality in both renderMarkdown states, and a separate assertion that the underlying conversation state's step.content is reference/value-unchanged after the round trip (this can be exercised entirely against S1's stream source and MOCK-02-001's fake computed source, independent of S3 or S4, since the request-preview panel [data-tour is a different DOM region] is untouched by this story)."
+    },
+    {
+      "question_id": "VQ-S2-014",
+      "phase": "post-impl",
+      "category": "SPEC",
+      "ac_id": "AC-UX-4",
+      "question": "AC-UX-4's text ('Each space in a run of two or more MUST render as one ·') is genuinely ambiguous between two readings: (a) the whole qualifying run collapses to a single · glyph, or (b) each individual space within a 2+ run is replaced 1:1 by its own · glyph (so a 3-space run yields ···). The implementation chose (b) — see formatTokenViewText's markableSpace pass in src/lib/token-view.ts and the dedicated 3-space-run test in tests/unit/token-view.test.tsx asserting three consecutive SPACE_RUN_MARKERs. This preserves visual column alignment (matches the 'show whitespace' convention in common editors) and was not escalated as a dispute since it is an implementation-detail default, not a conflict between spec sources. Confirm this reading is what the epic author intended; if reading (a) was intended instead, this is a one-line change confined to formatTokenViewText's per-character loop (emit at most one marker per detected run instead of per space) with no ripple into resolveBoundarySource, useTokenBoundaries, or the chat-workspace.tsx call site."
+    },
+    {
+      "question_id": "VQ-S2-015",
+      "phase": "post-impl",
+      "category": "QUALITY",
+      "question": "formatTokenViewText's boundary-offset computation (src/lib/token-view.ts) collects token-boundary offsets into a Set<number>, keyed by cumulative character offset. If two adjacent tokens include a zero-length token (e.g. tokens = [\"a\", \"\", \"b\"] for content \"ab\"), two distinct token boundaries collapse onto the same content offset and only one SEPARATOR is emitted where the token stream implies two. No test in tests/unit/token-view.test.tsx exercises a zero-length token. Is an empty string a token S1's ollama-client delta capture (or S3's future tokenizer) can actually produce? If not, this is dead code path, not a real gap. If it can occur (e.g. a stream delta whose message.content is an empty string still gets pushed — check the `if (chunk.message?.content)` truthiness guard at server/ollama-client.ts's delta-accumulation block, which would in fact skip an empty-string chunk and never push it), confirm that guard is what actually prevents this from being reachable in practice, or add a regression test pinning the collapsed-separator behavior as an intentional design choice."
+    },
+    {
+      "question_id": "VQ-S2-016",
+      "phase": "post-impl",
+      "category": "SPEC",
+      "ac_id": "AC-ERR-1",
+      "question": "getBoundaryNotice (src/lib/token-view.ts) returns the same generic UNAVAILABLE_REASON string for both sub-cases folded into resolveBoundarySource's 'unavailable' branch: no contentTokens and no computedState at all (the only case reachable in this story's production wiring, since chat-workspace.tsx passes no computedSource), versus no contentTokens with a computedState.status === 'error' (only reachable once S3 wires a real computedSource that can reject). AC-ERR-1 only requires 'a visible notice naming the reason', which a single generic string satisfies today. When S3 lands and the error path becomes production-reachable, confirm whether a single generic reason remains sufficient or whether the error sub-case should surface a more specific message (e.g. naming that a computed round trip failed, vs. that none was ever attempted) — flagging for S3's own pre-impl review rather than deciding unilaterally here, since S2's own test surface cannot make the error path production-reachable to observe the difference."
+    }
+  ]
+}

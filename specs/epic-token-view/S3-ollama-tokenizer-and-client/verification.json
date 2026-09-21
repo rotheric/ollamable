@@ -1,0 +1,113 @@
+{
+  "story_id": "S3",
+  "authored_by": "story-planner",
+  "authored_at": "2026-09-21T20:40:00Z",
+  "questions": [
+    {
+      "question_id": "VQ-S3-001",
+      "phase": "pre-impl",
+      "category": "QUALITY",
+      "question": "A byte-splitting or vocab-longest-match tokenizer that never consults the merge table can satisfy round-trip (AC-TOK-2), special-token handling (AC-TOK-3), and even the mutated-fixture behavioral check (AC-DEP-1, since renaming a vocab entry or reordering merge ranks can be observed without ever applying a merge) — AC-TOK-7's exact tokenId-sequence match is the only real discriminator. Demonstrate that AC-TOK-7's test would fail for a merge-table-free implementation: reason precisely from the vocab fixture what a byte-level/no-merge split of \"strawberry\" would produce as tokenIds (one element per byte or per single-character vocab entry, i.e. far more than 3), and show this differs from the golden fixture's 3-token entry for \"strawberry\" (per the terminology glossary). Do not accept an implementation whose AC-TOK-7 test still passes with merge-application short-circuited or no-op'd — if such a no-op run were performed, the test must fail visibly."
+    },
+    {
+      "question_id": "VQ-S3-002",
+      "phase": "pre-impl",
+      "category": "ARCHITECTURE",
+      "question": "Per architecture.md, server/tokenizer.ts must not import from src/, and per AC-DEP-1 must not read vocab/merges from a bundled file or npm package at runtime. Inspect loadVocab and confirm its only data source is the POST {OLLAMA_URL}/show response body, with no fallback to a committed fixture or bundled vocab file reachable from the production code path — the committed fixtures under tests/fixtures/ must be wired only into test setup's fetch stub, never imported directly by server/tokenizer.ts."
+    },
+    {
+      "question_id": "VQ-S3-003",
+      "phase": "pre-impl",
+      "category": "ARCHITECTURE",
+      "question": "Could `tokenizer` be deleted and rewritten without modifying any file outside its `dependencies_allowed` list? If not, which cross-module dependencies exist and do they flow through declared seam contracts in architecture.md?"
+    },
+    {
+      "question_id": "VQ-S3-004",
+      "phase": "pre-impl",
+      "category": "TEST",
+      "question": "Order-Sensitive Composition Flow 1's candidate guarantee is: for any interleaving of N concurrent first-calls on one (baseUrl, model) key, exactly one /api/show is issued and all N resolve to the same vocab table. AC-PERF-1 only mandates the N=2 Promise.all case explicitly — does the test suite also exercise N greater than 2 (e.g. N=5) concurrent first calls, asserting both the single-request count and that every caller's resolved result is value-identical to every other caller's (not merely that the request count is one)? Cite the request-counting stub and the multi-caller assertion; a single N=2 example alone is a smell for a property this general."
+    },
+    {
+      "question_id": "VQ-S3-005",
+      "phase": "pre-impl",
+      "category": "SPEC",
+      "question": "Confirm the full fixture set from the terminology glossary is exercised in the conformance suite: at minimum \"Hello world\" (2 tokens), \"strawberry\" (3 tokens), \"Die Verkehrsinfrastruktur\" (7 tokens), plus one string containing a fenced code block, one containing consecutive newlines, and one containing a literal `|` — and that AC-TOK-6's property generator explicitly produces well-formed Unicode scalar values only (no lone surrogates, e.g. fc.fullUnicodeString or equivalent), per the AC's own text. Evidence: the fixture-set literal strings and the property generator's configuration."
+    },
+    {
+      "question_id": "VQ-S3-006",
+      "phase": "pre-impl",
+      "category": "SECURITY",
+      "question": "server/tokenizer.ts's tokenize() receives `text` and `model` directly from an untrusted WS client message routed via server/ws-handler.ts's new tokenize case. Confirm: (a) `text` is validated/typed as a string before entering the BPE pipeline, so a malformed message cannot throw an unhandled exception that crashes the connection or the process, (b) a very large `text` payload does not pathologically hang the event loop beyond what the existing chat-completion path already tolerates, and (c) the `model` value is used only to select a vocab cache key and to construct the request body — it cannot redirect the request to a host other than the server-configured OLLAMA_URL, since baseUrl comes from server config (server/provider-config.ts) and is never derived from the client message."
+    },
+    {
+      "question_id": "VQ-S3-007",
+      "phase": "pre-impl",
+      "category": "SPEC",
+      "ac_id": "AC-DEP-1",
+      "question": "AC-DEP-1 requires server/tokenizer.ts to source vocab/merges only from POST {OLLAMA_URL}/show with body {\"model\": <model>, \"verbose\": true}, reading model_info[\"tokenizer.ggml.tokens\"] and [\"tokenizer.ggml.merges\"], proven behaviorally by observing a deliberately mutated fixture's mutation reflected in tokenize() output. Show: (a) the production fetch call including `verbose: true` in the request body (currently `grep -n \"verbose\" server/tokenizer.ts` cannot match since the file does not exist; post-implementation it must show at least one match), (b) the test that mutates one vocab entry's name and swaps two merge ranks and asserts the mutation appears in tokenize() output, and (c) confirmation the test is not a pure mock-spy proxy that only checks fetch was called with the right URL/body, without checking the mutation actually propagated into tokenize()'s returned tokens/tokenIds."
+    },
+    {
+      "question_id": "VQ-S3-008",
+      "phase": "pre-impl",
+      "category": "SPEC",
+      "ac_id": "AC-DEP-2",
+      "question": "AC-DEP-2 requires scripts/capture-vocab-fixture.mjs to write a vocab fixture byte-identical to live model_info values and a golden fixture mapping fixture-set strings to reference tokenIds, be idempotent across two runs against an unchanged model, and never let the reference tokenizer appear in package.json dependencies or be imported under server/. Show: (a) the script's two output-file writes (tests/fixtures/qwen3-1.7b-vocab.json, gzipped, and tests/fixtures/qwen3-1.7b-goldens.json — currently neither file nor script exists), (b) evidence of two invocations producing byte-identical output, and (c) confirmation the reference tokenizer package, if any, is a devDependency used only by this script and is never imported by anything under server/."
+    },
+    {
+      "question_id": "VQ-S3-009",
+      "phase": "pre-impl",
+      "category": "SPEC",
+      "ac_id": "AC-TOK-1",
+      "question": "AC-TOK-1 (live-gated) requires tokenize()'s output length to equal the raw-count oracle (prompt_eval_count from POST {OLLAMA_URL}/generate with raw:true, stream:false, options.num_predict:1) for every fixture-set string, skipping (never failing) when the live gate (AC-ERR-3) is closed. Show the oracle-fetching test code, confirm it is gated behind the same live-check AC-ERR-3 describes, and confirm that running with OLLAMA_URL pointed at a closed port shows this test reported as skipped, not passed and not failed."
+    },
+    {
+      "question_id": "VQ-S3-010",
+      "phase": "pre-impl",
+      "category": "SPEC",
+      "ac_id": "AC-TOK-2",
+      "question": "AC-TOK-2 requires tokens.join('') === s, tokens/tokenIds of equal length with tokenIds[i] indexing tokens[i] in the vocabulary, and byte-level decoding of tokenIds[i] yielding tokens[i]. Show a test asserting all three properties together for at least the fenced-code-block and literal-`|` fixture strings, and confirm it is not satisfiable by a naive whole-string single-token split (which trivially round-trips but would fail the vocab-index/byte-decode check for any string that is not itself a single vocab entry)."
+    },
+    {
+      "question_id": "VQ-S3-011",
+      "phase": "pre-impl",
+      "category": "SPEC",
+      "ac_id": "AC-TOK-3",
+      "question": "AC-TOK-3 requires `<|im_start|>` and `<|im_end|>` to each tokenize as exactly one element with the matching vocabulary index, never split across multiple tokens. Show a test asserting the tokens array contains exactly one element for each special-token occurrence with the correct tokenIds entry (not merely that the substring appears somewhere in the joined output), and confirm the production code matches special tokens ahead of the qwen2 pre-tokenizer split, per the story's stated ordering."
+    },
+    {
+      "question_id": "VQ-S3-012",
+      "phase": "pre-impl",
+      "category": "SPEC",
+      "ac_id": "AC-TOK-6",
+      "question": "AC-TOK-6 requires a property test over a well-formed-Unicode-only generator (e.g. fc.fullUnicodeString, no lone surrogates) asserting tokens.join('') === s across mixed scripts, emoji, whitespace runs, empty strings, and length-1 strings, phrased to fail on any counterexample. Show: (a) the property-testing library added as a dev dependency (currently absent from package.json), (b) the property written against the generator rather than a fixed list of examples in a for-loop (example-shaped, not property-shaped), and (c) confirmation the generator's configuration excludes lone surrogates."
+    },
+    {
+      "question_id": "VQ-S3-013",
+      "phase": "pre-impl",
+      "category": "SPEC",
+      "ac_id": "AC-TOK-7",
+      "question": "AC-TOK-7 requires tokenize() against the vocab fixture to return tokenIds exactly equal, element for element, to the golden fixture's entry for every fixture-set string. Show the exact-array-equality assertion (not a length-only or set-membership check) for every fixture-set string, and per VQ-S3-001, confirm this specific test is the one that would fail for a merge-table-free implementation — i.e. it is the discriminator the other TOK ACs are not."
+    },
+    {
+      "question_id": "VQ-S3-014",
+      "phase": "pre-impl",
+      "category": "SPEC",
+      "ac_id": "AC-PERF-1",
+      "question": "AC-PERF-1 requires exactly one POST /api/show per (baseUrl, model) key across both a sequential-calls ordering and a concurrent Promise.all ordering, with the concurrent case specifically catching a cache populated only on resolution (which would issue two requests). Show the request-counting stub, both test orderings, and confirm the production cache stores the in-flight promise itself at call time (not only the resolved value after the fact) — i.e. the second concurrent caller attaches to the same in-flight promise rather than racing a second fetch."
+    },
+    {
+      "question_id": "VQ-S3-015",
+      "phase": "pre-impl",
+      "category": "SPEC",
+      "ac_id": "AC-ERR-2",
+      "question": "AC-ERR-2 requires: (a) a tokenize message for a provider whose ProviderConfig.type is not \"ollama\" produces tokenize.error{reason: \"unsupported_provider\"}, routed strictly on `.type` (not on provider name — evidence: a test using a provider whose `name` field contains \"ollama\" but whose `type` does not, still errors), and (b) a message whose model reports an unsupported tokenizer.ggml.pre value produces reason: \"vocab_unavailable\", with neither case ever returning a tokenize.result carrying boundaries derived from a different model's vocabulary. Show both test cases and the routing code's conditional on `.type`, mirroring the existing provider_type_gate_precedent at server/llm-router.ts:112-126."
+    },
+    {
+      "question_id": "VQ-S3-016",
+      "phase": "pre-impl",
+      "category": "SPEC",
+      "ac_id": "AC-ERR-3",
+      "question": "AC-ERR-3 requires the live gate to close when OLLAMA_URL is unreachable OR when GET {OLLAMA_URL}/tags does not list the fixture model, with the live-gated tests (AC-TOK-1, AC-TOK-5) reporting skipped — never failed, never passed — with a reason distinguishing host-unreachable from model-not-pulled, while every fixture-backed test in the same suite still executes and reports a real verdict; the suite must run under vitest.server.config.ts (node environment). Show: (a) the gate-check code and its two distinct reason strings, (b) confirmation this suite's test path is included under vitest.server.config.ts's `include` glob (tests/integration/**/*.test.ts) rather than the jsdom vitest.config.ts, and (c) confirmation that running the suite with OLLAMA_URL pointed at a closed port exits zero with a non-zero skip count, and every fixture-backed test still reports pass/fail rather than being swept into the skip count."
+    }
+  ]
+}

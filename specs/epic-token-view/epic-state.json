@@ -1,0 +1,60 @@
+{
+  "epic_name": "token-view",
+  "status": "in_progress",
+  "phase": "IMPLEMENTING",
+  "created_at": "2026-09-21T18:18:06Z",
+  "updated_at": "2026-09-21T20:26:51Z",
+  "pre_existing_dirty_files": [
+    ".claude/settings.json",
+    ".claude/settings.local.json",
+    "BACKLOG.md",
+    "CLAUDE.md",
+    "specs/epic-token-view/acceptance-criteria.md",
+    "specs/epic-token-view/spec.md",
+    "tsconfig.tsbuildinfo"
+  ],
+  "completed_stories": [
+    "S1",
+    "S2"
+  ],
+  "escalated_stories": [],
+  "phase_history": [
+    {
+      "phase": "SPEC_VALIDATED",
+      "timestamp": "2026-09-21T18:18:06Z",
+      "trigger": "validation_passed"
+    },
+    {
+      "phase": "IMPLEMENTING",
+      "timestamp": "2026-09-21T18:35:49Z",
+      "trigger": "story_loop_start"
+    }
+  ],
+  "plugin_sha": "unknown",
+  "consumer_sha": "4568f350ee65a73824efc56b2f9a524eacde71f2",
+  "baseline_sha": "4568f350ee65a73824efc56b2f9a524eacde71f2",
+  "models": {
+    "lead": "opus",
+    "examiner": "haiku",
+    "implementer": "sonnet"
+  },
+  "gate_runs": [
+    {
+      "gate_id": "spec_adversary_review",
+      "outcome": "fired_remediated"
+    },
+    {
+      "gate_id": "pre_commit_review",
+      "outcome": "skipped",
+      "skip_reason": "codex unavailable (auth token could not be refreshed), user override at S1; Stage-1 Opus review ran and reached fixpoint"
+    }
+  ],
+  "ownership_ledger_path": "ownership-ledger.json",
+  "baseline_test_state": {
+    "command": "npm run test:unit",
+    "passed": 43,
+    "failed": 1,
+    "known_failure": "tests/unit/chat-workspace.test.tsx:175 \u2014 expects button 'Open metadata for qwen3:latest'; implementation renders 'Open model settings for \u2026'. Pre-existing, unrelated to this epic, tracked in BACKLOG.md."
+  },
+  "reviewer_agent_id": "a7b694ea0006ee563"
+}

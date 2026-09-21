@@ -1,0 +1,41 @@
+{
+  "module_name": "ollama-client",
+  "purpose": "Retain per-delta stream boundaries (contentTokens) through the Ollama streaming delta loop and the ConversationStep wire types, and make conversation persistence resilient to localStorage quota failures without losing boundary data for other conversations.",
+  "public_api": [
+    {
+      "name": "ConversationStep.contentTokens",
+      "signature": "contentTokens?: string[]",
+      "description": "Optional field on ConversationStep (declared independently in server/types.ts and src/types/chat.ts per the deliberately-duplicated paradigm). When present, contentTokens.join(\"\") === content holds at every observation point. Absence means the step's boundary source is unavailable; consumers (S2) MUST NOT substitute a re-tokenized guess."
+    },
+    {
+      "name": "streamOllamaResponse",
+      "signature": "streamOllamaResponse(args: { baseUrl?: string; model: string; steps: ConversationStep[]; tools: ToolDefinition[]; temperature?: number; maxOutputTokens?: number; reasoningEffort?: ReasoningEffort; onDelta: (steps: ConversationStep[]) => void; signal?: AbortSignal }): Promise<ConversationStep[]>",
+      "description": "Unchanged public signature. Strengthened postcondition: the returned (and every onDelta-observed) assistant step carries a contentTokens array whose length equals the number of stream chunks with non-empty message.content, join invariant holding at every observation point. A co-occurring reasoning step carries its own independent contentTokens array under the same invariant."
+    },
+    {
+      "name": "saveConversations",
+      "signature": "saveConversations(conversations: Conversation[]): void",
+      "description": "Unchanged public signature (src/lib/chat.ts). Strengthened behavior: on QuotaExceededError from the single window.localStorage.setItem call, retries exactly once with contentTokens stripped from every step of every conversation in the payload. Does not throw to the caller when the retry succeeds. A second failure (retry also throws) propagates — retry is attempted exactly once, never looped."
+    }
+  ],
+  "private_files": [
+    "server/ollama-client.ts (processStreamLine content/thinking accumulation blocks)",
+    "src/lib/chat.ts (saveConversations, stripContentTokens helper, isQuotaExceededError helper)"
+  ],
+  "owned_data": [
+    "assistantStep.contentTokens (server/ollama-client.ts delta loop)",
+    "reasoningStep.contentTokens (server/ollama-client.ts delta loop, independent array from assistantStep's)"
+  ],
+  "dependencies_allowed": [],
+  "dependencies_forbidden": [
+    "No import of src/* from server/*.ts (tsconfig.json excludes server/ outright; tsconfig.server.json never includes src/)",
+    "No shared type introduced for ConversationStep across the server/src boundary — the two declarations stay independently maintained per architecture.md's Paradigm section"
+  ],
+  "external_ports": [],
+  "events_emitted": [],
+  "events_consumed": [],
+  "test_targets": [
+    "tests/integration/ollama-client-stream-boundaries.test.ts (new) — AC-STRUCT-2, AC-TOK-4, Flow 2 join invariant across orderings",
+    "tests/unit/chat-content-tokens-quota.test.ts (new) — AC-ERR-4, Flow 3 multi-conversation persistence under quota failure"
+  ]
+}

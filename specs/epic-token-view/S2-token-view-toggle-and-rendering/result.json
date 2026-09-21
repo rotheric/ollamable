@@ -1,0 +1,76 @@
+{
+  "story_id": "S2",
+  "status": "done",
+  "files_created": [
+    "src/lib/token-view.ts",
+    "tests/unit/token-view.test.tsx",
+    "tests/unit/chat-workspace-token-view.test.tsx",
+    "specs/epic-token-view/S2-token-view-toggle-and-rendering/architecture.json",
+    "specs/epic-token-view/S2-token-view-toggle-and-rendering/baseline.json",
+    "specs/epic-token-view/S2-token-view-toggle-and-rendering/result.json"
+  ],
+  "files_modified": [
+    "src/lib/chat.ts",
+    "src/components/chat-workspace.tsx",
+    "specs/epic-token-view/S2-token-view-toggle-and-rendering/verification.json",
+    "specs/epic-token-view/mocks-registry.json"
+  ],
+  "modules_touched": [
+    "token-view",
+    "workspace",
+    "chat persistence"
+  ],
+  "tests_added": {
+    "unit": 33,
+    "integration": 0
+  },
+  "test_counts": {
+    "baseline": 78,
+    "final": 111
+  },
+  "mocks": [
+    {
+      "name": "MOCK-02-001",
+      "reason": "Fake computed boundary-source provider standing in for S3's real useTokenBoundaries computed branch, so AC-UX-2/AC-UX-3/AC-UX-4/AC-UX-8/AC-ERR-1 are verifiable against a computed source without a live tokenizer. Injected only in tests/unit/token-view.test.tsx's rendering-contract suite; chat-workspace.tsx's production call site passes no computedSource.",
+      "resolution_story": "S3"
+    }
+  ],
+  "remediation_rounds": 2,
+  "implementation_notes": [
+    "src/lib/token-view.ts owns (AC-STRUCT-3): SEPARATOR (U+2502)/NEWLINE_MARKER (U+21B5)/SPACE_RUN_MARKER (U+00B7) constants, resolveBoundarySource (pure), useTokenBoundaries (hook: stream branch reads step.contentTokens live every render with no id-keyed cache, per the S1 carry-forward invariant that the array can grow under a stable step id; computed branch keys pending/resolved state on (step.id, step.content) with stale-response cancellation guarding), formatTokenViewText (single character-level pass building one display string), and getBoundaryNotice (label/caveat text, null for pending). chat-workspace.tsx's new TokenViewStepContent component only calls these exports \u2014 no inline regex/substitution logic for \u21b5/\u00b7/\u2502 in chat-workspace.tsx (VQ-S2-002).",
+    "IMPLEMENTATION DECISION (AC-UX-4 space-run wording, flagged as VQ-S2-014, not escalated): 'Each space in a run of two or more MUST render as one \u00b7' is genuinely ambiguous between collapsing the whole run to one glyph vs. replacing each space in the run 1:1. Chose 1:1 replacement (a 3-space run \u2192 three \u00b7) \u2014 preserves visual column alignment and matches the common 'show whitespace' editor convention; pinned by a dedicated 3-space-run test. If the spec author intended the collapse reading, it's a one-line change confined to formatTokenViewText's loop with no ripple elsewhere.",
+    "IMPLEMENTATION DECISION (AC-UX-1 'switch' wording): implemented as a Checkbox+FormControlLabel ('Show tokens'), not MUI's Switch component, for consistency with every other boolean sidebar toggle in chat-workspace.tsx (renderMarkdown, showExamples, showTour, hideSystemPrompt, four collapse-by-default toggles) \u2014 all use Checkbox. MUI Switch renders role=\"switch\" rather than role=\"checkbox\", which would both break this story's own role-based test queries and introduce a new, inconsistent toggle-control convention into the file.",
+    "S1 carry-forward item 1 (S1-F8, compactSteps drops whitespace-only assistant steps, server/ollama-client.ts:240-241): confirmed this is a real, constructible AC-UX-4 gap \u2014 a completion whose entire content is whitespace (e.g. a model response of just \\\"\\\\n\\\\n\\\") is silently dropped server-side before it ever reaches the client, so AC-UX-4's newline-marker guarantee is unreachable via live streaming for such a step; only a directly-seeded/persisted step (as this story's own tests use) can exercise it. Not fixed \u2014 pre-existing, out of S2's scope per the story brief. Left for the epic owner/BACKLOG to judge whether it's worth a fix.",
+    "S1 carry-forward item 2 (contentTokens growth under a stable step id): useTokenBoundaries's stream branch never caches by step.id alone \u2014 it reads step.contentTokens directly off the step object on every render, so applyDelta's shallow-spread streaming (chat-workspace.tsx) is reflected immediately. Pinned by a dedicated renderHook test that grows contentTokens under the same step id across a rerender and asserts the returned tokens array updates.",
+    "S1 carry-forward item 3 (ConversationStep duplication): confirmed S2 adds no new fields to ConversationStep in either server/types.ts or src/types/chat.ts. Boundary source is a purely derived concept living entirely in src/lib/token-view.ts, never persisted.",
+    "S1 carry-forward item 4 (S1-F9, silent quota-retry failure, AC-ERR-4 gap): judged OUT OF SCOPE for S2, not silently absorbed and not silently fixed. AC-ERR-1's notice mechanism is specifically about a step's token-boundary source (attached to one step's rendered content); a persistence-failure signal is an app-level concern with no single step to attach a notice to, so reusing AC-ERR-1's surface for it would conflate two unrelated concerns rather than genuinely reuse a fitting mechanism. Recording this call for the curator/BACKLOG rather than expanding S2's scope to build a new notice surface unprompted. S1-F9 remains open in ownership-ledger.json.",
+    "Delegated the token-view.ts fill-in and chat-workspace.tsx wiring to a base:dev spawn against a fully-specified algorithm and the two pre-written TDD test files (tests/unit/token-view.test.tsx, tests/unit/chat-workspace-token-view.test.tsx). Verified the dev's diff directly (git diff) rather than trusting its summary: token-view.ts's five function bodies match the given algorithm exactly with no signature/constant drift; chat-workspace.tsx's diff is confined to the specified sidebar-state/checkbox/render-branch/TokenViewStepContent additions with no unrelated changes. Dev also made three legitimate fixture-only fixes to its own test file (none weakened an assertion): seedConversation needed a synthetic user step because chat-workspace.tsx's pre-existing visibleConversations filter hides any conversation lacking one; the reload-scenario helper needed to become idempotent for AC-UX-1's second call; AC-UX-7's innerHTML baseline snapshot needed to be captured after opening the Client section rather than before, since expanding the right sidebar independently reflows the transcript's max-width (a pre-existing, unrelated layout rule) that would otherwise fail the round-trip comparison regardless of token-view correctness.",
+    "POST-DELEGATION FIX (found during my own independent Regression Prevention pass, not by dev): tests/unit/chat-workspace-token-view.test.tsx as delivered did not explicitly `import { describe, it, expect, beforeEach, vi } from \\\"vitest\\\"`, relying on globals \u2014 this reproduced the same systemic 'missing vitest/globals types' tsc gap documented in architecture.md's pre-existing-red-state section (201 errors across 4 files), adding 48 NEW errors (249 total) purely from this one new file. S1's own new unit test file (tests/unit/chat-content-tokens-quota.test.ts) had already established the clean workaround \u2014 an explicit vitest import \u2014 but nothing in architecture.md's documented red-state section states this as a required pattern for new files; it's only discoverable by diffing S1's file against the baseline-red ones. Added the explicit import; typecheck confirmed back to exactly 201 (zero net new)."
+  ],
+  "verification_summary": {
+    "pre_impl_questions": 13,
+    "post_impl_questions": 3,
+    "tsc_server": "clean (0 errors), server/** untouched",
+    "tsc_frontend": "201 pre-existing errors (4 files), matches Step 0 baseline exactly (measured with --incremental false); 0 net new after fixing the vitest-import gap in the new wiring test file",
+    "test_unit": "83 passed / 1 failed (baseline 50/1; +33 new, all passing; the 1 failure is the pre-existing out-of-scope chat-workspace.test.tsx:175 button-label mismatch, unchanged)",
+    "test_integration": "27 passed / 0 failed (baseline 27/0; +0 new \u2014 story is frontend-only, integration suite unaffected as expected)"
+  },
+  "retrospective": {
+    "skipped": false,
+    "harder_than_needed": "AC-UX-4's space-run wording ('Each space in a run of two or more MUST render as one \u00b7') is genuinely ambiguous between collapsing a whole run to one glyph and replacing each space in the run 1:1 \u2014 the AC's own grammar reads as evidence for 1:1 replacement, while the pre-impl VQ-S2-010's parenthetical ('one \u00b7 per run') reads as evidence for the collapse reading, and no spec.md Design Decision resolves it. Had to reason this out and pin the choice with an explicit test plus a post-impl verification question rather than follow an unambiguous rule. Separately, the established convention that new tests/unit/*.tsx files must explicitly import test globals from \\\"vitest\\\" to avoid this repo's pre-existing systemic tsc gap is only discoverable by diffing S1's own clean test file against the four baseline-red files \u2014 architecture.md's documented pre-existing-red-state section describes the gap but not the workaround, so a fresh test file (including the dev's first draft here) can silently reproduce the same error class and only get caught by an independent post-hoc typecheck diff.",
+    "surprised_by": "chat-workspace.tsx's visibleConversations filter silently hides any seeded conversation lacking a `kind: \\\"user\\\"` step \u2014 unrelated to token-view's own contract, but it silently broke every fixture in the wiring test suite (nothing was ever findable in the DOM) until diagnosed.",
+    "scope": "project_specific",
+    "outcome": "merged",
+    "commits_made": [],
+    "absorbed_from": [
+      {
+        "agent": "dev",
+        "spawn_index": 1,
+        "note": "Found and fixed three test-fixture-only bugs unrelated to token-view's own logic: (1) seedConversation needed a synthetic user step to satisfy visibleConversations' filter; (2) the Client-section-opening test helper needed to become idempotent for AC-UX-1's post-reload second call; (3) AC-UX-7's innerHTML baseline snapshot needed to be captured after opening the Client section (not before), since expanding the right sidebar independently reflows the transcript's max-width."
+      }
+    ],
+    "lead_clarifications": []
+  },
+  "final_outcome": "accepted",
+  "completed_at": "2026-09-21T20:26:51Z"
+}

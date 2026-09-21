@@ -185,6 +185,7 @@ function processStreamLine(
 
   if (chunk.message?.content) {
     assistantStep.content += chunk.message.content;
+    (assistantStep.contentTokens ??= []).push(chunk.message.content);
   }
 
   if (chunk.message?.thinking) {
@@ -192,6 +193,7 @@ function processStreamLine(
       reasoningStep = createStep("reasoning", "Reasoning", "");
     }
     reasoningStep.content += chunk.message.thinking;
+    (reasoningStep.contentTokens ??= []).push(chunk.message.thinking);
   }
 
   for (const toolCall of chunk.message?.tool_calls ?? []) {

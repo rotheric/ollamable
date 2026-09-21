@@ -1,0 +1,132 @@
+{
+  "spec_sha": "aa546af0d903",
+  "git_sha": "4568f350ee65a73824efc56b2f9a524eacde71f2",
+  "computed_at": "2026-09-21T19:42:00Z",
+  "verdicts": [
+    {
+      "ac_id": "AC-STRUCT-1",
+      "verdict": "holds",
+      "evidence": "S1 implemented+reviewed+examined this session; result.json status=done, final_outcome=accepted"
+    },
+    {
+      "ac_id": "AC-STRUCT-2",
+      "verdict": "holds",
+      "evidence": "S1 implemented+reviewed+examined this session; result.json status=done, final_outcome=accepted"
+    },
+    {
+      "ac_id": "AC-TOK-4",
+      "verdict": "holds",
+      "evidence": "S1 implemented+reviewed+examined this session; result.json status=done, final_outcome=accepted"
+    },
+    {
+      "ac_id": "AC-ERR-4",
+      "verdict": "holds",
+      "evidence": "S1 implemented+reviewed+examined this session; result.json status=done, final_outcome=accepted"
+    },
+    {
+      "ac_id": "AC-UX-1",
+      "verdict": "unverifiable",
+      "evidence": "story S2 not yet implemented"
+    },
+    {
+      "ac_id": "AC-UX-2",
+      "verdict": "unverifiable",
+      "evidence": "story S2 not yet implemented"
+    },
+    {
+      "ac_id": "AC-UX-3",
+      "verdict": "unverifiable",
+      "evidence": "story S2 not yet implemented"
+    },
+    {
+      "ac_id": "AC-UX-4",
+      "verdict": "unverifiable",
+      "evidence": "story S2 not yet implemented"
+    },
+    {
+      "ac_id": "AC-UX-8",
+      "verdict": "unverifiable",
+      "evidence": "story S2 not yet implemented"
+    },
+    {
+      "ac_id": "AC-ERR-1",
+      "verdict": "unverifiable",
+      "evidence": "story S2 not yet implemented"
+    },
+    {
+      "ac_id": "AC-DEP-1",
+      "verdict": "unverifiable",
+      "evidence": "story S3 not yet implemented"
+    },
+    {
+      "ac_id": "AC-DEP-2",
+      "verdict": "unverifiable",
+      "evidence": "story S3 not yet implemented"
+    },
+    {
+      "ac_id": "AC-TOK-1",
+      "verdict": "unverifiable",
+      "evidence": "story S3 not yet implemented"
+    },
+    {
+      "ac_id": "AC-TOK-2",
+      "verdict": "unverifiable",
+      "evidence": "story S3 not yet implemented"
+    },
+    {
+      "ac_id": "AC-TOK-3",
+      "verdict": "unverifiable",
+      "evidence": "story S3 not yet implemented"
+    },
+    {
+      "ac_id": "AC-TOK-6",
+      "verdict": "unverifiable",
+      "evidence": "story S3 not yet implemented"
+    },
+    {
+      "ac_id": "AC-TOK-7",
+      "verdict": "unverifiable",
+      "evidence": "story S3 not yet implemented"
+    },
+    {
+      "ac_id": "AC-PERF-1",
+      "verdict": "unverifiable",
+      "evidence": "story S3 not yet implemented"
+    },
+    {
+      "ac_id": "AC-ERR-2",
+      "verdict": "unverifiable",
+      "evidence": "story S3 not yet implemented"
+    },
+    {
+      "ac_id": "AC-ERR-3",
+      "verdict": "unverifiable",
+      "evidence": "story S3 not yet implemented"
+    },
+    {
+      "ac_id": "AC-UX-5",
+      "verdict": "unverifiable",
+      "evidence": "story S4 not yet implemented"
+    },
+    {
+      "ac_id": "AC-UX-6",
+      "verdict": "unverifiable",
+      "evidence": "story S4 not yet implemented"
+    },
+    {
+      "ac_id": "AC-TOK-5",
+      "verdict": "unverifiable",
+      "evidence": "story S4 not yet implemented"
+    },
+    {
+      "ac_id": "AC-UX-7",
+      "verdict": "unverifiable",
+      "evidence": "cross-cutting; spanned stories not all done"
+    },
+    {
+      "ac_id": "AC-STRUCT-3",
+      "verdict": "unverifiable",
+      "evidence": "cross-cutting; spanned stories not all done"
+    }
+  ]
+}

@@ -1,0 +1,322 @@
+{
+  "epic": "token-view",
+  "concepts": [
+    {
+      "id": "invariant-content-tokens-join",
+      "name": "contentTokens.join('') === content at every observation point",
+      "type": "invariant",
+      "owning_module": "ollama-client",
+      "added_by_story": "S1"
+    },
+    {
+      "id": "invariant-quota-retry-atomic",
+      "name": "quota failure on one conversation never blocks persisting the others",
+      "type": "invariant",
+      "owning_module": "chat persistence",
+      "added_by_story": "S1",
+      "reviewer_findings": [
+        {
+          "finding_type": "enforcement_gap",
+          "reported_at": "2026-09-21T18:58:04Z",
+          "story_id": "S1",
+          "resolved": false,
+          "description": "Single STORAGE_KEY write is all-or-none, so the invariant holds by construction. But post-S1-fix a double quota failure is swallowed per AC-ERR-4: nothing persists and the caller cannot tell. No AC covers signaling failed persistence. src/lib/chat.ts:172 is the signal point for any story that adds a notice. Tracked as S1-F9."
+        }
+      ]
+    },
+    {
+      "id": "invariant-single-vocab-fetch",
+      "name": "N concurrent first-calls on one (baseUrl, model) issue exactly one /api/show",
+      "type": "invariant",
+      "owning_module": "tokenizer",
+      "added_by_story": "S3"
+    },
+    {
+      "id": "public-contract-tokenize-wire",
+      "name": "tokenize / tokenize.result / tokenize.error correlate by requestId, not conversationId",
+      "type": "public_contract",
+      "owning_module": "backend-client",
+      "added_by_story": "S3"
+    },
+    {
+      "id": "public-contract-boundary-source",
+      "name": "boundary source is exactly one of stream | computed | pending | unavailable",
+      "type": "public_contract",
+      "owning_module": "token-view",
+      "added_by_story": "S2"
+    },
+    {
+      "id": "naming-separator-glyph",
+      "name": "token separator is U+2502, never ASCII pipe",
+      "type": "naming_scheme",
+      "owning_module": "token-view",
+      "added_by_story": "S2"
+    },
+    {
+      "id": "validation-provider-type-gate",
+      "name": "Ollama-only capabilities gate on ProviderConfig.type, never provider name",
+      "type": "validation_rule",
+      "owning_module": "llm-router",
+      "added_by_story": "S3"
+    },
+    {
+      "id": "validation-reconcile-source",
+      "name": "reconciliation tokenizes toOllamaMessages-filtered steps, never the displayed OpenAI preview",
+      "type": "validation_rule",
+      "owning_module": "workspace",
+      "added_by_story": "S4"
+    },
+    {
+      "id": "path-test-fixtures",
+      "name": "tests/fixtures/*.json.gz, inflated via node zlib in test setup",
+      "type": "path_convention",
+      "owning_module": "tokenizer",
+      "added_by_story": "S3"
+    },
+    {
+      "id": "path-tokenizer-suite-node-env",
+      "name": "tests importing server/* live in tests/integration (node env), never tests/unit (jsdom)",
+      "type": "path_convention",
+      "owning_module": "tokenizer",
+      "added_by_story": "S3"
+    },
+    {
+      "id": "path-stream-transcript-fixtures",
+      "name": "Tests asserting Ollama-authored stream boundaries replay a committed raw NDJSON transcript, never a hand-authored chunk array",
+      "type": "path_convention",
+      "owning_module": "ollama-client",
+      "added_by_story": "S1",
+      "reviewer_findings": [
+        {
+          "finding_type": "enforcement_gap",
+          "reported_at": "2026-09-21T18:58:04Z",
+          "story_id": "S1",
+          "resolved": false,
+          "description": "Expected token count MUST derive from the recorded eval_count + done_reason, never by counting the fixture's own content chunks - deriving from chunk count restores the tautology while keeping the fixture, and nothing structural prevents that. Known limits: n=2, qwen3:1.7b, Ollama 0.30.8, frozen, capture denominator unrecorded."
+        }
+      ]
+    },
+    {
+      "id": "convention-duplicated-step-type",
+      "name": "ConversationStep declared twice (server/types.ts, src/types/chat.ts), kept congruent by hand with no structural enforcement",
+      "type": "public_contract",
+      "owning_module": "wire types",
+      "added_by_story": "S1",
+      "reviewer_findings": [
+        {
+          "finding_type": "convention_drift",
+          "reported_at": "2026-09-21T18:58:04Z",
+          "story_id": "S1",
+          "resolved": false,
+          "description": "ConversationStep declared twice and kept congruent by hand; no structural or test enforcement. tsc -p tsconfig.json is already red for unrelated reasons so even incidental compilation signal is unreadable. S2 adds boundary-source shape, S3 tokenize payloads, S4 reconciliation figures - drift surface compounds each story."
+        }
+      ]
+    },
+    {
+      "id": "invariant-delta-step-identity",
+      "name": "onDelta hands out the same mutable step objects processStreamLine keeps mutating; contentTokens grows under a stable step id",
+      "type": "invariant",
+      "owning_module": "ollama-client",
+      "added_by_story": "S1"
+    }
+  ],
+  "stories": [
+    {
+      "story_id": "S1",
+      "surfaces_touched": [
+        "server/types.ts",
+        "src/types/chat.ts",
+        "server/ollama-client.ts",
+        "src/lib/chat.ts",
+        "tests/integration/ollama-client-stream-boundaries.test.ts",
+        "tests/unit/chat-content-tokens-quota.test.ts",
+        "tests/fixtures/plain-completion-stream.ndjson",
+        "tests/fixtures/plain-completion-stream-length-capped.ndjson",
+        "src/lib/chat.ts (isQuotaExceeded helper)"
+      ],
+      "findings": [
+        {
+          "id": "S1-F1",
+          "severity": 7,
+          "ac": "AC-TOK-4",
+          "status": "resolved",
+          "resolved_in": "S1 gate-remediation, fixpoint confirmed by Stage-1 re-review"
+        },
+        {
+          "id": "S1-F2",
+          "severity": 7,
+          "ac": "AC-ERR-4",
+          "status": "resolved",
+          "resolved_in": "S1 gate-remediation, fixpoint confirmed by Stage-1 re-review"
+        },
+        {
+          "id": "S1-F3",
+          "severity": 6,
+          "ac": "AC-STRUCT-2",
+          "status": "resolved",
+          "resolved_in": "S1 gate-remediation, fixpoint confirmed by Stage-1 re-review"
+        },
+        {
+          "id": "S1-F4",
+          "severity": 4,
+          "ac": "AC-ERR-4",
+          "status": "resolved",
+          "resolved_in": "S1 gate-remediation, fixpoint confirmed by Stage-1 re-review"
+        },
+        {
+          "id": "S1-F5",
+          "severity": 4,
+          "status": "deferred",
+          "concept": "convention-duplicated-step-type",
+          "reason": "ConversationStep congruence unenforced; S2/S3/S4 each add mirrored fields",
+          "carry_to": "S2"
+        },
+        {
+          "id": "S1-F6",
+          "severity": 3,
+          "status": "deferred",
+          "reason": "unused contentTokens rest-binding at src/lib/chat.ts:157; BLOCKED - repo has no ESLint config to configure"
+        },
+        {
+          "id": "S1-F7",
+          "severity": 3,
+          "status": "deferred",
+          "reason": "chat.delta carries accumulated contentTokens alongside accumulated content, doubling a pre-existing O(n^2) frame cost; inference, no AC bounds delta frame size"
+        },
+        {
+          "id": "S1-F8",
+          "severity": 2,
+          "status": "deferred",
+          "carry_to": "S2",
+          "reason": "compactSteps drops assistant steps with whitespace-only content (server/ollama-client.ts:240-241) while AC-UX-4 makes whitespace display-significant in token view"
+        },
+        {
+          "id": "S1-F9",
+          "severity": 3,
+          "status": "open",
+          "ac": "AC-ERR-4",
+          "carry_to": "S2",
+          "reason": "quota retry now swallows silently; nothing persists and caller cannot tell. No AC covers signaling failed persistence. S2 owns the notice surface via AC-ERR-1 - curator to decide: new AC or explicit accept"
+        },
+        {
+          "id": "S1-F10",
+          "severity": 3,
+          "status": "resolved",
+          "ac": "AC-ERR-4",
+          "reason": "examiner VQ-S1-012 PARTIAL (spec_gap): quota detection missed legacy names. Lead widened to isQuotaExceeded() covering QuotaExceededError, NS_ERROR_DOM_QUOTA_REACHED and code 22, matching createId()'s existing degrade-gracefully idiom in the same file",
+          "resolved_in": "lead direct fix, src/lib/chat.ts"
+        }
+      ]
+    },
+    {
+      "story_id": "S2",
+      "surfaces_touched": [
+        "src/lib/token-view.ts (new)",
+        "src/components/token-view-step-content.tsx (new, extracted for AC-STRUCT-3)",
+        "src/components/chat-workspace.tsx (net 15 of 60 budget)",
+        "src/lib/chat.ts (showTokens field)",
+        "tests/unit/token-view.test.tsx (new)",
+        "tests/unit/chat-workspace-token-view.test.tsx (new)",
+        "tests/unit/chat-content-tokens-quota.test.ts (quota branch coverage)"
+      ],
+      "findings": [
+        {
+          "id": "S2-F1",
+          "severity": 5,
+          "status": "resolved",
+          "ac": "AC-STRUCT-3",
+          "reason": "TokenViewStepContent extracted; 38 -> 15 net lines, S4 budget 45"
+        },
+        {
+          "id": "S2-F2",
+          "severity": 5,
+          "status": "resolved",
+          "reason": "unbounded fetch/render loop fixed via useRef; regression test asserts one call across 5 inline-lambda rerenders"
+        },
+        {
+          "id": "S2-F3",
+          "severity": 4,
+          "status": "resolved",
+          "reason": "lead's untested isQuotaExceeded widening now covered; jsdom probe confirmed the DOMException subclass is an environment stand-in, not an assertion stand-in"
+        },
+        {
+          "id": "S2-F4",
+          "severity": 4,
+          "status": "deferred",
+          "carry_to": "S3",
+          "reason": "formatTokenViewText indexes by UTF-16 code unit; byte-level BPE boundary mid-character would insert the separator inside a character"
+        },
+        {
+          "id": "S2-F5",
+          "severity": 3,
+          "status": "open",
+          "owner": "lead/curator",
+          "reason": "S1-F9 unowned after S2's correct decline; route to BACKLOG or accept-and-close at wrap-up"
+        },
+        {
+          "id": "S2-F6",
+          "severity": 3,
+          "status": "resolved",
+          "carry_to": "S3",
+          "reason": "formatter degrades on join mismatch; notice still claims computed - see S2-F9",
+          "resolved_in": "S2 round-2 gate-remediation; Stage-1 fixpoint confirmed"
+        },
+        {
+          "id": "S2-F7",
+          "severity": 2,
+          "status": "resolved",
+          "reason": "unused userEvent binding deleted"
+        },
+        {
+          "id": "S2-F8",
+          "severity": 6,
+          "status": "resolved",
+          "carry_to": "S3",
+          "reason": "REGRESSION from S2-F2 fix (lead-directed approach): computedSource undefined->defined on a stable step never re-fires the effect; sticks on pending silently forever",
+          "resolved_in": "S2 round-2 gate-remediation; Stage-1 fixpoint confirmed"
+        },
+        {
+          "id": "S2-F9",
+          "severity": 4,
+          "status": "resolved",
+          "carry_to": "S3",
+          "reason": "degraded join renders unseparated under a computed label; move check into resolveBoundarySource",
+          "resolved_in": "S2 round-2 gate-remediation; Stage-1 fixpoint confirmed"
+        },
+        {
+          "id": "VQ-S2-016",
+          "severity": 2,
+          "status": "deferred",
+          "carry_to": "S3",
+          "ac": "AC-ERR-1",
+          "reason": "Decider RETRY: AC-ERR-1 says 'naming the reason' (singular), no discriminability requirement - satisfied today. Single UNAVAILABLE_REASON covers both unavailable sub-cases. S3 trigger: when computedSource can fail, re-evaluate whether to split into computed-failure vs never-attempted messages"
+        },
+        {
+          "id": "VQ-S2-015",
+          "severity": 3,
+          "status": "deferred",
+          "reason": "zero-length-token guard defensive but untested; load-bearing prevention is upstream at ollama-client.ts:193-194"
+        },
+        {
+          "id": "S2-F10",
+          "severity": 5,
+          "status": "resolved",
+          "reason": "provenance_in_code: epic-relative labels, review-artifact ids and spec paths in token-view.ts / token-view-step-content.tsx that go stale on a known schedule",
+          "resolved_in": "lead rewrote pointers as conditions before S3, keeping all substantive rationale"
+        },
+        {
+          "id": "S2-F11",
+          "severity": 4,
+          "status": "deferred",
+          "carry_to": "S3",
+          "reason": "TokenViewHarness duplicates TokenViewStepContent's boundary->tokens mapping verbatim; since the S2-F1 extraction the real component is importable, so 5 rendering-contract tests verify a copy. Fold in when S3 wires computedSource"
+        }
+      ]
+    }
+  ],
+  "reviewer_state": {
+    "last_story_reviewed": "S2",
+    "model_at": "2026-09-21T20:26:51Z",
+    "cross_story_model_snapshot": "S1 + S2 closed (fixpoint reached both). CARRY TO S3 \u2014 this is the story every item targets: (1) S2-F4 - formatTokenViewText indexes by UTF-16 code unit; byte-level BPE can end a token mid-character; AC-TOK-6's fullUnicodeString generator surfaces it. Decide: tokenize() guarantees character-aligned boundaries, or the formatter snaps off low surrogates. (2) S2-F11 - fold TokenViewHarness into the real TokenViewStepContent when wiring computedSource. (3) VQ-S2-016 - re-evaluate splitting UNAVAILABLE_REASON once computedSource can actually fail; S3 is what makes it fail. (4) invariant-format-precondition-join - validated at the RESOLUTION layer (resolveBoundarySource), not the render layer; whichever layer drops boundaries must also decide the label. AC-TOK-5's wrong-source risk is how S3 breaks it; symptom is a silently-unavailable computed source. (5) public-contract-computed-source-stability - THREE constraints must survive S3's wiring: inline lambdas are safe (ref read-through), presence tracked by a stable boolean in deps, and the ref-update effect MUST stay declared above the fetch effect (reordering breaks arrival silently). (6) path-tokenizer-suite-node-env - tokenizer tests in tests/integration (node), never tests/unit (jsdom). (7) path-test-fixtures + path-stream-transcript-fixtures - oracle values READ FROM the recording, never restated as literals. S1 needed two rounds to get this right; S3 has vocab AND golden fixtures. (8) public-contract-tokenize-wire - correlate by requestId; backend-client.handleServerMessage:60 drops conversationId-less messages, so the tokenize branch must sit ahead of that guard. (9) validation-provider-type-gate - AC-ERR-2 gates on ProviderConfig.type, never provider name; also the likely trigger for conditional computedSource supply. (10) convention-duplicated-step-type - S3 adds tokenize wire payload types; both declarations move together. S3 RISK: first story where a test can be CONFIDENTLY WRONG rather than merely thin - tokens.join('')===s holds for many segmentations that are not the model's. AC-TOK-7's golden fixture is the only thing between 'well-formed' and 'correct'. CARRY TO S4: 45 of 60 AC-STRUCT-3 lines remain; S1-F9/S2-F5 persistence-signal gap routes at wrap-up."
+  }
+}

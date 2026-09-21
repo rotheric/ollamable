@@ -1,0 +1,67 @@
+{
+  "story_id": "S1",
+  "status": "done",
+  "files_created": [
+    "tests/integration/ollama-client-stream-boundaries.test.ts",
+    "tests/unit/chat-content-tokens-quota.test.ts",
+    "specs/epic-token-view/S1-stream-boundary-retention/architecture.json",
+    "specs/epic-token-view/S1-stream-boundary-retention/baseline.json",
+    "specs/epic-token-view/S1-stream-boundary-retention/result.json"
+  ],
+  "files_modified": [
+    "server/types.ts",
+    "src/types/chat.ts",
+    "server/ollama-client.ts",
+    "src/lib/chat.ts",
+    "specs/epic-token-view/S1-stream-boundary-retention/verification.json"
+  ],
+  "modules_touched": [
+    "ollama-client",
+    "wire types",
+    "chat persistence"
+  ],
+  "tests_added": {
+    "integration": 10,
+    "unit": 6
+  },
+  "test_counts": {
+    "baseline": 61,
+    "final": 77
+  },
+  "mocks": [],
+  "remediation_rounds": 1,
+  "implementation_notes": [
+    "AC-STRUCT-1: added `contentTokens?: string[]` to ConversationStep independently in server/types.ts and src/types/chat.ts, no cross-boundary import (server/ollama-client.ts imports only './types.js'; src/lib/chat.ts imports only from '@/src/types/chat').",
+    "AC-STRUCT-2/Flow 2: server/ollama-client.ts's processStreamLine pushes chunk.message.content onto assistantStep.contentTokens (lazily initialized via `??=`) inside the same `if (chunk.message?.content)` guard as the existing `content +=` accumulation, and symmetrically for reasoningStep.contentTokens inside the `if (chunk.message?.thinking)` block \u2014 two independent arrays. Verified the join invariant holds at every onDelta snapshot (not only at done) across 4 distinct chunk orderings (content-only, thinking-then-content, content-then-thinking, alternating) plus two network-level edge cases: a multi-byte UTF-8 character split mid-sequence across ReadableStream reads, and an NDJSON line itself split mid-line across reads.",
+    "AC-TOK-4: the plain-completion fixture (tests/integration/ollama-client-stream-boundaries.test.ts) deliberately avoids the AC's own warned-against pattern (N chunks + eval_count: N, both derived from the same N). Chunk boundaries are hand-authored to model real BPE-style subword segmentation (splitting a compound word 'transformer' into 'transform'+'er' and a hyphenated 'sub-pieces' into 'sub'+'-'+'pieces') rather than naive word/fixed-size splitting, and eval_count is a separate literal (18 for the no-EOS/'length' case, 19 for the EOS/'stop' case) not computed from the chunk array's length in test code. No live Ollama host is available in this environment, so this is the best available substitute for a genuinely captured trace \u2014 flagged in VQ-S1-001/009 follow-up as the honest limit of what's verifiable without a live host. AC-TOK-4 is deliberately NOT asserted for the reasoning/interleaved-chunk scenarios elsewhere in the same file.",
+    "AC-ERR-4/Flow 3: saveConversations wraps the single window.localStorage.setItem call; on `error instanceof DOMException && error.name === 'QuotaExceededError'` it retries exactly once with contentTokens stripped (key removed via destructuring, not set to undefined) from every step of every conversation in the array. A second failure on the retry, or any non-quota error, propagates (no loop, no swallow). Does not mutate the caller's conversation objects. Since there is exactly one localStorage write for the entire conversations array, 'a quota failure on one conversation must not block the others' is satisfied structurally: the retry re-writes the whole array together, so all conversations persist or none do.",
+    "IMPLEMENTATION DECISION (flagged, not escalated \u2014 see VQ-S1-013): AC-ERR-4's phrase 'MUST NOT propagate the error to the caller on that retry path' was read as scoped to the case where the retry succeeds. If the stripped retry ALSO throws QuotaExceededError, this implementation lets that second error propagate rather than swallowing it silently forever, since 'retry once' implies a bound. Pinned by an explicit regression test. If the lead's intent was to silence even a persistent quota failure, that's a spec ambiguity worth a decision, not something this story should resolve unilaterally by guessing further.",
+    "TOOLING FINDING (see VQ-S1-011): the epic's documented pre-existing tsconfig.json (frontend) red state ('only tests/unit/tour-data.test.ts, 17 errors') was read from a stale `tsconfig.tsbuildinfo` incremental cache. A clean build (`npx tsc --noEmit -p tsconfig.json --incremental false`), reproduced identically on untouched master via `git stash`, shows 203 pre-existing errors across FOUR files (chat-workspace.test.tsx 115, chat.test.ts 20, openai-format.test.ts 19, tour-data.test.ts 47). This story's own new test file initially added one new error (arithmetic on a possibly-undefined `usage.outputTokens`), fixed by capturing `usage?.outputTokens ?? 0` into a typed local before subtracting; final clean-build count is 203, matching the true baseline exactly (zero net new errors). Downstream stories (S2-S4) should re-verify their own regression-prevention typecheck with `--incremental false`, not the incremental cache."
+  ],
+  "verification_summary": {
+    "pre_impl_questions": 10,
+    "post_impl_questions": 3,
+    "tsc_server": "clean (0 errors)",
+    "tsc_frontend": "203 pre-existing errors (4 files), matches true --incremental false baseline exactly; 0 net new",
+    "test_unit": "49 passed / 1 failed (baseline 43/1; +6 new, all passing; the 1 failure is the pre-existing out-of-scope chat-workspace.test.tsx:175 button-label mismatch)",
+    "test_integration": "27 passed / 0 failed (baseline 17/0; +10 new, all passing)"
+  },
+  "retrospective": {
+    "skipped": false,
+    "harder_than_needed": "The epic's architecture.md and this story's own brief documented the frontend tsconfig.json pre-existing red state as confined to a single file (tests/unit/tour-data.test.ts, 17 errors), evidently captured from an incremental `tsconfig.tsbuildinfo` cache rather than a clean build. After implementation, `npx tsc --noEmit -p tsconfig.json` unexpectedly showed dozens of new-looking errors in three OTHER pre-existing test files (chat-workspace.test.tsx, chat.test.ts, openai-format.test.ts). Distinguishing a genuine regression from cache staleness required stashing this story's changes, running a clean (`--incremental false`) typecheck against untouched master, and confirming the same 203-error/4-file spread was already there before any of this story's edits \u2014 real investigation time spent on a documentation gap, not the story's own logic.",
+    "surprised_by": "The true pre-existing frontend typecheck baseline (203 errors across 4 files) is an order of magnitude larger than what the epic's own architecture.md and story brief documented (17 errors, 1 file) \u2014 both apparently read from a stale incremental cache rather than a clean build.",
+    "scope": "project_specific",
+    "outcome": "merged",
+    "commits_made": [],
+    "absorbed_from": [
+      {
+        "agent": "dev",
+        "spawn_index": 1,
+        "note": "Dev independently hit the same tsconfig.tsbuildinfo git-stash friction while establishing its own true baseline (stash pop conflicted on the build-cache file); recovered non-destructively via `git checkout stash@{0} -- <files>` rather than discarding anything, per file-safety guidelines, and flagged it in its return."
+      }
+    ],
+    "lead_clarifications": []
+  },
+  "final_outcome": "accepted",
+  "completed_at": "2026-09-21T19:33:18Z"
+}
