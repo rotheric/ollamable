@@ -13,7 +13,10 @@
     "test": "npm run test:unit",
     "test:unit": "vitest run",
     "test:integration": "vitest run -c vitest.server.config.ts",
-    "test:e2e": "node scripts/run-playwright.mjs"
+    "test:e2e": "node scripts/run-playwright.mjs",
+    "test:mutation:server": "stryker run stryker.server.conf.json",
+    "test:mutation:client": "stryker run stryker.client.conf.json",
+    "test:mutation": "npm run test:mutation:server && npm run test:mutation:client"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",
@@ -37,6 +40,8 @@
     "@huggingface/transformers": "^4.3.0",
     "@modyfi/vite-plugin-yaml": "^1.1.1",
     "@playwright/test": "^1.54.2",
+    "@stryker-mutator/core": "^10.0.0",
+    "@stryker-mutator/vitest-runner": "^10.0.0",
     "@testing-library/jest-dom": "^6.8.0",
     "@testing-library/react": "^16.3.0",
     "@testing-library/user-event": "^14.6.1",

@@ -1,9 +1,9 @@
 {
   "epic_name": "token-view",
-  "status": "in_progress",
-  "phase": "IMPLEMENTING",
+  "status": "done",
+  "phase": "COMPLETE",
   "created_at": "2026-09-21T18:18:06Z",
-  "updated_at": "2026-09-22T11:00:00Z",
+  "updated_at": "2026-09-22T19:45:00Z",
   "pre_existing_dirty_files": [
     ".claude/settings.json",
     ".claude/settings.local.json",
@@ -16,7 +16,8 @@
   "completed_stories": [
     "S1",
     "S2",
-    "S3"
+    "S3",
+    "S4"
   ],
   "escalated_stories": [],
   "phase_history": [
@@ -29,6 +30,11 @@
       "phase": "IMPLEMENTING",
       "timestamp": "2026-09-21T18:35:49Z",
       "trigger": "story_loop_start"
+    },
+    {
+      "phase": "COMPLETE",
+      "timestamp": "2026-09-22T19:45:00Z",
+      "trigger": "all_stories_done_interlock_passed"
     }
   ],
   "plugin_sha": "unknown",
@@ -48,6 +54,31 @@
       "gate_id": "pre_commit_review",
       "outcome": "skipped",
       "skip_reason": "codex unavailable (auth token could not be refreshed), user override at S1; Stage-1 Opus review ran and reached fixpoint"
+    },
+    {
+      "gate_id": "mutation",
+      "outcome": "escalated",
+      "detail": "User-authorized ship with 3 order-sensitive modules recorded unresolved (server/ollama-client.ts 0.729 covered-but-unasserted; server/llm-router.ts 0.230 absent test file, covered score 0.793; src/components/chat-workspace.tsx unaudited at 3723 lines). The 2 order-sensitive modules the epic created or whose AC depends on them were remediated instead: server/tokenizer.ts 0.799->0.866 and src/lib/chat.ts 0.716->0.976, both PASSED with zero real gaps. 6 non-order-sensitive modules ACCEPTed with residuals recorded."
+    },
+    {
+      "gate_id": "e2e",
+      "outcome": "fired_pass",
+      "detail": "38/38 passed, 0 failures, 0 flakes, 0 skips (24 app + 14 backend). Suite needs no external services: backend.spec.ts intercepts the browser WS and leaves /api/chat unmocked, so a test passes only if traffic genuinely takes the WebSocket path. NOTE: none of the 38 exercise this epic's surface (showTokens, separators, reconciliation panel) \u2014 see mutation_gate_notes.e2e_coverage_gap."
+    },
+    {
+      "gate_id": "pre_commit_review",
+      "outcome": "fired_remediated",
+      "detail": "Two stages, three rounds. Stage 1 = the resumable warm reviewer (accumulated model across all four stories); Stage 2 = a COLD Fable reviewer substituting for Codex, which was logged out again (user directed this substitution earlier in the epic). Converge-first observed throughout. The cold pass found a SEVERITY-7 after Stage 1 had reached fixpoint \u2014 turnHasToolCall keyed on a step kind the server never persists, making AC-UX-6's mandatory reconciliation-unavailable clause dead code and its three tests worthless (all seeded a tour-data-only shape). Fixed and lead-verified directly against the real functions; AC-UX-6's ac_closure entry was corrected from a wrongly-recorded 'met'. A final scoped cold pass confirmed the fix against ws-handler's actual persisted shape, corroborated by a pre-existing test the fix did not write.",
+      "structural_findings": {
+        "surfaced": 24,
+        "acted": 16,
+        "disclosed_unacted": 8
+      },
+      "review_notes": [
+        "Codex unavailable (token refresh failed); cold Fable used for Stage 2 per the user's standing instruction.",
+        "BOTH severity-7s in this epic were found by cold readers, and both in code the warm reviewer had explicitly verified. The warm reviewer named the cause itself: it checks logic against its own stated contract rather than against the producing system, so a premise baked in before it started watching never appears as a delta.",
+        "8 findings disclosed but not acted on, all recorded as S4-PC1..PC8 with reasons."
+      ]
     }
   ],
   "ownership_ledger_path": "ownership-ledger.json",
@@ -56,7 +87,310 @@
     "passed": 43,
     "failed": 1,
     "known_failure": "tests/unit/chat-workspace.test.tsx:175 \u2014 expects button 'Open metadata for qwen3:latest'; implementation renders 'Open model settings for \u2026'. Pre-existing, unrelated to this epic, tracked in BACKLOG.md.",
-    "known_failure_still_present": true
+    "known_failure_still_present": true,
+    "final": {
+      "unit_passed": 171,
+      "unit_failed": 0,
+      "integration_passed": 147,
+      "integration_skipped": 0,
+      "note": "Fully green. 175 tests at session start -> 318. Both live-gated ACs (AC-TOK-1, AC-TOK-5) execute and pass against a real qwen3:1.7b host."
+    },
+    "known_failure_resolved": {
+      "resolved_at": "2026-09-22T21:30:00Z",
+      "what": "tests/unit/chat-workspace.test.tsx 'opens a model metadata dialog when clicking the model chip' \u2014 the repo's long-standing red baseline, recorded in BACKLOG.md as an open decision on whether the UI language should be 'metadata' or 'settings'.",
+      "root_cause": "NOT a naming drift. The model chip was redesigned to open the right sidebar's model section (updateSidebar modelSectionOpen), and the metadata dialog moved behind a 'Model info' IconButton inside that model list (handleOpenModelMeta, chat-workspace.tsx:1170, called from :2547 and :2579). The test asserted a one-click chip->dialog flow that no longer exists, so fetchModelMeta was called 0 times.",
+      "decision": "User chose 'settings' \u2014 keep the implementation's `Open model settings for <model>` wording (accurate: the section carries temperature, max output tokens and reasoning effort alongside metadata) and fix the test. The test was rewritten to follow the real two-step flow rather than merely renamed.",
+      "result": "Suite fully green: 171 unit + 147 integration = 318 passing, 0 failures, 0 skips."
+    }
   },
-  "reviewer_agent_id": "ad9e9fd6cc1cabc0e"
+  "reviewer_agent_id": "ad9e9fd6cc1cabc0e",
+  "ac_closure": [
+    {
+      "ac_id": "AC-STRUCT-1",
+      "status": "met",
+      "closure_basis": "evidence",
+      "evidence": "contentTokens declared in both server/types.ts and src/types/chat.ts; S1 verification YES. Genuinely structural requirement (a type declaration), so the Criterion-8 structural-proxy litmus does not apply."
+    },
+    {
+      "ac_id": "AC-STRUCT-2",
+      "status": "met",
+      "closure_basis": "evidence",
+      "evidence": "Behavioral: contentTokens.join('')===content asserted at EVERY onDelta snapshot (not only at done) across 4 chunk orderings plus a multi-byte-split and a split-NDJSON-line case. tests/integration/ollama-client-stream-boundaries.test.ts, 10 tests passing."
+    },
+    {
+      "ac_id": "AC-TOK-4",
+      "status": "met",
+      "closure_basis": "evidence",
+      "evidence": "Behavioral: plain-completion fixture with hand-authored BPE-style chunk boundaries and eval_count as an independent literal, deliberately avoiding the AC's own warned-against N-chunks/eval_count:N pattern."
+    },
+    {
+      "ac_id": "AC-ERR-4",
+      "status": "met",
+      "closure_basis": "evidence",
+      "evidence": "Behavioral: QuotaExceededError triggers exactly one retry with contentTokens stripped; a second failure or a non-quota error propagates. tests/unit/chat-content-tokens-quota.test.ts."
+    },
+    {
+      "ac_id": "AC-UX-1",
+      "status": "met",
+      "closure_basis": "evidence",
+      "evidence": "Behavioral: the labelled showTokens switch renders and toggles the sidebar preference; asserted against the real component tree."
+    },
+    {
+      "ac_id": "AC-UX-2",
+      "status": "met",
+      "closure_basis": "evidence",
+      "evidence": "Behavioral: stream and computed sources render \u2502-separated single text nodes with markdown suppressed; S2 verification YES, re-confirmed after S3 replaced the injected fake with the real computed branch."
+    },
+    {
+      "ac_id": "AC-UX-3",
+      "status": "met",
+      "closure_basis": "evidence",
+      "evidence": "Behavioral: assistant/user/reasoning steps render as a single monospace text node in token view."
+    },
+    {
+      "ac_id": "AC-UX-4",
+      "status": "met",
+      "closure_basis": "evidence",
+      "evidence": "Behavioral: one \u21b5 per newline and \u00b7 per run of 2+ spaces, asserted on rendered text."
+    },
+    {
+      "ac_id": "AC-UX-8",
+      "status": "met",
+      "closure_basis": "evidence",
+      "evidence": "Behavioral: 'stream boundaries' carries its merge caveat and the computed notice names its source. S3 additionally fixed a case where a model switch left the computed notice claiming the current model \u2014 now keyed on the model and pinned by a test that varies only the suffix."
+    },
+    {
+      "ac_id": "AC-ERR-1",
+      "status": "met",
+      "closure_basis": "evidence",
+      "evidence": "Behavioral: an unavailable step renders unseparated WITH a visible reason; pending renders unseparated with none. S3 added COMPUTED_FAILED_REASON so a failed round trip is no longer reported as 'never attempted', and enforced the assistant/reasoning exclusion at the TokenViewStepContent call site (two tests wait 2x the debounce and assert tokenizeText was never called)."
+    },
+    {
+      "ac_id": "AC-DEP-1",
+      "status": "met",
+      "closure_basis": "evidence",
+      "evidence": "Behavioral, not structural: a deliberately mutated vocab fixture (one entry renamed, two merge ranks swapped) is observed reflected in tokenize() output, so an implementation that issued the request but read a committed fixture would fail. Plus static guards that server/tokenizer.ts references no fixture path and imports no node:fs."
+    },
+    {
+      "ac_id": "AC-DEP-2",
+      "status": "met",
+      "closure_basis": "evidence",
+      "evidence": "Behavioral: scripts/capture-vocab-fixture.mjs was RUN end to end against the live host and its output committed; idempotency re-verified on a real re-run (gzip bytes byte-identical). The reference tokenizer is a devDependency only (AC-DEP-2 bars `dependencies` and imports under server/ \u2014 both verified clean)."
+    },
+    {
+      "ac_id": "AC-TOK-1",
+      "status": "met",
+      "closure_basis": "evidence",
+      "evidence": "Behavioral and LIVE: runs against real qwen3:1.7b (not skipped), comparing tokenize() length against Ollama's own prompt_eval_count raw-count oracle for every fixture string. This is the epic's strongest external check."
+    },
+    {
+      "ac_id": "AC-TOK-7",
+      "status": "met",
+      "closure_basis": "evidence",
+      "evidence": "Behavioral: exact element-for-element tokenIds equality against REFERENCE-DERIVED goldens over the real 151936-entry vocab. Earlier hand-derived goldens were replaced by a genuine capture; 2 of those 6 had had the wrong token count, so this AC's strength materially improved."
+    },
+    {
+      "ac_id": "AC-TOK-2",
+      "status": "met",
+      "closure_basis": "evidence",
+      "evidence": "Behavioral: join invariant, equal-length arrays and per-index decodeTokenIds asserted together in one loop, which rules out a single-token shortcut."
+    },
+    {
+      "ac_id": "AC-TOK-3",
+      "status": "met",
+      "closure_basis": "evidence",
+      "evidence": "Behavioral: <|im_start|>/<|im_end|> each occupy exactly one element by exact count (not substring presence) with correct vocab ids; special-token matching runs ahead of the pre-tokenizer split. S3 additionally reads tokenizer.ggml.token_type so Qwen3's <think>/<tool_call> are handled, with the shape-regex fallback itself tested."
+    },
+    {
+      "ac_id": "AC-PERF-1",
+      "status": "met",
+      "closure_basis": "evidence",
+      "evidence": "Behavioral: request-counting stub proves exactly one POST /api/show for both sequential and concurrent orderings, verified at N=2 and N=5 with per-caller value identity. The settled-only LRU eviction is separately pinned by a 4-key test asserting an in-flight entry survives while a settled one is evicted and legitimately re-fetches."
+    },
+    {
+      "ac_id": "AC-ERR-2",
+      "status": "met",
+      "closure_basis": "evidence",
+      "evidence": "Behavioral: a provider NAMED 'Ollama Clone' with type openai-compat is rejected and one named 'Anything' with type ollama succeeds, so routing demonstrably keys on ProviderConfig.type and not the name. Provider id now threads from the conversation through the wire, closing the modelProviderMap last-writer-wins hole."
+    },
+    {
+      "ac_id": "AC-ERR-3",
+      "status": "met",
+      "closure_basis": "evidence",
+      "evidence": "Behavioral: with the gate closed the suite exits zero with a non-zero skip count and distinguishes host_unreachable from model_not_pulled; with the gate OPEN the same tests execute and pass. Both states observed this session."
+    },
+    {
+      "ac_id": "AC-TOK-6",
+      "status": "met",
+      "closure_basis": "evidence",
+      "evidence": "Behavioral: property test over fc.string({unit:'binary'}) at 300 runs asserting tokens.join('')===s, failing on any counterexample; the generator was empirically probed to be lone-surrogate-free and astral-inclusive."
+    },
+    {
+      "ac_id": "AC-UX-5",
+      "status": "met",
+      "closure_basis": "evidence",
+      "evidence": "Behavioral: the panel renders \u2502-separated outgoing contents via S2's formatTokenViewText and displays the template verbatim; the test renders the real component tree and asserts textContent, and a separate XSS test proves the template is literal text (a <script> payload does not execute)."
+    },
+    {
+      "ac_id": "AC-UX-6",
+      "status": "met",
+      "closure_basis": "evidence",
+      "evidence": "CORRECTED AT THE PRE-COMMIT GATE. This AC was first scored `met` on evidence that was not evidence: three tests seeded a `kind: \"tool_call\"` step, which server/ws-handler.ts:242-264 never persists \u2014 it filters those steps out and folds them into the assistant as `toolCalls[]` (architecture.md Implementation Constraint 4 describes exactly this). So `turnHasToolCall` scanned for a kind production does not produce, AC-UX-6's mandatory 'report reconciliation as unavailable' was DEAD CODE, and the panel would have shown a reconciliation for a tool-loop turn whose usage covers only the last of several requests \u2014 the exact harm the AC exists to prevent. Found by the cold Stage-2 reviewer, not the warm one. NOW GENUINELY MET: turnHasToolCall detects a tool_result step or an assistant step with non-empty toolCalls[], in addition to the legacy kind; turn-scoping preserved. Lead-verified directly against the real functions on three shapes \u2014 production merged: detected; legacy tour: detected; tool-free turn after a tool turn: NOT detected (no over-fire). Tests now seed both persisted shapes, each labelled with which it represents and why both exist. Three figures + label wording unchanged and still asserted.",
+      "corrected_at_gate": true
+    },
+    {
+      "ac_id": "AC-TOK-5",
+      "status": "met",
+      "closure_basis": "evidence",
+      "evidence": "Behavioral and LIVE: executes against real qwen3:1.7b asserting contentTokenCount < prompt_eval_count strictly, filtering via the shared toOllamaMessages (never requestJsonPreview) and building the real request via buildOllamaChatBody."
+    },
+    {
+      "ac_id": "AC-UX-7",
+      "status": "met",
+      "closure_basis": "evidence",
+      "evidence": "Behavioral: innerHTML round-trip byte-identity across a showTokens on/off toggle. Unaffected by S4, whose panel lives outside [data-tour='transcript'] and renders only while the dialog is open."
+    },
+    {
+      "ac_id": "AC-STRUCT-3",
+      "status": "met",
+      "closure_basis": "evidence",
+      "evidence": "Structural by nature (placement + a net line cap), so the Criterion-8 litmus does not apply. Independently re-measured: 48 of 60 net lines on chat-workspace.tsx; all formatting/resolution/whitespace/tokenize logic lives in src/lib/token-view.ts, with two components extracted."
+    }
+  ],
+  "manual_validation": [],
+  "completed_at": "2026-09-22T19:45:00Z",
+  "frontend_typecheck_baseline": {
+    "was": 201,
+    "now": 181,
+    "reason": "The mutation-remediation round added `import { describe, it, expect, beforeEach } from 'vitest'` to tests/unit/chat.test.ts, which it was legitimately editing. Without it, its 10 new test blocks would have added ~28 NEW type errors, violating the binding 0-net-new rule; the same import incidentally resolved 20 pre-existing errors of the identical kind. Every sibling test file already uses explicit imports and contributes zero errors, so this follows the codebase's own convention. Flagged rather than decided silently. architecture.md Constraint 9's pinned figure of 201 is now stale \u2014 future comparisons should use 181.",
+    "framing_correction": "The lead initially recorded this as the OPPOSITE call from the S3 round (which deliberately avoided importing `vi` to preserve 201). The Stage-1 reviewer pushed back and is right: both rounds applied the SAME rule \u2014 don't perturb the pinned baseline gratuitously; when the work forces a perturbation, take the direction that follows repo convention and record it. The actions differed because the constraints did. In S3 the import was OPTIONAL (plain consts achieved the same result; the change was cosmetic), so moving the baseline would have bought nothing. Here it was FORCED (without it the new tests broke zero-net-new), and no option preserved 201. Same principle, different constraint \u2014 not a reversal.",
+    "files": [
+      "tests/unit/chat-workspace.test.tsx (115)",
+      "tests/unit/tour-data.test.ts (47)",
+      "tests/unit/openai-format.test.ts (19)"
+    ],
+    "architecture_md_amended": true
+  },
+  "mutation_gate_residuals": [
+    {
+      "module": "src/lib/token-view.ts",
+      "score": 0.819,
+      "residuals": [
+        "whitespace-marker run detection edges (leading/trailing runs, single-token content)",
+        "findLastUsageStep / turnHasToolCall loop bounds",
+        "useMemo dependency arrays (equivalent \u2014 recomputation unobservable)",
+        "dev-only NODE_ENV console.warn guards and user-facing reason strings (side-effect-only)"
+      ]
+    },
+    {
+      "module": "src/components/request-preview-extras.tsx",
+      "score": 0.77,
+      "residuals": [
+        "shared tokenize-cache identity across re-renders asserted only within one render pass",
+        "reconciliation section heading unasserted in the unavailable state",
+        "React unmount/refetch race guards (side-effect-only)",
+        "MUI sx styling props (side-effect-only)"
+      ]
+    },
+    {
+      "module": "server/ws-handler.ts",
+      "score": 0.476,
+      "residuals": [
+        "~32 of 96 survivors are `[ws] \u2026` console.log string literals (classified side-effect-only) \u2014 the effective score is materially better than 0.476"
+      ]
+    },
+    {
+      "module": "src/lib/backend-client.ts",
+      "score": 0.445,
+      "residuals": [
+        "not classified this pass; deferred to a dedicated module audit"
+      ]
+    },
+    {
+      "module": "src/components/token-view-step-content.tsx",
+      "score": 0.767,
+      "residuals": [
+        "6 of 7 survivors are MUI sx props (side-effect-only); one conditional at :49 is a real gap"
+      ]
+    },
+    {
+      "module": "src/lib/use-websocket.ts",
+      "score": 0.0,
+      "residuals": [
+        "STRUCTURAL, not an assertion weakness: the module is vi.mock-ed in every test that touches it, so no test ever executes it. It needs its own test file; more mutants will not help."
+      ]
+    }
+  ],
+  "mutation_gate_escalated": {
+    "modules": [
+      "server/ollama-client.ts",
+      "server/llm-router.ts",
+      "src/components/chat-workspace.tsx"
+    ],
+    "reason": "FR-B1 order-sensitive reroute. All three are named in architecture.md's Order-Sensitive Composition list, so ACCEPT is unavailable for their residuals. server/ollama-client.ts (Flow 2, score 0.729) \u2014 covered-but-unasserted residual after a 0.336 -> 0.729 improvement this gate; server/llm-router.ts (Flow 1, score 0.230) \u2014 an ABSENT test file rather than a weak one: four wholly untested functions (listAllModels, fetchOllamaModels, fetchOpenAICompatModels, getModelMetadata), covered score 0.793; src/components/chat-workspace.tsx (Flow 3) \u2014 UNAUDITED, skipped at 3723 lines. 'skipped' passes the gate by the contract's letter but not its purpose for an order-sensitive module, so it is surfaced here rather than silently absorbed. The two order-sensitive modules the epic itself created or whose AC depends on them (server/tokenizer.ts Flow 1, src/lib/chat.ts Flow 3) were remediated instead and now PASS at 0.866 and 0.976 with zero real gaps."
+  },
+  "mutation_gate_notes": {
+    "static_mutant_ceiling": "15 of server/tokenizer.ts's 40 live mutants are flagged static:true \u2014 the vitest runner imports the module once and activates mutants per-test afterwards, so a module-level initializer's mutants never run. They put a hard ~0.95 ceiling on that module regardless of test quality. `ignoreStatic: true` would remove them from the denominator but would make future deltas incomparable to this baseline; left unset deliberately.",
+    "e2e_coverage_gap": "The project has 38 e2e tests against a mocked backend, but none exercise this epic's surface (showTokens, separator rendering, the reconciliation panel). The token-related e2e tests cover usage counts, which predate the epic. No AC requires e2e coverage and the feature carries 353 unit/integration tests including two live-gated ones \u2014 recorded so a green e2e gate is not read as coverage it does not provide.",
+    "spec_gap_findings_unfiled": "Properties worth an AC but with none: chat.ts's localStorage keys as a compatibility contract, createId's secure-context fallback, ensureSystemPromptStep's migration defaults for pre-tools records; plus the outgoing-message filter's own rules (AC-TOK-5 names toOllamaMessages as the oracle but never says what it does), fetchOllamaModelMeta's failure path, parseToolSchema's tool-declaration translation, mid-stream tool-call dedup. Not filed: this repo carries a legacy v2 BACKLOG.md and a base:backlog write would trigger a v3 migration mid-gate.",
+    "client_scores_understated": "The recorded CLIENT-profile scores were produced while stryker.client.conf.json pointed at vitest.mutation.config.ts, which excluded tests/unit/chat-workspace.test.tsx entirely \u2014 an exclusion that was justified when the file carried a red test but went stale the moment the lead fixed it in this same commit set. Any mutant only those tests would kill was scored as survived, so every client-side module's recorded score (token-view.ts, request-preview-extras.tsx, token-view-step-content.tsx, chat.ts, backend-client.ts, use-websocket.ts) is a LOWER BOUND, not an exact figure. Understating is the safe direction \u2014 no module was accepted on an inflated score. Fixed at the pre-commit gate: the duplicate config was deleted and stryker.client.conf.json now points at vitest.config.ts, so the next run is clean."
+  },
+  "open_items_to_backlog": [
+    {
+      "id": "S4-PC1",
+      "severity": 2,
+      "category": "testing",
+      "file": "tests/integration/tokenizer.test.ts:198",
+      "reason": "A gap-closing test pins a provably-equivalent mutant and its justification is inaccurate. It annotates `__preTokenizeForTests('') returns []` as guarding a branch 'unreachable via tokenize()', but splitOnSpecialTokens early-returns [text] UNFILTERED when a vocabulary declares no special tokens, so preTokenize('') IS reachable \u2014 and separately the guard cannot change observable behaviour, since ''.match(QWEN2_SPLIT_REGEX) is null and the ?? [] fallback already yields []. Harmless, but it is the one test in the mutation batch whose value is coverage rather than discrimination. Either drop the test and the redundant guard together, or keep it and correct the comment to say the branch is reachable but behaviourally equivalent."
+    },
+    {
+      "id": "S4-PC2",
+      "severity": 6,
+      "category": "correctness",
+      "file": "shared/ollama-format.ts:61",
+      "reason": "PRE-EXISTING WIRE BEHAVIOR, deliberately not fixed inside this epic. toOllamaMessages never reads step.toolCalls, while its sibling toOpenAIMessages (shared/openai-format.ts:105-122) handles both the legacy and merged shapes. Since ws-handler persists the merged format, the real second-iteration request to Ollama DROPS the tool-call announcement entirely. Surfaced when the merged shape was added to the contract-test generators: the 'announces every tool the assistant actually called' property genuinely fails and is marked `it.fails` with a comment naming it \u2014 the suite stays green without masking it. Fix by mirroring openai-format.ts's assistant branch. Out of scope here because changing what we send to Ollama is not a thing to do at a feature epic's commit gate."
+    },
+    {
+      "id": "S4-PC3",
+      "severity": 3,
+      "category": "correctness",
+      "file": "src/lib/token-view.ts",
+      "reason": "Second half of F7, deliberately deferred: surface the tokenize.error reason (the wire already carries `unsupported_provider`) instead of collapsing every rejection into generic 'failed' wording. The provider gate added at the pre-commit gate makes this path structurally unreachable for non-Ollama conversations, and broader reason-surfacing would mean refactoring token-view.ts's whole failure-reason discipline."
+    },
+    {
+      "id": "S4-PC4",
+      "severity": 2,
+      "category": "inference",
+      "file": "src/components/request-preview-extras.tsx:141",
+      "reason": "'Reconciliation for the last completed turn' can mislabel. A thinking-only response (assistant content empty -> compactSteps drops the step and its usage) or a stopped/errored stream leaves the most recent turn with no usage, so findLastUsageStep silently reconciles an EARLIER turn under that heading. Separately, editing/deleting/reordering steps after a turn completes (all supported in the transcript UI) leaves steps[0..i) no longer equal to the request that produced promptEvalCount, and the figure drifts with no notice. Candidate fix: name the reconciled turn in the heading, and/or snapshot the sent message list's hash on the usage-bearing step at chat.done."
+    },
+    {
+      "id": "S4-PC5",
+      "severity": 2,
+      "category": "testing",
+      "file": "tests/integration/tokenizer.test.ts:709",
+      "reason": "'resolves an equal-rank tie deterministically' pins a state real merge tables cannot produce (ranks are unique line indices), so its oracle is the implementation's `<` rather than any reference. Survivor-chasing rather than behavioral. Drop it, or reframe as 'a merge table with duplicate ranks still terminates and joins to the input'."
+    },
+    {
+      "id": "S4-PC6",
+      "severity": 5,
+      "category": "architecture",
+      "file": "src/components/chat-workspace.tsx:950",
+      "reason": "The preview panel's Ollama gate keys on the provider ID, not ProviderConfig.type \u2014 a latent violation of architecture.md Boundary Rule 4 ('gate on ProviderConfig.type, never on provider name'), the very rule this epic established and was already burned by in S3. ModelInfo does not surface the type to the frontend at all (llm-router.ts sets provider = config.id at :224/:245/:256). Harmless in the shipped default config, where the Ollama provider's id happens to be 'ollama'. Fails in both directions otherwise: a second Ollama host (id 'ollama-remote', type 'ollama') hides the panel for a genuine Ollama conversation, and an openai-compat provider given id 'ollama' would show Ollama filtering and a prompt_eval_count label. Fix: add providerType: config.type to ModelInfo at all three sites, mirror it on OllamaModel in src/types/chat.ts, gate on that. RECORDED AGAINST validation-provider-type-gate rather than leaving the concept closed clean \u2014 the gate currently LOOKS compliant, which is the part that matters for whoever adds a second Ollama provider."
+    },
+    {
+      "id": "S4-PC7",
+      "severity": 3,
+      "category": "best_practices",
+      "file": "src/lib/backend-client.ts + server/tokenizer.ts + src/components/token-view-step-content.tsx",
+      "reason": "The provenance cleanup is partial: ~13 workflow finding-ID prefixes (S3-F2/F9/F12/F13, S3-R1/R2/R3/R6, S3-F3) remain in production source outside the four files that were stripped. In every case the surrounding sentence is durable reasoning that must stay \u2014 server/tokenizer.ts:405's 'delete by key AND identity \u2014 the LRU can re-register this key with a newer in-flight promise' is exactly what a future reader needs \u2014 and only the short ID prefix is workflow history. The codebase now reads as if the rule applies in some files and not others. Either strip the remaining IDs keeping every sentence, or restore them in the four stripped files; the cost of either is small, the cost of two conventions is that neither reads as intentional."
+    },
+    {
+      "id": "S4-PC8",
+      "severity": 2,
+      "category": "inference",
+      "file": "src/lib/token-view.ts:448",
+      "reason": "turnHasToolCall over-fires conservatively on one shape: a single-request turn whose assistant announced a tool the dispatcher could not execute (ws-handler.ts:266-283, executableToolCalls.length === 0 -> chat.done with assistant{toolCalls, usage}). There usage covers the whole (only) request so reconciliation would be valid, but the panel reports unavailable. AC-UX-6's literal wording ('a turn whose steps include any tool_call') mandates exactly this, so it is spec-compliant \u2014 recorded only so the behaviour is not rediscovered as a bug. No action taken."
+    }
+  ]
 }

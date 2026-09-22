@@ -1,107 +1,107 @@
 {
-  "spec_sha": "aa546af0d903",
-  "git_sha": "d63acbe08d75acd624c11a2f8fe5eae6076ca56d",
-  "computed_at": "2026-09-22T00:00:00Z",
+  "spec_sha": "55526693f278",
+  "git_sha": "94c44d78ddbea9f103560f0fe245f8ffcfdd3182",
+  "computed_at": "2026-09-22T11:15:00Z",
   "verdicts": [
     {
       "ac_id": "AC-STRUCT-1",
       "verdict": "holds",
-      "evidence": "S1 implemented+reviewed+examined this session; result.json status=done, final_outcome=accepted"
+      "evidence": "S1 done; verified this session's predecessor and re-confirmed unchanged in the S3 recapture round (no S1 file touched)."
     },
     {
       "ac_id": "AC-STRUCT-2",
       "verdict": "holds",
-      "evidence": "S1 implemented+reviewed+examined this session; result.json status=done, final_outcome=accepted"
+      "evidence": "S1 done; verified this session's predecessor and re-confirmed unchanged in the S3 recapture round (no S1 file touched)."
     },
     {
       "ac_id": "AC-TOK-4",
       "verdict": "holds",
-      "evidence": "S1 implemented+reviewed+examined this session; result.json status=done, final_outcome=accepted"
+      "evidence": "S1 done; verified this session's predecessor and re-confirmed unchanged in the S3 recapture round (no S1 file touched)."
     },
     {
       "ac_id": "AC-ERR-4",
       "verdict": "holds",
-      "evidence": "S1 implemented+reviewed+examined this session; result.json status=done, final_outcome=accepted"
+      "evidence": "S1 done; verified this session's predecessor and re-confirmed unchanged in the S3 recapture round (no S1 file touched)."
     },
     {
       "ac_id": "AC-UX-1",
-      "verdict": "unverifiable",
-      "evidence": "story S2 not yet implemented"
+      "verdict": "holds",
+      "evidence": "S2 done; MOCK-02-001 since resolved by S3's real computed branch, which re-verified the S2 contract it replaced (kind-gating, ref-read-through invariant) still holds."
     },
     {
       "ac_id": "AC-UX-2",
-      "verdict": "unverifiable",
-      "evidence": "story S2 not yet implemented"
+      "verdict": "holds",
+      "evidence": "S2 done; MOCK-02-001 since resolved by S3's real computed branch, which re-verified the S2 contract it replaced (kind-gating, ref-read-through invariant) still holds."
     },
     {
       "ac_id": "AC-UX-3",
-      "verdict": "unverifiable",
-      "evidence": "story S2 not yet implemented"
+      "verdict": "holds",
+      "evidence": "S2 done; MOCK-02-001 since resolved by S3's real computed branch, which re-verified the S2 contract it replaced (kind-gating, ref-read-through invariant) still holds."
     },
     {
       "ac_id": "AC-UX-4",
-      "verdict": "unverifiable",
-      "evidence": "story S2 not yet implemented"
+      "verdict": "holds",
+      "evidence": "S2 done; MOCK-02-001 since resolved by S3's real computed branch, which re-verified the S2 contract it replaced (kind-gating, ref-read-through invariant) still holds."
     },
     {
       "ac_id": "AC-UX-8",
-      "verdict": "unverifiable",
-      "evidence": "story S2 not yet implemented"
+      "verdict": "holds",
+      "evidence": "S2 done; MOCK-02-001 since resolved by S3's real computed branch, which re-verified the S2 contract it replaced (kind-gating, ref-read-through invariant) still holds."
     },
     {
       "ac_id": "AC-ERR-1",
-      "verdict": "unverifiable",
-      "evidence": "story S2 not yet implemented"
+      "verdict": "holds",
+      "evidence": "S2 done; MOCK-02-001 since resolved by S3's real computed branch, which re-verified the S2 contract it replaced (kind-gating, ref-read-through invariant) still holds."
     },
     {
       "ac_id": "AC-DEP-1",
-      "verdict": "unverifiable",
-      "evidence": "story S3 not yet implemented"
+      "verdict": "holds",
+      "evidence": "S3 done; all 20 verification.json questions answered YES this session, including AC-TOK-1/AC-TOK-7/AC-DEP-2 re-verified against a genuine live host and reference tokenizer after an earlier false no-host premise was corrected. 17-case + 10-case conformance checks pass. Committed 94c44d7."
     },
     {
       "ac_id": "AC-DEP-2",
-      "verdict": "unverifiable",
-      "evidence": "story S3 not yet implemented"
+      "verdict": "holds",
+      "evidence": "S3 done; all 20 verification.json questions answered YES this session, including AC-TOK-1/AC-TOK-7/AC-DEP-2 re-verified against a genuine live host and reference tokenizer after an earlier false no-host premise was corrected. 17-case + 10-case conformance checks pass. Committed 94c44d7."
     },
     {
       "ac_id": "AC-TOK-1",
-      "verdict": "unverifiable",
-      "evidence": "story S3 not yet implemented"
-    },
-    {
-      "ac_id": "AC-TOK-2",
-      "verdict": "unverifiable",
-      "evidence": "story S3 not yet implemented"
-    },
-    {
-      "ac_id": "AC-TOK-3",
-      "verdict": "unverifiable",
-      "evidence": "story S3 not yet implemented"
-    },
-    {
-      "ac_id": "AC-TOK-6",
-      "verdict": "unverifiable",
-      "evidence": "story S3 not yet implemented"
+      "verdict": "holds",
+      "evidence": "S3 done; all 20 verification.json questions answered YES this session, including AC-TOK-1/AC-TOK-7/AC-DEP-2 re-verified against a genuine live host and reference tokenizer after an earlier false no-host premise was corrected. 17-case + 10-case conformance checks pass. Committed 94c44d7."
     },
     {
       "ac_id": "AC-TOK-7",
-      "verdict": "unverifiable",
-      "evidence": "story S3 not yet implemented"
+      "verdict": "holds",
+      "evidence": "S3 done; all 20 verification.json questions answered YES this session, including AC-TOK-1/AC-TOK-7/AC-DEP-2 re-verified against a genuine live host and reference tokenizer after an earlier false no-host premise was corrected. 17-case + 10-case conformance checks pass. Committed 94c44d7."
+    },
+    {
+      "ac_id": "AC-TOK-2",
+      "verdict": "holds",
+      "evidence": "S3 done; all 20 verification.json questions answered YES this session, including AC-TOK-1/AC-TOK-7/AC-DEP-2 re-verified against a genuine live host and reference tokenizer after an earlier false no-host premise was corrected. 17-case + 10-case conformance checks pass. Committed 94c44d7."
+    },
+    {
+      "ac_id": "AC-TOK-3",
+      "verdict": "holds",
+      "evidence": "S3 done; all 20 verification.json questions answered YES this session, including AC-TOK-1/AC-TOK-7/AC-DEP-2 re-verified against a genuine live host and reference tokenizer after an earlier false no-host premise was corrected. 17-case + 10-case conformance checks pass. Committed 94c44d7."
     },
     {
       "ac_id": "AC-PERF-1",
-      "verdict": "unverifiable",
-      "evidence": "story S3 not yet implemented"
+      "verdict": "holds",
+      "evidence": "S3 done; all 20 verification.json questions answered YES this session, including AC-TOK-1/AC-TOK-7/AC-DEP-2 re-verified against a genuine live host and reference tokenizer after an earlier false no-host premise was corrected. 17-case + 10-case conformance checks pass. Committed 94c44d7."
     },
     {
       "ac_id": "AC-ERR-2",
-      "verdict": "unverifiable",
-      "evidence": "story S3 not yet implemented"
+      "verdict": "holds",
+      "evidence": "S3 done; all 20 verification.json questions answered YES this session, including AC-TOK-1/AC-TOK-7/AC-DEP-2 re-verified against a genuine live host and reference tokenizer after an earlier false no-host premise was corrected. 17-case + 10-case conformance checks pass. Committed 94c44d7."
     },
     {
       "ac_id": "AC-ERR-3",
-      "verdict": "unverifiable",
-      "evidence": "story S3 not yet implemented"
+      "verdict": "holds",
+      "evidence": "S3 done; all 20 verification.json questions answered YES this session, including AC-TOK-1/AC-TOK-7/AC-DEP-2 re-verified against a genuine live host and reference tokenizer after an earlier false no-host premise was corrected. 17-case + 10-case conformance checks pass. Committed 94c44d7."
+    },
+    {
+      "ac_id": "AC-TOK-6",
+      "verdict": "holds",
+      "evidence": "S3 done; all 20 verification.json questions answered YES this session, including AC-TOK-1/AC-TOK-7/AC-DEP-2 re-verified against a genuine live host and reference tokenizer after an earlier false no-host premise was corrected. 17-case + 10-case conformance checks pass. Committed 94c44d7."
     },
     {
       "ac_id": "AC-UX-5",
@@ -121,12 +121,12 @@
     {
       "ac_id": "AC-UX-7",
       "verdict": "unverifiable",
-      "evidence": "cross-cutting; spanned stories not all done"
+      "evidence": "cross-cutting; spanned stories not all done (S4 pending)"
     },
     {
       "ac_id": "AC-STRUCT-3",
       "verdict": "unverifiable",
-      "evidence": "cross-cutting; spanned stories not all done"
+      "evidence": "cross-cutting; spanned stories not all done (S4 pending)"
     }
   ]
 }

@@ -103,7 +103,10 @@ process.on("SIGTERM", () => {
 try {
   await waitForServer();
 
-  const runner = spawn(npxCommand, ["playwright", "test"], {
+  // Forward argv so the canonical command can be scoped and fail-fast:
+  // `npm run test:e2e -- --max-failures=1`, a spec path, or `-g <pattern>`.
+  // Without this every invocation is an unscoped full run.
+  const runner = spawn(npxCommand, ["playwright", "test", ...process.argv.slice(2)], {
     stdio: "inherit",
     env: {
       ...process.env,

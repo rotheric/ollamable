@@ -10,3 +10,13 @@ test-results
 .mcp.json
 .playwright-mcp
 .env
+
+# Mutation-testing reports (Stryker)
+reports/mutation
+.stryker-tmp
+
+# Claude Code: personal permission allowlist and per-story workflow output.
+# .claude/settings.json is left trackable (shared plugin-enable config, no
+# machine-specific content).
+.claude/settings.local.json
+.claude/verification-results.jsonl

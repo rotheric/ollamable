@@ -1,0 +1,68 @@
+{
+  "module_name": "workspace",
+  "purpose": "Render │-separated outgoing message contents and the model's verbatim /api/show chat-template string in the request-preview panel (AC-UX-5), and reconcile the computed content-token count against a completed turn's reported prompt_eval_count as three labelled figures — never presented as a mismatch/error/warning — with tool-call turns reporting reconciliation-unavailable and a named reason (AC-UX-6, AC-TOK-5). All filtering/tokenization/reconciliation arithmetic lives in src/lib/token-view.ts (an extension of S2/S3's module, per AC-STRUCT-3 and this story's own notes); chat-workspace.tsx and the new src/components/request-preview-extras.tsx are wiring/presentation only.",
+  "public_api": [
+    {
+      "name": "toOllamaFilteredMessages",
+      "signature": "toOllamaFilteredMessages(steps: ConversationStep[]): OllamaMessage[]",
+      "description": "Hand-kept mirror of server/ollama-client.ts's private toOllamaMessages (~245-301), translated to this side of the server/src boundary (Boundary Rule 1 forbids importing it directly). Reproduces its exact filtering rules (meta skip, empty-system drop, pending-tool-call flush ahead of user/assistant/tool_result, trailing flush). The sole legal source of the outgoing-message list for AC-UX-5 rendering and AC-UX-6/AC-TOK-5 reconciliation — never requestJsonPreview (buildOpenAIRequestBody/toOpenAIMessages), per Implementation Constraint 5."
+    },
+    {
+      "name": "findLastUsageStep",
+      "signature": "findLastUsageStep(steps: ConversationStep[]): { index: number; promptEvalCount: number } | null",
+      "description": "Locates the reconciliation oracle: the last assistant step reporting usage.inputTokens. null when nothing has completed yet."
+    },
+    {
+      "name": "turnHasToolCall",
+      "signature": "turnHasToolCall(steps: ConversationStep[], assistantIndex: number): boolean",
+      "description": "True when the turn producing steps[assistantIndex] (walking back to the nearest preceding user step) contains a tool_call step. Scoped to the turn, not the whole conversation, so an earlier turn's tool use doesn't invalidate a later, tool-free turn's reconciliation."
+    },
+    {
+      "name": "TEMPLATE_OVERHEAD_LABEL",
+      "signature": "const TEMPLATE_OVERHEAD_LABEL: string",
+      "description": "AC-UX-6's exact, non-alarming label for the computed/reported difference — \"chat-template overhead\", never \"mismatch\"/\"error\"/\"warning\"."
+    },
+    {
+      "name": "RECONCILIATION_TOOL_CALL_REASON",
+      "signature": "const RECONCILIATION_TOOL_CALL_REASON: string",
+      "description": "Named reason surfaced when a tool-call turn makes reconciliation unavailable (AC-UX-6, Implementation Constraint 4)."
+    },
+    {
+      "name": "useTokenizedMessages",
+      "signature": "useTokenizedMessages(messages: OllamaMessage[], tokenizeText: ((text: string) => Promise<string[]>) | undefined, active: boolean, cacheKeySuffix?: string): Array<OllamaMessage & { tokens: string[] | null }>",
+      "description": "Batch-tokenizes a fixed message list while `active`, caching by (message contents, cacheKeySuffix). cacheKeySuffix carries the model, mirroring S3's invariant-computed-boundary-model-key discipline so a model switch invalidates stale tokens instead of serving them under a mismatched key."
+    },
+    {
+      "name": "useReconciliation",
+      "signature": "useReconciliation(steps: ConversationStep[], tokenizeText: ((text: string) => Promise<string[]>) | undefined, active: boolean, cacheKeySuffix?: string): ReconciliationState",
+      "description": "AC-UX-6/AC-TOK-5's readout: status 'none' (nothing completed yet) | 'unavailable' (tool-call turn, with reason) | 'pending' (tokenize round trip in flight) | 'ready' (contentTokenCount, promptEvalCount, overhead)."
+    }
+  ],
+  "private_files": [
+    "src/lib/token-view.ts (OllamaMessage type, ReconciliationState type — internal to the exports above)",
+    "src/components/request-preview-extras.tsx (RequestPreviewExtras — presentational; calls fetchModelMeta for the verbatim template and the token-view.ts exports above; not exported beyond this story's one call site in chat-workspace.tsx)"
+  ],
+  "owned_data": [
+    "None persisted. Template/reconciliation state is transient component state scoped to the request-preview dialog's open lifetime."
+  ],
+  "dependencies_allowed": [
+    "src/lib/token-view.ts (this story's own extension — new exports, per architecture.md's token-view module)",
+    "src/lib/ollama.ts (fetchModelMeta — pre-existing /api/show round trip, reused rather than adding a new server endpoint, per architecture.md's instruction)",
+    "src/types/chat.ts (ConversationStep, OllamaModel — structural read only)",
+    "src/components/chat-workspace.tsx's existing tokenizeStepText (backend-client.tokenize() bound to the conversation's current model, wired by S3) — passed down as a prop, not re-imported"
+  ],
+  "dependencies_forbidden": [
+    "No import of server/ollama-client.ts's toOllamaMessages (private, and server/ is excluded from tsconfig.json outright) — toOllamaFilteredMessages is a hand-kept mirror, not an import",
+    "No new server round trip for the chat template — reuses the existing /models/show endpoint (server/llm-router.ts's showModelMeta) via src/lib/ollama.ts's fetchModelMeta",
+    "No reference to requestJsonPreview/buildOpenAIRequestBody/toOpenAIMessages from the reconciliation computation path (Implementation Constraint 5, VQ-S4-005)"
+  ],
+  "external_ports": [],
+  "events_emitted": [],
+  "events_consumed": [],
+  "test_targets": [
+    "tests/unit/token-view-reconciliation.test.ts (new) — toOllamaFilteredMessages/findLastUsageStep/turnHasToolCall pure-function coverage, useTokenizedMessages/useReconciliation hook coverage including the model-cache-key discipline",
+    "tests/unit/request-preview-extras.test.tsx (new) — AC-UX-5 (│ separators, verbatim template, no HTML injection), AC-UX-6 (three figures, exact label, tool-call-unavailable path), isolated against the component with mocked fetchModelMeta/tokenizeText",
+    "tests/unit/chat-workspace-reconciliation.test.tsx (new) — the same ACs exercised through the real ChatWorkspace component tree via the pre-existing \"View request JSON\" button, confirming distinctness from the model-metadata dialog and the showTokens gate",
+    "tests/integration/reconciliation-live.test.ts (new) — AC-TOK-5, live-gated via the same AC-ERR-3 mechanism as AC-TOK-1; skips cleanly in this sandbox (no reachable Ollama host)"
+  ]
+}

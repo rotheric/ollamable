@@ -7,65 +7,225 @@
       "question_id": "VQ-S4-001",
       "phase": "pre-impl",
       "category": "QUALITY",
-      "question": "Does the reconciliation readout compute a real content-token count via a genuine tokenize()/steps[0..i)-filtering pipeline, rather than a placeholder/stand-in constant, a hardcoded 'difference equals template overhead' label with no real subtraction, or a load-bearing dependency on S3's backend-client.tokenize() that silently degrades to a fixed or zero count when tokenize() is unavailable (e.g. the WebSocket is offline) without surfacing that degradation to the user as an explicit unavailable state?"
+      "question": "Does the reconciliation readout compute a real content-token count via a genuine tokenize()/steps[0..i)-filtering pipeline, rather than a placeholder/stand-in constant, a hardcoded 'difference equals template overhead' label with no real subtraction, or a load-bearing dependency on S3's backend-client.tokenize() that silently degrades to a fixed or zero count when tokenize() is unavailable (e.g. the WebSocket is offline) without surfacing that degradation to the user as an explicit unavailable state?",
+      "answer": {
+        "verdict": "YES",
+        "severity": 1,
+        "confidence": 1.0,
+        "root_cause_category": null,
+        "evidence": "Content-token count comes from a genuine tokenize round trip: useReconciliation -> useTokenizedMessages -> tokenizeCached issues a real tokenizeText promise per message; contentTokenCount reduces over actual token-array lengths (token-view.ts:605,675). No heuristic or character-count proxy. Failure surfaces as status 'error' with a named reason rather than degrading silently.",
+        "answered_at": "2026-09-22T19:40:00Z",
+        "answered_by": "base:verification-examiner (3 parallel batches)"
+      }
     },
     {
       "question_id": "VQ-S4-002",
       "phase": "pre-impl",
       "category": "ARCHITECTURE",
-      "question": "Per Implementation Constraint 5, the reconciliation's step-filtering logic must mirror toOllamaMessages' rules independently, since chat-workspace.tsx (src/) cannot import server/ollama-client.ts's toOllamaMessages across the tsconfig-enforced server/src boundary. Confirm the reconciliation filtering is implemented as its own function (ideally in a lib helper, per the story's notes, to preserve chat-workspace.tsx's line budget) whose logic matches toOllamaMessages' filtering rules (server/ollama-client.ts ~245-301 — e.g. its tool_call/tool_result/system-step handling) rather than importing across the boundary or silently diverging from those rules."
+      "question": "Per Implementation Constraint 5, the reconciliation's step-filtering logic must mirror toOllamaMessages' rules independently, since chat-workspace.tsx (src/) cannot import server/ollama-client.ts's toOllamaMessages across the tsconfig-enforced server/src boundary. Confirm the reconciliation filtering is implemented as its own function (ideally in a lib helper, per the story's notes, to preserve chat-workspace.tsx's line budget) whose logic matches toOllamaMessages' filtering rules (server/ollama-client.ts ~245-301 \u2014 e.g. its tool_call/tool_result/system-step handling) rather than importing across the boundary or silently diverging from those rules.",
+      "answer": {
+        "verdict": "YES",
+        "severity": 1,
+        "confidence": 1.0,
+        "root_cause_category": null,
+        "evidence": "Filtering delegates to ONE shared implementation. shared/ollama-format.ts:39-95 holds the logic; server/ollama-client.ts:3 imports it; src/lib/token-view.ts:417-419 delegates and maps to {role,content}. Grep for the filter's internal marker outside shared/ returns nothing - no surviving copy.",
+        "answered_at": "2026-09-22T19:40:00Z",
+        "answered_by": "base:verification-examiner (3 parallel batches)"
+      }
     },
     {
       "question_id": "VQ-S4-003",
       "phase": "pre-impl",
       "category": "ARCHITECTURE",
-      "question": "Could `workspace` be deleted and rewritten without modifying any file outside its `dependencies_allowed` list? If not, which cross-module dependencies exist and do they flow through declared seam contracts in architecture.md?"
+      "question": "Could `workspace` be deleted and rewritten without modifying any file outside its `dependencies_allowed` list? If not, which cross-module dependencies exist and do they flow through declared seam contracts in architecture.md?",
+      "answer": {
+        "verdict": "YES",
+        "severity": 1,
+        "confidence": 1.0,
+        "root_cause_category": null,
+        "evidence": "Module independence holds. RequestPreviewExtras imports only src/types/chat, src/lib/ollama and src/lib/token-view plus MUI/React - all within architecture.json's dependencies_allowed. The new shared/ollama-format.ts follows Boundary Rule 1's sanctioned shared-structural-interface mechanism, precedented by shared/openai-format.ts.",
+        "answered_at": "2026-09-22T19:40:00Z",
+        "answered_by": "base:verification-examiner (3 parallel batches)"
+      }
     },
     {
       "question_id": "VQ-S4-004",
       "phase": "pre-impl",
       "category": "TEST",
-      "question": "Do tests cover, as distinct assertions: (a) AC-UX-5's │-separated request-preview rendering reusing S2's TokenSeparatorFormatter export from src/lib/token-view.ts (not a separator formatter re-implemented locally in this story), (b) the verbatim chat-template string display sourced from POST /api/show's `template` field, distinct from the pre-existing model-metadata dialog's own template display (chat-workspace.tsx ~3039), (c) AC-UX-6's three-figure reconciliation display asserting the actual overhead-label text (not just that three numbers render), and (d) the tool_call-turn unavailable-with-named-reason path?"
+      "question": "Do tests cover, as distinct assertions: (a) AC-UX-5's \u2502-separated request-preview rendering reusing S2's TokenSeparatorFormatter export from src/lib/token-view.ts (not a separator formatter re-implemented locally in this story), (b) the verbatim chat-template string display sourced from POST /api/show's `template` field, distinct from the pre-existing model-metadata dialog's own template display (chat-workspace.tsx ~3039), (c) AC-UX-6's three-figure reconciliation display asserting the actual overhead-label text (not just that three numbers render), and (d) the tool_call-turn unavailable-with-named-reason path?",
+      "answer": {
+        "verdict": "YES",
+        "severity": 2,
+        "confidence": 1.0,
+        "root_cause_category": null,
+        "evidence": "Four distinct assertions, not one over-broad test: (a) separator rendering, (b) verbatim template as literal text, (c) the three figures with the exact label and the forbidden-word check, (d) the tool_call-turn unavailable path with its named reason. All exercise the real component tree.",
+        "answered_at": "2026-09-22T19:40:00Z",
+        "answered_by": "base:verification-examiner (3 parallel batches)"
+      }
     },
     {
       "question_id": "VQ-S4-005",
       "phase": "pre-impl",
       "category": "SPEC",
-      "question": "Per the adversarial review's specific trap: reconciliation must filter via toOllamaMessages' rules, never the displayed OpenAI-shaped requestJsonPreview (which uses buildOpenAIRequestBody/toOpenAIMessages, chat-workspace.tsx ~918-935). Show a test that would fail if the reconciliation implementation were swapped to simply count tokens in requestJsonPreview's rendered string instead — e.g. a fixture conversation containing a system step and a tool_call/tool_result pair, where toOllamaMessages' filtering and toOpenAIMessages' filtering produce a different effective message set, and the reconciliation count must match the toOllamaMessages-filtered figure, not the OpenAI-shaped one. Evidence: currently `grep -in \"reconcil\" src/components/chat-workspace.tsx` matches nothing; post-implementation the reconciliation function/identifier must exist and must not reference `requestJsonPreview` or `buildOpenAIRequestBody` in its own computation path."
+      "question": "Per the adversarial review's specific trap: reconciliation must filter via toOllamaMessages' rules, never the displayed OpenAI-shaped requestJsonPreview (which uses buildOpenAIRequestBody/toOpenAIMessages, chat-workspace.tsx ~918-935). Show a test that would fail if the reconciliation implementation were swapped to simply count tokens in requestJsonPreview's rendered string instead \u2014 e.g. a fixture conversation containing a system step and a tool_call/tool_result pair, where toOllamaMessages' filtering and toOpenAIMessages' filtering produce a different effective message set, and the reconciliation count must match the toOllamaMessages-filtered figure, not the OpenAI-shaped one. Evidence: currently `grep -in \"reconcil\" src/components/chat-workspace.tsx` matches nothing; post-implementation the reconciliation function/identifier must exist and must not reference `requestJsonPreview` or `buildOpenAIRequestBody` in its own computation path.",
+      "answer": {
+        "verdict": "YES",
+        "severity": 1,
+        "confidence": 1.0,
+        "root_cause_category": null,
+        "evidence": "Reconciliation never consults requestJsonPreview: token-view.ts:658-660 filters via toOllamaFilteredMessages over steps.slice(0, target.index); the only occurrences of requestJsonPreview in the module are comments documenting what NOT to do. Pinned by a divergence fixture where the Ollama and OpenAI shapes differ.",
+        "answered_at": "2026-09-22T19:40:00Z",
+        "answered_by": "base:verification-examiner (3 parallel batches)"
+      }
     },
     {
       "question_id": "VQ-S4-006",
       "phase": "pre-impl",
       "category": "SECURITY",
-      "question": "The request-preview panel now displays the model's chat-template string verbatim, sourced from an external server (POST /api/show) that a misconfigured OLLAMA_URL could point at an untrusted host. Confirm this string is rendered as literal text — never interpreted as HTML/markdown, no dangerouslySetInnerHTML — consistent with how modelMeta.template is already displayed elsewhere in this component via the existing renderTextSection pattern (chat-workspace.tsx ~3039), so this new display site introduces no HTML-injection surface."
+      "question": "The request-preview panel now displays the model's chat-template string verbatim, sourced from an external server (POST /api/show) that a misconfigured OLLAMA_URL could point at an untrusted host. Confirm this string is rendered as literal text \u2014 never interpreted as HTML/markdown, no dangerouslySetInnerHTML \u2014 consistent with how modelMeta.template is already displayed elsewhere in this component via the existing renderTextSection pattern (chat-workspace.tsx ~3039), so this new display site introduces no HTML-injection surface.",
+      "answer": {
+        "verdict": "YES",
+        "severity": 10,
+        "confidence": 1.0,
+        "root_cause_category": null,
+        "evidence": "SECURITY BOUNDARY, clean. The chat template originates from a possibly-misconfigured OLLAMA_URL and is rendered as literal text via <Typography component='pre'> with no dangerouslySetInnerHTML anywhere. Pinned by an XSS test: a <script>window.__pwned=true</script> payload renders as plain textContent and __pwned stays undefined (request-preview-extras.test.tsx:68-82).",
+        "answered_at": "2026-09-22T19:40:00Z",
+        "answered_by": "base:verification-examiner (3 parallel batches)"
+      }
     },
     {
       "question_id": "VQ-S4-007",
       "phase": "pre-impl",
       "category": "SPEC",
       "ac_id": "AC-UX-5",
-      "question": "AC-UX-5 requires the request-preview panel to render outgoing message contents with │ separators and to display /api/show's `template` field verbatim, never a reconstructed template. Show: (a) the panel's new separator-rendering code reusing S2's exported formatTokens/token-view.ts utility (currently `grep -n \"token-view\" src/components/chat-workspace.tsx` matches nothing; post-implementation it must show an import near the request-preview section), (b) the verbatim template field display distinct from any app-side template reconstruction, and (c) confirmation the test is not a pure mock-spy proxy that only checks a prop was passed without checking the rendered DOM text."
+      "question": "AC-UX-5 requires the request-preview panel to render outgoing message contents with \u2502 separators and to display /api/show's `template` field verbatim, never a reconstructed template. Show: (a) the panel's new separator-rendering code reusing S2's exported formatTokens/token-view.ts utility (currently `grep -n \"token-view\" src/components/chat-workspace.tsx` matches nothing; post-implementation it must show an import near the request-preview section), (b) the verbatim template field display distinct from any app-side template reconstruction, and (c) confirmation the test is not a pure mock-spy proxy that only checks a prop was passed without checking the rendered DOM text.",
+      "answer": {
+        "verdict": "YES",
+        "severity": 9,
+        "confidence": 1.0,
+        "root_cause_category": null,
+        "evidence": "AC-UX-5 met on all three sub-requirements: separators via S2's formatTokenViewText (request-preview-extras.tsx:26,115); template assigned verbatim from fetchModelMeta and rendered as literal text (:64,128-134); and the test renders the REAL component tree asserting on textContent, not a mock-spy proxy (request-preview-extras.test.tsx:46-65).",
+        "answered_at": "2026-09-22T19:40:00Z",
+        "answered_by": "base:verification-examiner (3 parallel batches)"
+      }
     },
     {
       "question_id": "VQ-S4-008",
       "phase": "pre-impl",
       "category": "SPEC",
       "ac_id": "AC-UX-6",
-      "question": "AC-UX-6 requires displaying the computed content-token count, the reported prompt_eval_count, and their difference labelled as chat-template overhead — never as a mismatch/error/warning — with tool_call-containing turns reporting reconciliation-unavailable with a named reason. Show: (a) the three-figure display code and the exact label text used for the difference, (b) a test asserting the label text does not contain 'mismatch', 'error', or 'warning', and (c) the tool_call-turn detection code and its distinct unavailable-with-reason rendering, grounded in Implementation Constraint 4 (compactSteps drops the empty assistant step; ws-handler.ts:163-171 mints a synthetic no-usage replacement, so only the final loop iteration reliably carries usage)."
+      "question": "AC-UX-6 requires displaying the computed content-token count, the reported prompt_eval_count, and their difference labelled as chat-template overhead \u2014 never as a mismatch/error/warning \u2014 with tool_call-containing turns reporting reconciliation-unavailable with a named reason. Show: (a) the three-figure display code and the exact label text used for the difference, (b) a test asserting the label text does not contain 'mismatch', 'error', or 'warning', and (c) the tool_call-turn detection code and its distinct unavailable-with-reason rendering, grounded in Implementation Constraint 4 (compactSteps drops the empty assistant step; ws-handler.ts:163-171 mints a synthetic no-usage replacement, so only the final loop iteration reliably carries usage).",
+      "answer": {
+        "verdict": "YES",
+        "severity": 9,
+        "confidence": 1.0,
+        "root_cause_category": null,
+        "evidence": "AC-UX-6 met. Three figures rendered with the exact label 'chat-template overhead' (TEMPLATE_OVERHEAD_LABEL, token-view.ts:461). A test asserts the rendered label matches no /mismatch|error|warning/i (request-preview-extras.test.tsx:98). Tool_call turns render reconciliation-unavailable with RECONCILIATION_TOOL_CALL_REASON naming the cause (token-view.ts:463-464,671).",
+        "answered_at": "2026-09-22T19:40:00Z",
+        "answered_by": "base:verification-examiner (3 parallel batches)"
+      }
     },
     {
       "question_id": "VQ-S4-009",
       "phase": "pre-impl",
       "category": "SPEC",
       "ac_id": "AC-TOK-5",
-      "question": "AC-TOK-5 (live-gated) requires, for a system+user-only conversation, the computed content-token count to be strictly less than Ollama's reported prompt_eval_count for the chat request built from those steps, with the difference equal to the template scaffolding's token count, computed from steps[0..i) — the steps preceding the assistant step carrying usage — filtered exactly as toOllamaMessages filters them, never from the live requestJsonPreview (which includes the assistant step itself and uses toOpenAIMessages filtering). Show the live-gated test, its gating against the same AC-ERR-3 mechanism, and confirm the computed figure comes from the reconciliation function verified in VQ-S4-002/VQ-S4-005 rather than any reference to requestJsonPreview."
+      "question": "AC-TOK-5 (live-gated) requires, for a system+user-only conversation, the computed content-token count to be strictly less than Ollama's reported prompt_eval_count for the chat request built from those steps, with the difference equal to the template scaffolding's token count, computed from steps[0..i) \u2014 the steps preceding the assistant step carrying usage \u2014 filtered exactly as toOllamaMessages filters them, never from the live requestJsonPreview (which includes the assistant step itself and uses toOpenAIMessages filtering). Show the live-gated test, its gating against the same AC-ERR-3 mechanism, and confirm the computed figure comes from the reconciliation function verified in VQ-S4-002/VQ-S4-005 rather than any reference to requestJsonPreview.",
+      "answer": {
+        "verdict": "YES",
+        "severity": 9,
+        "confidence": 1.0,
+        "root_cause_category": null,
+        "evidence": "AC-TOK-5 VERIFIED LIVE. The examiner ran the suite itself against the real host (OLLAMA_URL=http://host.lima.internal:11434/api, qwen3:1.7b): the live-gated test EXECUTES rather than skipping, and passes. It filters via toOllamaFilteredMessages (never requestJsonPreview), builds the real request via buildOllamaChatBody, and asserts contentTokenCount < promptEvalCount strictly. Gated by the same checkLiveGate/ctx.skip mechanism as AC-ERR-3.",
+        "answered_at": "2026-09-22T19:40:00Z",
+        "answered_by": "base:verification-examiner (3 parallel batches)"
+      }
     },
     {
       "question_id": "VQ-S4-010",
       "phase": "pre-impl",
       "category": "SPEC",
       "ac_id": "AC-STRUCT-3",
-      "question": "AC-STRUCT-3 (cross-cutting, spanned by S2, S3, S4) caps the net line count added to src/components/chat-workspace.tsx by this entire epic — S2's toggle/switch/render-branch, S3's minimal wiring (if any), and S4's request-preview panel additions — at 60, measured as `git diff --numstat 4568f350ee65a73824efc56b2f9a524eacde71f2 -- src/components/chat-workspace.tsx | awk '{print $1-$2}'` (insertions minus deletions, not --stat's combined figure), against the baseline_sha recorded in epic-state.json (currently this command against the unmodified tree produces no output line, since HEAD equals the baseline SHA). Run this exact command after S4 lands — the last story in story_order to touch this file — and confirm the resulting net-line figure is at most 60. Also confirm the separator formatting, boundary-source resolution, whitespace-marker logic, and debounced tokenize round trip all live in src/lib/token-view.ts and its useTokenBoundaries hook, not inline in chat-workspace.tsx (cross-reference VQ-S2-002)."
+      "question": "AC-STRUCT-3 (cross-cutting, spanned by S2, S3, S4) caps the net line count added to src/components/chat-workspace.tsx by this entire epic \u2014 S2's toggle/switch/render-branch, S3's minimal wiring (if any), and S4's request-preview panel additions \u2014 at 60, measured as `git diff --numstat 4568f350ee65a73824efc56b2f9a524eacde71f2 -- src/components/chat-workspace.tsx | awk '{print $1-$2}'` (insertions minus deletions, not --stat's combined figure), against the baseline_sha recorded in epic-state.json (currently this command against the unmodified tree produces no output line, since HEAD equals the baseline SHA). Run this exact command after S4 lands \u2014 the last story in story_order to touch this file \u2014 and confirm the resulting net-line figure is at most 60. Also confirm the separator formatting, boundary-source resolution, whitespace-marker logic, and debounced tokenize round trip all live in src/lib/token-view.ts and its useTokenBoundaries hook, not inline in chat-workspace.tsx (cross-reference VQ-S2-002).",
+      "answer": {
+        "verdict": "YES",
+        "severity": 3,
+        "confidence": 1.0,
+        "root_cause_category": null,
+        "evidence": "AC-STRUCT-3 budget independently re-measured by the examiner: 28 committed (S1-S3) + 20 uncommitted (S4) = 48 of the 60-line cap on chat-workspace.tsx. All formatting, boundary-resolution, whitespace-marker and tokenize logic lives in src/lib/token-view.ts; chat-workspace.tsx carries only wiring. The two extracted components (token-view-step-content.tsx, request-preview-extras.tsx) are legitimate applications of the AC's intent, not budget circumvention.",
+        "answered_at": "2026-09-22T19:40:00Z",
+        "answered_by": "base:verification-examiner (3 parallel batches)"
+      }
+    },
+    {
+      "question_id": "VQ-S4-011",
+      "phase": "post-impl",
+      "category": "TEST",
+      "question": "toOllamaFilteredMessages (src/lib/token-view.ts) is a hand-kept mirror of server/ollama-client.ts's private toOllamaMessages, ported without the ability to import it. During implementation the first port of the tool_result branch omitted the pending-tool-call flush the real function performs before pushing the tool message (tests/unit/token-view-reconciliation.test.ts's two tool_call/tool_result fixture tests caught this \u2014 a synthetic empty-content assistant message was silently missing from the output). Confirm every one of toOllamaMessages' branches (meta skip, empty-system drop, user/assistant pendingToolCalls interaction including the asymmetric assistant-continues/user-falls-through behavior, tool_call buffering, tool_result flush, and the trailing end-of-loop flush) has a distinct test in token-view-reconciliation.test.ts, not just aggregate message-count assertions that could pass with a wrong shape.",
+      "answer": {
+        "verdict": "YES",
+        "severity": 1,
+        "confidence": 1.0,
+        "root_cause_category": null,
+        "evidence": "QUESTION PREMISE SUPERSEDED, and that is the finding. It asked about a 'hand-kept mirror'; a Stage-1 review proved that mirror diverged from the server in 3 of 5 congruence cases (system-after-pending-tool_call flush; both payload guards), violating AC-TOK-5. Remediated by EXTRACTION not patching: shared/ollama-format.ts is the single implementation, the server's two local copies (~78 lines) are deleted, and FormatStep was reused unmodified from shared/openai-format.ts (git diff on that file is empty), so no type crosses the boundary. Guarded by tests/integration/ollama-format-congruence.test.ts driving BOTH real production entry points (buildOllamaChatBody, toOllamaFilteredMessages) over all 5 cases incl. the 3 previously-divergent ones - not a test-only export. 5/5 pass.",
+        "answered_at": "2026-09-22T19:40:00Z",
+        "answered_by": "base:verification-examiner (3 parallel batches)"
+      }
+    },
+    {
+      "question_id": "VQ-S4-012",
+      "phase": "post-impl",
+      "category": "ARCHITECTURE",
+      "question": "useTokenizedMessages/useReconciliation key their tokenize cache on (message contents, cacheKeySuffix) where cacheKeySuffix is the conversation's model name, passed by RequestPreviewExtras as model?.name \u2014 the same invariant-computed-boundary-model-key discipline S3 established for useTokenBoundaries. Show the test proving a model switch while the request-preview dialog is open (identical message content under both models) discards the old model's cached token counts rather than serving them stale under the new model's label, and confirm RequestPreviewExtras actually threads a model-derived cacheKeySuffix through to both useTokenizedMessages and useReconciliation call sites, not just one of them.",
+      "answer": {
+        "verdict": "YES",
+        "severity": 4,
+        "confidence": 1.0,
+        "root_cause_category": null,
+        "evidence": "Model is in every cache key: both hooks receive model?.name as cacheKeySuffix, and the key is `${contents}\\u0001${cacheKeySuffix}` (token-view.ts:584). A model switch discards stale counts and re-tokenizes (test at token-view-reconciliation.test.ts:219-233). Rejections are EVICTED rather than cached (:257-278), so a transient failure is not permanent - matching loadVocab's discipline in server/tokenizer.ts.",
+        "answered_at": "2026-09-22T19:40:00Z",
+        "answered_by": "base:verification-examiner (3 parallel batches)"
+      }
+    },
+    {
+      "question_id": "VQ-S4-013",
+      "phase": "post-impl",
+      "category": "SPEC",
+      "ac_id": "AC-UX-6",
+      "question": "turnHasToolCall scopes its tool_call scan to the turn producing the usage-bearing assistant step (walking back only to the nearest preceding user step), not the whole conversation. Confirm a test demonstrates that an EARLIER turn's tool_call/tool_result pair does NOT make a LATER, tool-free turn's reconciliation report unavailable \u2014 i.e. reconciliation correctly becomes available again once the tool-call turn is behind the conversation, rather than being permanently poisoned by any tool use anywhere in history.",
+      "answer": {
+        "verdict": "YES",
+        "severity": 8,
+        "confidence": 1.0,
+        "root_cause_category": null,
+        "evidence": "turnHasToolCall walks back from assistantIndex and breaks at the nearest preceding `user` (token-view.ts:452-458), so the scan is turn-scoped, never conversation-scoped. Pinned by a test where an earlier tool-calling turn is followed by a tool-free turn: turnHasToolCall returns false for the later turn, so reconciliation is not permanently disabled.",
+        "answered_at": "2026-09-22T19:40:00Z",
+        "answered_by": "base:verification-examiner (3 parallel batches)"
+      }
+    },
+    {
+      "question_id": "VQ-S4-014",
+      "phase": "post-impl",
+      "category": "ARCHITECTURE",
+      "question": "RequestPreviewExtras fetches the chat template via src/lib/ollama.ts's pre-existing fetchModelMeta (POST /models/show, non-verbose), the same endpoint the model-metadata dialog already uses via handleOpenModelMeta \u2014 confirm no new server endpoint, WS message type, or llm-router.ts change was introduced for this story, and that the two call sites (model-metadata dialog vs. request-preview panel) are independent fetches with independent loading/error state, not sharing or racing on the same component state (modelMeta/modelMetaLoading/modelMetaError), since they can be triggered independently by the user in either order.",
+      "answer": {
+        "verdict": "YES",
+        "severity": 2,
+        "confidence": 1.0,
+        "root_cause_category": null,
+        "evidence": "No new endpoint: RequestPreviewExtras reuses the pre-existing fetchModelMeta (src/lib/ollama.ts:67-95, POST /models/show, non-verbose) that has existed since S1. No new WS message type and no new llm-router capability. The two call sites keep independent local state. An unresolvable model now yields a named templateError rather than a permanent 'Loading\u2026'.",
+        "answered_at": "2026-09-22T19:40:00Z",
+        "answered_by": "base:verification-examiner (3 parallel batches)"
+      }
     }
-  ]
+  ],
+  "examination_summary": {
+    "answered_at": "2026-09-22T19:40:00Z",
+    "total": 14,
+    "yes": 14,
+    "partial": 0,
+    "no": 0,
+    "escalated": [],
+    "note": "All 14 YES. VQ-S4-011's premise was superseded mid-story: the hand-kept mirror it asked about was proven to diverge in 3 of 5 congruence cases and was then eliminated by extraction into shared/ollama-format.ts rather than patched. AC-TOK-5 was verified LIVE against real qwen3:1.7b (the examiner ran it itself; the test executes rather than skipping)."
+  }
 }

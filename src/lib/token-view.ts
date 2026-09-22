@@ -15,10 +15,26 @@
  * (backend-client.tokenize() against the conversation's current model) as
  * `computedSource`, so `computed` is now reachable in production, not
  * only under test.
+ *
+ * Story S4 adds the request-preview panel's reconciliation arithmetic and
+ * outgoing-message filtering (toOllamaFilteredMessages, findLastUsageStep,
+ * turnHasToolCall, useTokenizedMessages, useReconciliation) at the bottom
+ * of this file, per AC-STRUCT-3 and the story's own notes ("keep the
+ * reconciliation arithmetic and template-lookup logic in a lib helper
+ * rather than inline in chat-workspace.tsx"). src/components/request-
+ * preview-extras.tsx is the presentational glue that calls these exports,
+ * kept out of chat-workspace.tsx for the same reason token-view-step-
+ * content.tsx was (S2): to bound that file's growth.
  */
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { ConversationStep } from "@/src/types/chat";
+// Relative (not the usual "@/..." alias): this module is also loaded
+// directly by tests/integration/*.test.ts under vitest.server.config.ts
+// (node env, reconciliation-live.test.ts's existing precedent), which has
+// no path-alias plugin configured — a value import (unlike the type-only
+// ConversationStep import above) needs to resolve at runtime there too.
+import { toOllamaMessages } from "../../shared/ollama-format";
 
 /** Token-boundary separator. U+2502 BOX DRAWINGS LIGHT VERTICAL — never ASCII '|'. */
 export const SEPARATOR = "│";
@@ -50,15 +66,9 @@ export interface TokenBoundaryResult {
 /**
  * Covers the "nothing was ever attempted" `unavailable` sub-case: no
  * `computedSource` was supplied at all, or the step carries neither
- * `contentTokens` nor any computed state yet.
- *
- * This was, until story S3, the only reachable `unavailable` sub-case —
- * no caller supplied a `computedSource` that could fail. S3 wired a real
- * one (backend-client.tokenize(), which can reject), making the "attempted
- * and errored" sub-case reachable too; that case now gets its own
- * `COMPUTED_FAILED_REASON` below instead of this message; before that
- * split, a user whose round trip ran and failed would have been told none
- * ran at all (S3-F5).
+ * `contentTokens` nor any computed state yet. Kept distinct from
+ * `COMPUTED_FAILED_REASON` below so a round trip that ran and failed is
+ * never reported as if nothing had been attempted.
  */
 export const UNAVAILABLE_REASON =
   "No token boundaries are available for this step (nothing was captured while streaming, and no computed round trip has run).";
@@ -68,7 +78,7 @@ export const UNAVAILABLE_REASON =
  * failed (the `computedSource` promise rejected — e.g. a `tokenize.error`
  * from the server, or a dropped WebSocket connection). Distinct from
  * `UNAVAILABLE_REASON` so the notice never claims nothing was attempted
- * when something was attempted and failed (S3-F5).
+ * when something was attempted and failed.
  */
 export const COMPUTED_FAILED_REASON =
   "A computed round trip for this step's tokens failed, so no boundaries are shown.";
@@ -136,7 +146,7 @@ export function resolveBoundarySource(
   if (computedState.status === "error") {
     // A round trip was actually attempted and failed — never reported as
     // UNAVAILABLE_REASON's "nothing was captured... no computed round
-    // trip has run", which would tell the user something false (S3-F5).
+    // trip has run", which would tell the user something false.
     return { source: "unavailable", tokens: [], reason: COMPUTED_FAILED_REASON };
   }
   return { source: "unavailable", tokens: [], reason: UNAVAILABLE_REASON };
@@ -160,7 +170,7 @@ export interface UseTokenBoundariesOptions {
    * `key` stays the same (step.id/content are unaffected) — without this
    * suffix in the key, the hook would keep serving a computed result
    * resolved under the OLD model while COMPUTED_NOTICE claims it was
-   * computed under the conversation's CURRENT one (S3-F3).
+   * computed under the conversation's CURRENT one.
    */
   cacheKeySuffix?: string;
 }
@@ -172,7 +182,7 @@ export interface UseTokenBoundariesOptions {
  * real production path (backend-client.tokenize(), story S3). Keys the
  * pending/resolved cache by (step.id, step.content, cacheKeySuffix) — not
  * step.id alone — so a stale in-flight request for since-mutated content,
- * or a since-invalidated `cacheKeySuffix` (e.g. a model switch, S3-F3), is
+ * or a since-invalidated `cacheKeySuffix` (e.g. a model switch), is
  * ignored on resolution rather than overwriting a newer result.
  */
 export function useTokenBoundaries(
@@ -306,7 +316,7 @@ export function formatTokenViewText(content: string, tokens: string[] | null): s
   // separator where the model actually produced two tokens. Lossy by
   // design at exactly that boundary — there is no better rendering for
   // half a character — and not an AC-UX-2 violation (that AC forbids a
-  // 1:1 element-per-token rendering, not this collapse) (S3-F15).
+  // 1:1 element-per-token rendering, not this collapse).
   const boundaryOffsets = new Set<number>();
   if (tokens !== null) {
     let cumulative = 0;
@@ -366,4 +376,317 @@ export function getBoundaryNotice(result: TokenBoundaryResult): { label: string;
     case "pending":
       return null;
   }
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// Story S4 — request-preview panel: outgoing-message filtering, chat-
+// template-overhead reconciliation.
+// ─────────────────────────────────────────────────────────────────────────
+
+/** A single outgoing message as Ollama's /api/chat would receive it. */
+export interface OllamaMessage {
+  role: "system" | "user" | "assistant" | "tool";
+  content: string;
+}
+
+/**
+ * Filters `steps` exactly as `toOllamaMessages` filters them
+ * (AC-TOK-5) — delegates to the single shared implementation in
+ * `shared/ollama-format.ts`, consumed identically by
+ * server/ollama-client.ts's `buildOllamaChatBody`. Before this delegated
+ * to a shared implementation, this was a hand-kept mirror of the
+ * server's private function; the two drifted on three points (a pending
+ * tool call surviving a following non-empty `system` step, and the
+ * `toolCall`/`toolResult` payload guards). Only
+ * `role`/`content` are surfaced here (tool-call argument payloads are
+ * irrelevant to token counting and to AC-UX-5's │-separated content
+ * rendering); `shared/ollama-format.ts`'s `tool_calls`/`tool_name`
+ * fields are dropped.
+ *
+ * This is the ONLY place S4's reconciliation and request-preview
+ * rendering may derive their message list from (Implementation
+ * Constraint 5) — never `requestJsonPreview`, which is built by
+ * `buildOpenAIRequestBody`/`toOpenAIMessages` and filters differently.
+ */
+export function toOllamaFilteredMessages(steps: ConversationStep[]): OllamaMessage[] {
+  return toOllamaMessages(steps).map(({ role, content }) => ({ role, content }));
+}
+
+/**
+ * Locates the reconciliation oracle: the LAST step reporting
+ * `usage.inputTokens` (Ollama's `prompt_eval_count`) — "last" because every
+ * completed request stamps usage on its assistant step, so the most recent
+ * one closes the most recently completed request. A tool-loop turn's
+ * intermediate iterations *usually* lack it (their empty-content assistant
+ * step is dropped by compactSteps), but not always: a model that emits both
+ * content and a tool call stamps usage on that step too, so "intermediate
+ * steps never carry usage" would be the wrong reason to rely on. Returns
+ * null when nothing in the conversation has ever reported usage (nothing to
+ * reconcile against yet).
+ */
+export function findLastUsageStep(
+  steps: ConversationStep[]
+): { index: number; promptEvalCount: number } | null {
+  for (let i = steps.length - 1; i >= 0; i--) {
+    const inputTokens = steps[i].usage?.inputTokens;
+    if (steps[i].kind === "assistant" && inputTokens != null) {
+      return { index: i, promptEvalCount: inputTokens };
+    }
+  }
+  return null;
+}
+
+/**
+ * True when the turn that produced `steps[assistantIndex]` contains a
+ * tool call — walking backward from `assistantIndex` to (and including)
+ * the nearest preceding `user` step, or to the start of the
+ * conversation. Per AC-UX-6/Implementation Constraint 4: a tool-loop
+ * turn's usage describes only the last of several requests, so
+ * reconciliation must not be attempted for it. Scoped to the turn, not
+ * the whole conversation — an EARLIER turn's tool calls don't invalidate
+ * a LATER, tool-free turn's reconciliation.
+ *
+ * Two step shapes carry a tool call, and both are checked:
+ * - the legacy standalone `kind === "tool_call"` step, still produced by
+ *   tour/example conversations built directly from provider deltas;
+ * - the shape the live server actually persists (`ws-handler.ts`'s
+ *   loop merges every `tool_call` step into the turn's `assistant` step
+ *   as `assistant.toolCalls[]`, per architecture.md's Implementation
+ *   Constraint 4 "mints a synthetic replacement carrying `toolCalls`").
+ *   A `tool_result` step is also treated as sufficient, since one is
+ *   only ever persisted after a tool call.
+ */
+export function turnHasToolCall(steps: ConversationStep[], assistantIndex: number): boolean {
+  for (let i = assistantIndex; i >= 0; i--) {
+    const step = steps[i];
+    if (step.kind === "tool_call") return true;
+    if (step.kind === "tool_result") return true;
+    if (step.kind === "assistant" && step.toolCalls && step.toolCalls.length > 0) return true;
+    if (step.kind === "user") break;
+  }
+  return false;
+}
+
+/** AC-UX-6's exact label for the computed/reported difference — never "mismatch", "error", or "warning". */
+export const TEMPLATE_OVERHEAD_LABEL = "chat-template overhead";
+
+export const RECONCILIATION_TOOL_CALL_REASON =
+  "This turn's completion used tool calls, so its reported usage covers only the final request in the tool-call loop — content-token reconciliation is unavailable for it.";
+
+/**
+ * Reason surfaced when a tokenize round trip for the reconciliation
+ * readout was actually attempted and failed (mirrors
+ * `COMPUTED_FAILED_REASON`'s wording/discipline): distinct
+ * from leaving `status: "pending"` forever, which would tell the user
+ * nothing rather than naming what happened.
+ */
+export const RECONCILIATION_FAILED_REASON =
+  "A computed round trip for this turn's messages failed, so reconciliation could not run.";
+
+/**
+ * Reason surfaced when the outgoing-message list's tokenize round trip
+ * failed: the │ separators are silently absent from
+ * `formatTokenViewText`'s unseparated fallback otherwise, with no
+ * indication anything was attempted (AC-ERR-1's discipline).
+ */
+export const OUTGOING_MESSAGES_FAILED_REASON =
+  "A computed round trip for these messages' token boundaries failed, so they are shown without │ separators.";
+
+export interface ReconciliationState {
+  status: "none" | "unavailable" | "pending" | "ready" | "error";
+  /** Set only when status === "unavailable" or "error". */
+  reason?: string;
+  contentTokenCount?: number;
+  promptEvalCount?: number;
+  /** contentTokenCount subtracted from promptEvalCount — the chat-template overhead. */
+  overhead?: number;
+}
+
+/**
+ * Per-(cacheKeySuffix, content) tokenize memo, shared across multiple
+ * `useTokenizedMessages` instances that may request overlapping message
+ * lists: `RequestPreviewExtras` tokenizes the full outgoing list
+ * AND (via `useReconciliation`) the preceding-turn prefix of that same
+ * list, so without a shared cache the overlapping messages are tokenized
+ * twice — two hook instances, two independent caches, ~2N round trips on
+ * dialog open. Callers create one instance (e.g. `useRef(new Map())`)
+ * per panel-open lifetime and pass it to every `useTokenizedMessages`/
+ * `useReconciliation` call that may share message content; an omitted
+ * cache falls back to a hook-local one (no sharing, prior behavior).
+ */
+export type TokenizeCache = Map<
+  string,
+  { status: "pending" | "resolved" | "error"; promise: Promise<string[]>; tokens?: string[] }
+>;
+
+function tokenizeCached(
+  cache: TokenizeCache,
+  cacheKeySuffix: string,
+  content: string,
+  tokenizeText: (text: string) => Promise<string[]>
+): Promise<string[]> {
+  if (!content) return Promise.resolve([]);
+  const key = `${cacheKeySuffix}\u0000${content}`;
+  const existing = cache.get(key);
+  if (existing) return existing.promise;
+  const promise = tokenizeText(content).then(
+    (tokens) => {
+      cache.set(key, { status: "resolved", promise, tokens });
+      return tokens;
+    },
+    (err) => {
+      // Evict rather than cache the rejection: a transient failure (dropped
+      // socket, tokenize.error, "no active model") must not be permanent for
+      // this (model, content) pair. Mirrors loadVocab's failure-path eviction
+      // in server/tokenizer.ts. Retry storms are prevented at the hook level
+      // by `failedKey`, not by a poisoned cache entry.
+      cache.delete(key);
+      throw err;
+    }
+  );
+  cache.set(key, { status: "pending", promise });
+  return promise;
+}
+
+export interface UseTokenizedMessagesResult {
+  messages: Array<OllamaMessage & { tokens: string[] | null }>;
+  /**
+   * True once the round trip for the CURRENT key has been attempted and
+   * failed. Stays true until `key` changes (message contents or
+   * `cacheKeySuffix`); never retried automatically. The stickiness
+   * is hook-level only — the shared cache EVICTS a rejection rather than
+   * storing it, so a later key change genuinely retries.
+   */
+  failed: boolean;
+}
+
+/**
+ * Tokenizes a fixed list of outgoing messages via `tokenizeText` and
+ * caches the result. Keyed on (message contents, `cacheKeySuffix`) rather
+ * than message contents alone — mirrors `useTokenBoundaries`'
+ * invariant-computed-boundary-model-key discipline (S3): without the
+ * model in the key, switching models while the panel is open would keep
+ * serving tokens computed under the OLD model against content that looks
+ * unchanged. `active` gates the round trip so it only fires while the
+ * panel showing it is actually open.
+ *
+ * Debounced by `COMPUTED_SOURCE_DEBOUNCE_MS`, same as `useTokenBoundaries`
+ * — opening the request-preview dialog mounts this hook (plus, via
+ * `useReconciliation`, a second instance) immediately, and without a
+ * debounce that fires the tokenize round trip(s) with no coalescing.
+ * `tokenizeText` is read through a ref rather than placed in the fetch
+ * effect's dependency array (mirrors `useTokenBoundaries`'
+ * `computedSourceRef`) — the effect is keyed on `[key, active]`
+ * only. PRECONDITION this hook shares with `useTokenBoundaries`:
+ * `tokenizeText` need not itself be referentially stable (the ref absorbs
+ * a fresh lambda every render) — but the caller must not rely on a change
+ * in `tokenizeText`'s behavior alone (with `key`/`active` unchanged) to
+ * re-fire the round trip, since it won't.
+ */
+export function useTokenizedMessages(
+  messages: OllamaMessage[],
+  tokenizeText: ((text: string) => Promise<string[]>) | undefined,
+  active: boolean,
+  cacheKeySuffix?: string,
+  sharedCache?: TokenizeCache
+): UseTokenizedMessagesResult {
+  const key = active
+    ? `${messages.map((m) => m.content).join("\u0000")}\u0001${cacheKeySuffix ?? ""}`
+    : null;
+  const [state, setState] = useState<{ key: string; tokens: string[][] } | null>(null);
+  const [failedKey, setFailedKey] = useState<string | null>(null);
+
+  const tokenizeTextRef = useRef(tokenizeText);
+  useEffect(() => {
+    tokenizeTextRef.current = tokenizeText;
+  });
+
+  const localCacheRef = useRef<TokenizeCache | null>(null);
+  if (!sharedCache && !localCacheRef.current) localCacheRef.current = new Map();
+  const cache = sharedCache ?? localCacheRef.current!;
+
+  useEffect(() => {
+    if (!active || messages.length === 0) return;
+    const source = tokenizeTextRef.current;
+    if (!source) return;
+
+    let cancelled = false;
+    const timer = setTimeout(() => {
+      Promise.all(messages.map((m) => tokenizeCached(cache, cacheKeySuffix ?? "", m.content, source)))
+        .then((tokens) => {
+          if (cancelled) return;
+          setState({ key: key!, tokens });
+        })
+        .catch(() => {
+          if (cancelled) return;
+          setFailedKey(key);
+        });
+    }, COMPUTED_SOURCE_DEBOUNCE_MS);
+
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [key, active]);
+
+  const resolved = state?.key === key ? state.tokens : null;
+  return {
+    messages: messages.map((m, i) => ({ ...m, tokens: resolved ? resolved[i] : null })),
+    // `key` is null while inactive, and `failedKey` starts null — without the
+    // null guard `failed` reads true on every inactive render, flashing the
+    // failure notice through MUI's dialog exit transition.
+    failed: key !== null && failedKey === key,
+  };
+}
+
+/**
+ * AC-UX-6/AC-TOK-5's reconciliation readout. Computes the content-token
+ * count from `steps[0..i)` — `i` being the index of the last step to
+ * report usage — filtered via `toOllamaFilteredMessages` (never
+ * `requestJsonPreview`), tokenized via `tokenizeText`, and compares the
+ * total against that usage's `promptEvalCount`. Reports `unavailable`
+ * with a named reason for any tool-loop turn (Implementation
+ * Constraint 4) without attempting partial reconciliation, and `error`
+ * with `RECONCILIATION_FAILED_REASON` when the tokenize round trip itself
+ * failed rather than leaving the panel on `pending` forever.
+ *
+ * `sharedCache`, when supplied, is forwarded to the internal
+ * `useTokenizedMessages` call so a caller that also tokenizes the full
+ * outgoing-message list (a superset, in the common case) can dedupe the
+ * overlapping round trips — see `TokenizeCache`'s docstring.
+ */
+export function useReconciliation(
+  steps: ConversationStep[],
+  tokenizeText: ((text: string) => Promise<string[]>) | undefined,
+  active: boolean,
+  cacheKeySuffix?: string,
+  sharedCache?: TokenizeCache
+): ReconciliationState {
+  const target = useMemo(() => findLastUsageStep(steps), [steps]);
+  const toolCallTurn = target ? turnHasToolCall(steps, target.index) : false;
+  const precedingMessages = useMemo(
+    () => (target && !toolCallTurn ? toOllamaFilteredMessages(steps.slice(0, target.index)) : []),
+    [steps, target, toolCallTurn]
+  );
+  const { messages: tokenized, failed } = useTokenizedMessages(
+    precedingMessages,
+    tokenizeText,
+    active && !!target && !toolCallTurn,
+    cacheKeySuffix,
+    sharedCache
+  );
+
+  if (!active || !target) return { status: "none" };
+  if (toolCallTurn) return { status: "unavailable", reason: RECONCILIATION_TOOL_CALL_REASON };
+  if (failed) return { status: "error", reason: RECONCILIATION_FAILED_REASON };
+  if (tokenized.some((m) => m.tokens === null)) return { status: "pending" };
+
+  const contentTokenCount = tokenized.reduce((sum, m) => sum + (m.tokens?.length ?? 0), 0);
+  return {
+    status: "ready",
+    contentTokenCount,
+    promptEvalCount: target.promptEvalCount,
+    overhead: target.promptEvalCount - contentTokenCount,
+  };
 }

@@ -29,9 +29,11 @@ import {
   tokenizeWithVocab,
   decodeTokenIds,
   loadVocab,
+  bpeMerge,
   __resetVocabCacheForTests,
   __preTokenizeForTests,
   VocabUnavailableError,
+  type VocabTable,
 } from "../../server/tokenizer.js";
 import { checkLiveGate, tokenizerLiveOllamaUrl } from "./tokenizer-live-gate.js";
 
@@ -83,6 +85,12 @@ describe("AC-DEP-1: vocab/merges come only from a live POST /show (verbose)", ()
     expect(fetchSpy).toHaveBeenCalledTimes(1);
     const [url, init] = fetchSpy.mock.calls[0];
     expect(url).toBe(`${BASE_URL}/show`);
+    // The whole request shape is the contract with Ollama, not just the
+    // body: /show is a JSON POST. A request that omits the method or the
+    // Content-Type is not a request this AC describes, even though a
+    // permissive stub (or a permissive server) would still answer it.
+    expect((init as RequestInit).method).toBe("POST");
+    expect((init as RequestInit).headers).toEqual({ "Content-Type": "application/json" });
     const body = JSON.parse((init as RequestInit).body as string);
     expect(body).toEqual({ model: MODEL, verbose: true });
   });
@@ -399,6 +407,19 @@ describe("S3-D2 (fixture-independent): shape-based special-token fallback when t
     const result = await tokenize(BASE_URL, MODEL, "<|im_start|>Hello<|im_end|>");
     expect(result.tokens[0]).toBe("<|im_start|>");
     expect(result.tokens[result.tokens.length - 1]).toBe("<|im_end|>");
+
+    // The two assertions above hold under BOTH branches (a wrongly-sized
+    // token_type array still classifies <|im_start|>/<|im_end|> as
+    // CONTROL), so on their own they cannot tell whether the length guard
+    // fired at all. "<think>" is the discriminator: it is CONTROL in the
+    // array but not <|...|>-shaped, so it survives as one element only if
+    // the array was trusted. A guard that accepted the mismatched array
+    // would keep it whole here. (No cache reset: this reuses the very
+    // table built above, so it cannot accidentally be answered by a
+    // differently-built one.)
+    const thinkResult = await tokenize(BASE_URL, MODEL, "<think>Hello</think>");
+    expect(thinkResult.tokens.filter((t) => t === "<think>")).toHaveLength(0);
+    expect(thinkResult.tokens.join("")).toBe("<think>Hello</think>");
   });
 });
 
@@ -660,3 +681,443 @@ describe("AC-TOK-6: tokens.join('') === s for arbitrary well-formed unicode", ()
     }
   });
 });
+
+// ── Gate-remediation additions (mutation survivor closure) ──────────
+//
+// The pre-ship mutation gate scored server/tokenizer.ts at 0.671 (186
+// killed / 74 survived / 17 no-coverage) and deliberately DEFERRED
+// classification of every survivor rather than shipping on an unaudited
+// list. The describe blocks below close the classified real gaps: direct
+// `bpeMerge` unit tests (it is exported specifically to be testable this
+// way, but had zero direct coverage before this pass -- only indirect
+// exercise through real vocab data, which never produces the tie/
+// collision/mismatch shapes constructed here), special-token matching
+// edge cases, and the LRU's recency/boundary/identity-guard invariants.
+
+describe("bpeMerge (direct): rank selection, tie-breaking, and matching precision", () => {
+  it("merges the lowest-rank adjacent pair first, not the first-found or a higher-rank one", () => {
+    // (b,c) has the lower (better) rank even though (a,b) is encountered
+    // first in word order -- the selection must scan for the true minimum
+    // rank across ALL current pairs, not just take the first ranked one.
+    const mergeRank = new Map([
+      ["a\u0000b", 5],
+      ["b\u0000c", 1],
+    ]);
+    expect(bpeMerge(["a", "b", "c"], mergeRank)).toEqual(["a", "bc"]);
+  });
+
+  it("resolves an equal-rank tie deterministically: the leftmost pair in word order wins", () => {
+    // (a,b) and (b,c) overlap (share "b") and are deliberately given the
+    // SAME rank -- only one can win this round. Insertion order into the
+    // `pairs` map follows word position, so a correct strict "<" comparison
+    // keeps the first-inserted (leftmost) entry; a "<=" bug would let the
+    // later-inserted (b,c) overwrite it instead, producing ["a","bc"].
+    const mergeRank = new Map([
+      ["a\u0000b", 0],
+      ["b\u0000c", 0],
+    ]);
+    expect(bpeMerge(["a", "b", "c"], mergeRank)).toEqual(["ab", "c"]);
+  });
+
+  it("PAIR_SEP prevents two differently-split adjacent pairs from colliding on the same map key", () => {
+    // Without a separator between the pair's two components, position 0
+    // ("ab","c" -> "ab"+"c") and position 2 ("a","bc" -> "a"+"bc") would
+    // both stringify to the literal key "abc", silently colliding in the
+    // `pairs` map and losing the position-0 entry. mergeRank here only
+    // ranks the position-2 pair (correctly keyed "a\u0000bc"), so a
+    // collision would leave nothing matched at all.
+    const mergeRank = new Map([["a\u0000bc", 0]]);
+    expect(bpeMerge(["ab", "c", "a", "bc"], mergeRank)).toEqual(["ab", "c", "abc"]);
+  });
+
+  it("does not merge a repeated `first` occurrence that isn't actually followed by `second`", () => {
+    // word[0] is "a" (matches `first`) but is followed by another "a", not
+    // "b" -- must NOT merge into a fabricated "ab" at that position. Only
+    // the real (a,b) pair at position 1 may merge.
+    const mergeRank = new Map([["a\u0000b", 0]]);
+    expect(bpeMerge(["a", "a", "b"], mergeRank)).toEqual(["a", "ab"]);
+  });
+
+  it("returns the word unchanged when no pair in it has a rank (loop terminates without over- or under-merging)", () => {
+    expect(bpeMerge(["p", "q", "r"], new Map())).toEqual(["p", "q", "r"]);
+  });
+
+  it("skips a malformed (single-word, no space) merges line without polluting mergeRank with a bogus entry", async () => {
+    const mutated = JSON.parse(VOCAB_JSON);
+    const merges: string[] = mutated.model_info["tokenizer.ggml.merges"];
+    const originalCount = merges.length;
+    merges.push("onlyoneword");
+    mockShow(JSON.stringify(mutated));
+
+    const vocab = await loadVocab(BASE_URL, MODEL);
+    expect(vocab.mergeRank.size).toBe(originalCount);
+    expect(vocab.mergeRank.has("onlyoneword\u0000undefined")).toBe(false);
+  });
+});
+
+describe("special-token matching: longest-match, vocab-membership, and malformed VocabTable guards", () => {
+  beforeEach(() => mockShow());
+
+  it("longest-match wins when one special token is a literal prefix of another", async () => {
+    const mutated = JSON.parse(VOCAB_JSON);
+    const tokens: string[] = mutated.model_info["tokenizer.ggml.tokens"];
+    const tokenType: number[] = mutated.model_info["tokenizer.ggml.token_type"];
+    tokens.push("<|a|>");
+    tokenType.push(3); // CONTROL
+    const longId = tokens.length;
+    tokens.push("<|a|>x");
+    tokenType.push(3);
+    mockShow(JSON.stringify(mutated));
+
+    const result = await tokenize(BASE_URL, MODEL, "<|a|>x");
+    // If the shorter "<|a|>" were matched first (unsorted/no-sort bug), this
+    // would split into two elements instead of the one longest match.
+    expect(result.tokens).toEqual(["<|a|>x"]);
+    expect(result.tokenIds).toEqual([longId]);
+  });
+
+  it("a <|...|>-shaped string absent from the vocab's special tokens is tokenized as ordinary text, not matched verbatim", async () => {
+    const result = await tokenize(BASE_URL, MODEL, "<|not_a_real_special_token|>");
+    expect(result.tokens).not.toContain("<|not_a_real_special_token|>");
+    expect(result.tokens.length).toBeGreaterThan(1);
+    expect(result.tokens.join("")).toBe("<|not_a_real_special_token|>");
+  });
+
+  it("tokenizeWithVocab throws when specialTokenSet names a string absent from tokenToId (malformed VocabTable)", () => {
+    const fakeVocab: VocabTable = {
+      tokens: ["a"],
+      tokenToId: new Map([["a", 0]]),
+      mergeRank: new Map(),
+      pre: "qwen2",
+      specialTokens: ["<|fake|>"],
+      specialTokenSet: new Set(["<|fake|>"]),
+    };
+    expect(() => tokenizeWithVocab(fakeVocab, "<|fake|>")).toThrow(
+      /special token missing from vocab\.tokenToId/
+    );
+  });
+
+  it("tokenizeWithVocab throws when BPE produces a symbol absent from the vocabulary", () => {
+    const emptyVocab: VocabTable = {
+      tokens: [],
+      tokenToId: new Map(),
+      mergeRank: new Map(),
+      pre: "qwen2",
+      specialTokens: [],
+      specialTokenSet: new Set(),
+    };
+    expect(() => tokenizeWithVocab(emptyVocab, "x")).toThrow(
+      /BPE produced a symbol absent from the vocabulary/
+    );
+  });
+
+  it("decodeTokenIds throws for a vocab entry containing a character outside the byte alphabet", () => {
+    const corruptVocab: VocabTable = {
+      tokens: ["😀"],
+      tokenToId: new Map([["😀", 0]]),
+      mergeRank: new Map(),
+      pre: "qwen2",
+      specialTokens: [],
+      specialTokenSet: new Set(),
+    };
+    expect(() => decodeTokenIds(corruptVocab, [0])).toThrow(
+      /byte-decode: character not in the byte alphabet/
+    );
+  });
+
+  it("__preTokenizeForTests('') returns [] (the empty-input guard, unreachable via tokenize() itself since upstream special-token splitting already filters out empty segments)", () => {
+    expect(__preTokenizeForTests("")).toEqual([]);
+  });
+});
+
+describe("LRU: capacity boundary, recency promotion (not insertion order), and identity-guarded cleanup", () => {
+  it("loading exactly VOCAB_CACHE_MAX_ENTRIES (3) distinct keys causes zero eviction", async () => {
+    // Each loadVocab call here fetches for a DIFFERENT key, so (unlike
+    // mockShow's single shared Response) fetch must produce a fresh
+    // Response per call -- a Response body can only be read once.
+    const fetchSpy = vi
+      .spyOn(globalThis, "fetch")
+      .mockImplementation(async () => new Response(VOCAB_JSON, { status: 200 }));
+    await loadVocab(BASE_URL, "model-x");
+    await loadVocab(BASE_URL, "model-y");
+    await loadVocab(BASE_URL, "model-z");
+
+    // All three remain cached -- reloading any of them attaches without a
+    // new fetch, proving none was prematurely evicted merely for sitting
+    // exactly at (not over) capacity.
+    await loadVocab(BASE_URL, "model-x");
+    await loadVocab(BASE_URL, "model-y");
+    await loadVocab(BASE_URL, "model-z");
+    expect(fetchSpy).toHaveBeenCalledTimes(3);
+  });
+
+  it("evicts by recency, not insertion order: re-touching the oldest entry protects it from eviction", async () => {
+    const fetchSpy = vi
+      .spyOn(globalThis, "fetch")
+      .mockImplementation(async () => new Response(VOCAB_JSON, { status: 200 }));
+    await loadVocab(BASE_URL, "model-a"); // oldest by insertion
+    await loadVocab(BASE_URL, "model-b");
+    await loadVocab(BASE_URL, "model-c");
+    expect(fetchSpy).toHaveBeenCalledTimes(3);
+
+    // Touching "a" again promotes it to most-recently-used. Under a naive
+    // insertion-order LRU (ignoring recency), "a" would still be the next
+    // eviction target regardless of this touch.
+    await loadVocab(BASE_URL, "model-a");
+    expect(fetchSpy).toHaveBeenCalledTimes(3);
+
+    // A 4th distinct key exceeds capacity; recency-based eviction must now
+    // target "b" (now the least-recently-used), not "a".
+    await loadVocab(BASE_URL, "model-d");
+    expect(fetchSpy).toHaveBeenCalledTimes(4);
+
+    // "a" survived eviction -> attaching to it issues no new fetch.
+    await loadVocab(BASE_URL, "model-a");
+    expect(fetchSpy).toHaveBeenCalledTimes(4);
+
+    // "b" was the one actually evicted -> reloading it issues a fresh fetch.
+    await loadVocab(BASE_URL, "model-b");
+    expect(fetchSpy).toHaveBeenCalledTimes(5);
+  });
+
+  it("a stale rejection's cleanup never deletes a newer promise registered under the same key (identity guard, S3-R2)", async () => {
+    let rejectFirst!: (e: unknown) => void;
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockImplementationOnce(
+      () => new Promise((_resolve, reject) => { rejectFirst = reject; })
+    );
+
+    const p1 = loadVocab(BASE_URL, MODEL); // in flight, will reject later
+    p1.catch(() => {}); // this handle is deliberately abandoned below
+
+    // Simulate the cache being cleared and a NEW promise registered under
+    // the identical key BEFORE the first promise's rejection cleanup runs.
+    __resetVocabCacheForTests();
+    fetchSpy.mockResolvedValueOnce(new Response(VOCAB_JSON, { status: 200 }));
+    const p2 = loadVocab(BASE_URL, MODEL);
+
+    rejectFirst(new Error("stale failure"));
+    await expect(p1).rejects.toThrow();
+    await p2;
+
+    // If the identity guard were broken (deleting by key alone), p1's
+    // cleanup would have deleted p2's live entry too, forcing an
+    // unnecessary third fetch here.
+    await loadVocab(BASE_URL, MODEL);
+    expect(fetchSpy).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe("fetchVocab: response-shape validation not exercised by the existing malformed-model_info suite", () => {
+  it("throws VocabUnavailableError on a non-ok HTTP status, not just on a malformed 200 body", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response("server error", { status: 500 }));
+    await expect(tokenize(BASE_URL, MODEL, "hi")).rejects.toThrow(VocabUnavailableError);
+  });
+
+  it("throws VocabUnavailableError (not a raw TypeError) when model_info is absent from the response body entirely", async () => {
+    mockShow(JSON.stringify({}));
+    await expect(tokenize(BASE_URL, MODEL, "hi")).rejects.toThrow(VocabUnavailableError);
+  });
+});
+
+// ── Second gate-remediation pass (mutation survivor closure, round 2) ──
+//
+// The first remediation pass lifted server/tokenizer.ts from 0.671 to
+// 0.799, leaving a survivor set whose real gaps all share one shape: a
+// test asserts an outcome that BOTH the correct branch and the mutated
+// branch produce, so the branch itself is never pinned. Each block below
+// adds the discriminating assertion rather than a second test of the
+// same outcome.
+
+describe("AC-TOK-3: special-token detection matches a vocab entry's whole text, never a substring of it", () => {
+  // Reachable only through the shape-based fallback (token_type absent),
+  // which is the one detector that inspects an entry's TEXT rather than
+  // the model's own classification. A vocabulary legitimately contains
+  // ordinary entries that begin or end with the control-token
+  // delimiters; treating one of those as a control token would make a
+  // chat transcript's ordinary text silently un-splittable, and would
+  // hand the boundary view a token the model never emits as one unit.
+  it("does not treat a vocab entry that merely starts or ends with the <|...|> delimiters as a special token", async () => {
+    const mutated = JSON.parse(VOCAB_JSON);
+    const tokens: string[] = mutated.model_info["tokenizer.ggml.tokens"];
+    delete mutated.model_info["tokenizer.ggml.token_type"];
+    // "pre<|q|>" ends with the closing delimiter but does not start with
+    // the opening one; "<|q|>post" is its mirror image. Only an entry
+    // that is EXACTLY <|...|>-shaped may be matched verbatim.
+    tokens.push("pre<|q|>");
+    tokens.push("<|q|>post");
+    mockShow(JSON.stringify(mutated));
+
+    for (const text of ["pre<|q|>", "<|q|>post"]) {
+      __resetVocabCacheForTests();
+      mockShow(JSON.stringify(mutated));
+      const result = await tokenize(BASE_URL, MODEL, text);
+      expect(result.tokens.filter((t) => t === text)).toHaveLength(0);
+      expect(result.tokens.length).toBeGreaterThan(1);
+      expect(result.tokens.join("")).toBe(text);
+    }
+  });
+});
+
+describe("AC-TOK-7: tokenizing ordinary text does not depend on the vocabulary declaring any special tokens", () => {
+  it("produces the golden segmentation for a vocabulary whose entries are all ordinary", async () => {
+    // A vocabulary with zero special tokens is a legitimate shape (a base
+    // model with no chat-control vocabulary), and ordinary text must
+    // tokenize identically in it. Serving the real fixture with every
+    // entry reclassified NORMAL isolates the "no special tokens at all"
+    // path, which every other test in this suite skips past because the
+    // fixture always declares control tokens.
+    const mutated = JSON.parse(VOCAB_JSON);
+    const tokens: string[] = mutated.model_info["tokenizer.ggml.tokens"];
+    mutated.model_info["tokenizer.ggml.token_type"] = new Array(tokens.length).fill(1);
+    mockShow(JSON.stringify(mutated));
+
+    const result = await tokenize(BASE_URL, MODEL, "Hello world");
+    expect(result.tokenIds).toEqual(GOLDENS["Hello world"]);
+    expect(result.tokens.join("")).toBe("Hello world");
+  });
+});
+
+describe("AC-TOK-7: bpeMerge only ever merges two symbols that are genuinely adjacent within the word", () => {
+  it("ignores a merge rule whose pair would have to run past the end of the word", () => {
+    // A merge table is data from the model, so nothing stops it from
+    // containing a rule this word cannot satisfy. Ranking a pair whose
+    // second half sits beyond the final symbol must not fabricate a
+    // merge -- the pair simply does not occur in this word.
+    const mergeRank = new Map([
+      ["b\u0000undefined", 0],
+      ["undefined\u0000undefined", 1],
+    ]);
+    expect(bpeMerge(["a", "b"], mergeRank)).toEqual(["a", "b"]);
+  });
+});
+
+describe("AC-PERF-1: the one-request-per-(baseUrl, model) guarantee survives eviction in any recency order", () => {
+  it("evicts a settled entry even when the least-recently-used entry is the one still in flight", async () => {
+    // Mirror image of the existing S3-R2 test, which loads its settled
+    // entries FIRST -- there, "evict the oldest" and "evict the oldest
+    // SETTLED one" happen to name the same entry, so that test cannot
+    // tell them apart. Here the in-flight entry is the oldest, so a
+    // policy that evicts the first candidate it walks past would drop it
+    // and a later caller for that model would race a second /show,
+    // breaking AC-PERF-1 for that pair.
+    const resolvers: Array<(r: Response) => void> = [];
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockImplementation(
+      () => new Promise<Response>((resolve) => { resolvers.push(resolve); })
+    );
+
+    // Oldest entry, deliberately left in flight for the whole test.
+    const pStuck = loadVocab(BASE_URL, "model-stuck");
+
+    const pA = loadVocab(BASE_URL, "model-a");
+    resolvers[1](new Response(VOCAB_JSON, { status: 200 }));
+    await pA;
+
+    const pB = loadVocab(BASE_URL, "model-b");
+    resolvers[2](new Response(VOCAB_JSON, { status: 200 }));
+    await pB;
+
+    // Fourth key exceeds the cap and forces an eviction.
+    const pC = loadVocab(BASE_URL, "model-c");
+    resolvers[3](new Response(VOCAB_JSON, { status: 200 }));
+    await pC;
+    expect(fetchSpy).toHaveBeenCalledTimes(4);
+
+    // The in-flight entry must have survived: its caller attaches to the
+    // same promise, with no second request for that model.
+    const pStuckAgain = loadVocab(BASE_URL, "model-stuck");
+    expect(fetchSpy).toHaveBeenCalledTimes(4);
+    resolvers[0](new Response(VOCAB_JSON, { status: 200 }));
+    expect(await pStuckAgain).toBe(await pStuck);
+
+    // "model-a" was the settled entry that got evicted in its place.
+    const pA2 = loadVocab(BASE_URL, "model-a");
+    expect(fetchSpy).toHaveBeenCalledTimes(5);
+    resolvers[4](new Response(VOCAB_JSON, { status: 200 }));
+    await pA2;
+  });
+});
+
+describe("AC-ERR-2: each way a /show response can be unusable is reported distinguishably", () => {
+  // Every case here previously asserted only `rejects.toThrow(
+  // VocabUnavailableError)`. That assertion is satisfied by ANY of the
+  // module's failure paths, so a response missing only `merges` could be
+  // reported as "unsupported pre" -- or the missing-fields check could be
+  // deleted outright and the unsupported-pre check would still produce a
+  // VocabUnavailableError, passing the test while telling the operator
+  // the wrong thing. AC-ERR-2 is about a caller being able to act on the
+  // reason, so the reason text is part of the contract.
+
+  it("names the error class on the error itself, so a consumer matching on .name behaves like one matching on instanceof", async () => {
+    vi.spyOn(globalThis, "fetch").mockRejectedValue(new Error("ECONNREFUSED"));
+    await expect(tokenize(BASE_URL, MODEL, "hi")).rejects.toMatchObject({
+      name: "VocabUnavailableError",
+    });
+  });
+
+  it("reports an unreachable host as a failed request, quoting the model and the underlying cause", async () => {
+    vi.spyOn(globalThis, "fetch").mockRejectedValue(new Error("ECONNREFUSED"));
+    await expect(tokenize(BASE_URL, MODEL, "hi")).rejects.toThrow(
+      /\/show request failed for model "qwen3:1\.7b".*ECONNREFUSED/
+    );
+  });
+
+  it("reports a non-ok HTTP status as such, quoting the status code rather than the body", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response("server error", { status: 503 }));
+    await expect(tokenize(BASE_URL, MODEL, "hi")).rejects.toThrow(
+      /\/show failed for model "qwen3:1\.7b": 503/
+    );
+  });
+
+  it.each([
+    ["tokenizer.ggml.tokens"],
+    ["tokenizer.ggml.merges"],
+    ["tokenizer.ggml.pre"],
+  ])("reports a response missing only %s as a missing-field failure, not as an unsupported pre-tokenizer", async (field) => {
+    const mutated = JSON.parse(VOCAB_JSON);
+    delete mutated.model_info[field];
+    mockShow(JSON.stringify(mutated));
+
+    await expect(tokenize(BASE_URL, MODEL, "hi")).rejects.toThrow(
+      /is missing tokenizer\.ggml\.tokens\/merges\/pre in model_info/
+    );
+  });
+
+  it("reports a pre-tokenizer this module does not implement by naming the value it got and the one it supports", async () => {
+    const bad = JSON.parse(VOCAB_JSON);
+    bad.model_info["tokenizer.ggml.pre"] = "llama3";
+    mockShow(JSON.stringify(bad));
+
+    await expect(tokenize(BASE_URL, "some-llama-model", "hi")).rejects.toThrow(
+      /Unsupported tokenizer\.ggml\.pre "llama3" for model "some-llama-model" — only "qwen2" is implemented/
+    );
+  });
+});
+
+// ── Residual survivors after this pass: all EQUIVALENT, do not chase ──
+//
+// server/tokenizer.ts scores 258/298 (235 killed + 23 timeout) with 40
+// live mutants, and every one of them is equivalent rather than an
+// assertion gap. Recorded here so the next audit does not re-derive it:
+//
+//   * buildByteToUnicode()/BYTE_TO_UNICODE/UNICODE_TO_BYTE (15 mutants,
+//     L42-L68) are STATIC: Stryker's own report flags them `static:
+//     true`. The vitest runner imports the module once and activates
+//     mutants per test afterwards, so a module-level initializer's
+//     mutants never actually run -- including `BlockStatement -> {}` on
+//     the builder, which would make the import throw. No test can kill
+//     these; only `ignoreStatic: true` removes them from the score.
+//   * The redundant halves of defensive guards: `preTokenize`'s
+//     empty-string early return (`"".match(re) ?? []` is already `[]`),
+//     `bpeMerge`'s `pairs.size === 0` and `word.length === 1` early
+//     exits (the loop terminates identically without them), its
+//     `rank !== undefined` conjunct (`undefined < Infinity` is false
+//     anyway), the `i < word.length - 1` conjunct at the merge site (the
+//     `word[i + 1] === second` check already implies it), the
+//     merges-line `first === undefined` disjunct (`split(" ")` always
+//     yields a first element), and the LRU's self-key skip (the touched
+//     key is re-inserted last, so it is never reached first).
+//   * `splitOnSpecialTokens`' empty-segment filter: an empty segment
+//     produces no tokens either way.
+//   * `decodeTokens`' trailing-flush block: the bytes fed to the
+//     streaming decoder are, by construction, a complete UTF-8
+//     sequence, so the final `decode()` is always empty.

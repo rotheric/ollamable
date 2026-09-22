@@ -184,11 +184,19 @@ describe("ChatWorkspace", () => {
     expect(screen.queryByText("nomic-embed-text:latest")).not.toBeInTheDocument();
   });
 
-  it("opens a model metadata dialog when clicking the model chip", async () => {
+  it("reaches the model metadata dialog from the model chip via the sidebar's Model info action", async () => {
+    // The chip no longer opens the dialog directly: it opens the right
+    // sidebar's model section, and the selected model's "Model info" action
+    // in that list is what loads the metadata. The previous single-click
+    // expectation (and its "Open metadata for …" label) predated that
+    // redesign and was the repo's long-standing red test; the label is
+    // "Open model settings for …" because the section it opens carries
+    // temperature, max tokens and reasoning effort alongside the metadata.
     const user = userEvent.setup();
     renderWorkspace();
 
-    await user.click(await screen.findByRole("button", { name: "Open metadata for qwen3:latest" }));
+    await user.click(await screen.findByRole("button", { name: "Open model settings for qwen3:latest" }));
+    await user.click(await screen.findByRole("button", { name: "Model info" }));
 
     expect(mockedFetchModelMeta).toHaveBeenCalledWith(
       expect.objectContaining({ name: "qwen3:latest" })

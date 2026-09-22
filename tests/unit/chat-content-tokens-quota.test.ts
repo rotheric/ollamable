@@ -219,3 +219,65 @@ describe("saveConversations quota-failure retry (AC-ERR-4)", () => {
     expect(conversations[0]!.steps.map((s) => s.contentTokens)).toEqual(originalTokens);
   });
 });
+
+// ── Gate-remediation additions: isQuotaExceeded's disjunction, tested in
+// isolation (mutation survivor closure) ─────────────────────────────────
+//
+// The three OR'd disjuncts in isQuotaExceeded (error.name ===
+// "QuotaExceededError" | "NS_ERROR_DOM_QUOTA_REACHED" | error.code === 22)
+// were each already exercised by the suite above -- but ALWAYS with a real
+// `new DOMException(msg, "QuotaExceededError")`, whose `.code` is 22 by
+// the DOMException spec's own legacy name->code table (verified directly:
+// `new DOMException("x", "QuotaExceededError").code === 22` under this
+// project's Node/jsdom). That means the first disjunct and the third are
+// simultaneously true for every existing "real" quota test, so mutating
+// either one alone in isolation still passes: the untouched disjunct
+// covers for it. These tests isolate each disjunct so a mutation to any
+// one of them is actually observable.
+describe("isQuotaExceeded's disjuncts, isolated from each other (AC-ERR-4 / Flow 3)", () => {
+  beforeEach(() => {
+    window.localStorage.clear();
+    vi.restoreAllMocks();
+  });
+
+  it("detects a DOMException named exactly QuotaExceededError even when .code is NOT 22 (isolates the name check from the code check)", () => {
+    class NameOnlyQuotaException extends DOMException {
+      constructor(message: string) {
+        super(message, "QuotaExceededError");
+      }
+      override get code() {
+        return 0;
+      }
+    }
+
+    const setItemSpy = vi.spyOn(window.localStorage, "setItem").mockImplementation((_key, value) => {
+      if (value.includes("contentTokens")) {
+        throw new NameOnlyQuotaException("quota exceeded");
+      }
+    });
+
+    expect(() => saveConversations([makeConversationWithTokens("conv-1")])).not.toThrow();
+    expect(setItemSpy).toHaveBeenCalledTimes(2);
+  });
+
+  it("does NOT treat an unrelated real DOMException (wrong name, non-22 code) as a quota failure -- propagates immediately without retrying", () => {
+    const setItemSpy = vi.spyOn(window.localStorage, "setItem").mockImplementation(() => {
+      throw new DOMException("not found", "NotFoundError");
+    });
+
+    expect(() => saveConversations([makeConversationWithTokens("conv-1")])).toThrow(DOMException);
+    expect(setItemSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it("does NOT treat a plain object merely shaped like a QuotaExceededError as a quota failure -- the instanceof DOMException guard is load-bearing", () => {
+    const setItemSpy = vi.spyOn(window.localStorage, "setItem").mockImplementation(() => {
+      // eslint-disable-next-line @typescript-eslint/no-throw-literal
+      throw { name: "QuotaExceededError", code: 22 };
+    });
+
+    expect(() => saveConversations([makeConversationWithTokens("conv-1")])).toThrow();
+    // Propagated on the first attempt -- no strip-and-retry was attempted
+    // for a non-DOMException error, even though it mimics the shape.
+    expect(setItemSpy).toHaveBeenCalledTimes(1);
+  });
+});

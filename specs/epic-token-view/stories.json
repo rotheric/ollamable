@@ -162,7 +162,7 @@
       "mock_dependencies": [],
       "introduces_mocks": [],
       "test_fixtures": [],
-      "status": "pending",
+      "status": "done",
       "owning_module": "workspace",
       "creates_seam": false,
       "consumes_seams": [
@@ -334,5 +334,5 @@
       ]
     }
   ],
-  "updated_at": "2026-09-22T11:00:00Z"
+  "updated_at": "2026-09-22T19:40:00Z"
 }

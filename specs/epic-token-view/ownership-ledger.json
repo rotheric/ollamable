@@ -205,28 +205,29 @@
         {
           "id": "EC-1",
           "claim": "QWEN2_SPLIT_REGEX matches Qwen2/2.5/3's tokenizer.json pre-tokenizer and llama.cpp LLAMA_VOCAB_PRE_TYPE_QWEN2 regex_exprs",
-          "status": "corrected_by_cold_review",
-          "verified_by": "independent cold model (Fable), round 4; NOT by this repo's tests",
-          "residual": "the corrected pattern is pinned by fixture-independent tests (digit isolation via a mutated vocab containing a '2 0' merge, U+0345 case-fold, U+0085, U+FEFF) that a reader can re-derive without inheriting the claim - the strongest form available without a host. Verified character-for-character against the reference by the cold reviewer, including alternation order."
+          "status": "verified_live",
+          "verified_by": "(1) independent cold model, round 4; (2) the real Qwen/Qwen3-1.7B tokenizer.json downloaded from huggingface.co \u2014 its shipped pre_tokenizer Regex matches the corrected pattern character-for-character; (3) AC-TOK-1 now RUNS and PASSES against a live qwen3:1.7b using the live vocab from /api/show.",
+          "residual": "Closed. Primary-source verified, not merely model-knowledge verified."
         },
         {
           "id": "EC-2",
           "claim": "the hand-constructed vocab/merge/golden fixture's segmentations match what qwen3:1.7b actually produces",
-          "status": "asserted_unverifiable",
-          "residual": "disclosed accurately and completely in result.json's fixture_provenance. Re-run scripts/capture-vocab-fixture.mjs (now with HF_TOKENIZER_ID support) against a live host to replace. Until then AC-TOK-7 proves algorithm CLASS (merge-consulting vs byte-split/greedy-longest-match), not model fidelity."
+          "status": "closed_by_genuine_capture",
+          "residual": "Closed. AC-TOK-7 now proves model FIDELITY, not merely algorithm class. Lead-run 17-case differential vs the HF reference over the real vocab matched exactly on all 17; a 10-case fixture-backed conformance suite pins it in-repo. NOTE: 2 of the 6 previously hand-derived goldens had the WRONG token count (fenced code block 9 vs real 5; triple-newline 5 vs real 3) \u2014 the fabricated oracle was not merely unverifiable, it was partly incorrect.",
+          "verified_by": "Fixtures recaptured 2026-09-22 from the live host. tests/fixtures/qwen3-1.7b-vocab.json.gz now holds the real tables taken byte-identically from POST http://host.lima.internal:11434/api/show verbose:true \u2014 151936 tokens, 151387 merges, tokenizer.ggml.pre=qwen2. Goldens produced by @huggingface/transformers (devDependency; AC-DEP-2 bars only `dependencies` and imports under server/, both verified clean) loading the real tokenizer.json."
         },
         {
           "id": "EC-3",
           "claim": "token_type 4 (USER_DEFINED) is what a real Qwen3 GGUF assigns <|im_start|>/<|im_end|>",
           "status": "corrected",
           "verified_by": "both reviewers independently; convert_hf_to_gguf's _set_vocab_gpt2 assigns CONTROL(3) to any added token that is special OR not normalized, which covers all of Qwen's",
-          "residual": "fixture corrected to 3 and the comment reworded to state the real rule. 4 remains in the accepted set but is now unexercised. NOTE: this was the SAME failure mode as EC-1 recurring in the very round that fixed EC-1 - a confident claim about an upstream system written into a comment AND into the fixture built from it, both authored together and therefore self-consistent."
+          "residual": "fixture corrected to 3 and the comment reworded to state the real rule. 4 remains in the accepted set but is now unexercised. NOTE: this was the SAME failure mode as EC-1 recurring in the very round that fixed EC-1 - a confident claim about an upstream system written into a comment AND into the fixture built from it, both authored together and therefore self-consistent. UPDATE: fixture corrected to CONTROL(3) for <|im_start|>/<|im_end|> and the comment reworded to the real convert_hf_to_gguf rule; superseded by the genuine recapture, which carries the real token_type array."
         },
         {
           "id": "EC-4",
           "claim": "Ollama's verbose /api/show emits tokenizer.ggml.token_type for gpt2-type vocabularies",
-          "status": "asserted_unverifiable",
-          "residual": "the code degrades to the shape regex when absent, so a wrong claim costs Qwen3's <think>/<tool_call> handling rather than correctness. The fallback branch is now tested (token_type deleted, and truncated-array length-guard cases)."
+          "status": "verified_live",
+          "residual": "Confirmed: the genuine capture from the live host carries tokenizer.ggml.token_type, so Ollama does emit it for gpt2-type vocabularies. The shape-regex fallback remains as a guard for hosts that omit it, and is now tested (token_type deleted, and truncated-array length-guard cases)."
         }
       ],
       "reviewer_findings": [
@@ -236,6 +237,29 @@
           "story_id": "S3",
           "resolved": false,
           "description": "DIVISION OF LABOUR, for S4 and every later story. All 27 findings the incremental reviewer produced across three rounds were seam, lifecycle or contract defects - the class a ledger-backed accumulated model is genuinely strong at. It produced ZERO external-claim findings, and could not: a comment asserting upstream behavior plus a fixture built from that same assertion are self-consistent, so more passes by the same reader cannot separate them. Cold cross-vendor review is not a redundancy check over the incremental pass; it is the ONLY detector for this class. Treat it as a gate: when unavailable, record the story as CONDITIONALLY closed with its external claims listed, rather than closed."
+        },
+        {
+          "finding_type": "process",
+          "reported_at": "2026-09-22T11:35:00Z",
+          "story_id": "S4",
+          "resolved": true,
+          "description": "REGISTER LARGELY DISCHARGED. A live Ollama host was found to be reachable at host.lima.internal:11434 (every prior agent had probed localhost and concluded 'unreachable'), and huggingface.co is reachable. EC-1 and EC-4 are verified live; EC-2 and EC-3 are closed by a genuine fixture recapture. NOTE FOR READERS OF EARLIER ENTRIES: the S3-era residual text on EC-2 recommending 'run capture-vocab-fixture.mjs to replace the hand-built fixture' was written BEFORE that recapture and is now satisfied \u2014 the S4 reviewer read the stale text and recommended the action again. The lead is the ledger's sole writer and had not refreshed these claims after the recapture; that staleness is itself the lesson. A register of unverified claims must be updated the moment a claim is discharged, or it produces exactly the false signal it exists to prevent."
+        }
+      ]
+    },
+    {
+      "id": "process-ledger-staleness",
+      "name": "a claim register is only as good as its last update; a discharged claim left open produces false signal",
+      "type": "process",
+      "owning_module": "(workflow)",
+      "added_by_story": "S4",
+      "reviewer_findings": [
+        {
+          "finding_type": "process",
+          "reported_at": "2026-09-22T11:35:00Z",
+          "story_id": "S4",
+          "resolved": false,
+          "description": "Observed directly: the S4 reviewer, reading the ledger as its accumulated model, recommended re-running the fixture capture as 'the single highest-value action available before this epic ships' \u2014 an action already completed one turn earlier. The recommendation was sound given what the ledger said; the ledger was stale. The lead writes the ledger only at story boundaries, but claims are discharged mid-story. Candidate fix for the next epic: discharge a claim in the same turn the evidence lands, not at the next story boundary."
         }
       ]
     }

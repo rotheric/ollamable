@@ -1,0 +1,19 @@
+{
+  "$schema": "./node_modules/@stryker-mutator/core/schema/stryker-schema.json",
+  "packageManager": "npm",
+  "testRunner": "vitest",
+  "vitest": { "configFile": "vitest.server.config.ts" },
+  "reporters": ["json", "clear-text", "progress"],
+  "jsonReporter": { "fileName": "reports/mutation/server/mutation.json" },
+  "mutate": [
+    "shared/ollama-format.ts",
+    "server/ollama-client.ts",
+    "server/tokenizer.ts",
+    "server/ws-handler.ts",
+    "server/llm-router.ts"
+  ],
+  "ignorePatterns": [".next", "out", "test-results", "reports", "playwright-report"],
+  "coverageAnalysis": "perTest",
+  "timeoutMS": 30000,
+  "disableTypeChecks": true
+}

@@ -1,6 +1,6 @@
 SHELL := /bin/zsh
 
-.PHONY: install clean build test test-unit test-e2e start dev dev-remote help
+.PHONY: install clean build test test-unit test-integration test-e2e test-mutation start dev dev-remote help
 
 # Host that a non-local browser (Lima VM, phone, other LAN machine) uses to
 # reach this machine. NEXT_PUBLIC_WS_URL is inlined at dev-server startup, so
@@ -29,8 +29,14 @@ test: ## Run all tests (unit + e2e)
 test-unit: ## Run unit tests
 	npm run test:unit
 
+test-integration: ## Run integration tests
+	npm run test:integration
+
 test-e2e: ## Run end-to-end tests
 	npm run test:e2e
+
+test-mutation: ## Run mutation testing (Stryker) over the audited modules
+	npm run test:mutation
 
 start: build ## Build and start production server (port 3000)
 	node --import tsx server/index.ts

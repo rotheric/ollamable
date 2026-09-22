@@ -1,0 +1,18 @@
+{
+  "tests_total_unit": 110,
+  "tests_passing_unit": 109,
+  "tests_failing_unit": 1,
+  "tests_total_integration": 100,
+  "tests_passing_integration": 99,
+  "tests_failing_integration": 0,
+  "tests_skipped_integration": 1,
+  "note": "Pre-existing failure: tests/unit/chat-workspace.test.tsx:191 vs chat-workspace.tsx (\"Open model settings for …\" vs expected \"Open metadata for …\"). Not attributable to this epic; not fixed. Measured after S1+S2+S3 (94c44d7), before any S4 file changes. Integration: 99 passed, 1 skipped (AC-TOK-1, no live Ollama host in this sandbox).",
+  "lint": "NO_LINT",
+  "lint_detail": "npm run lint is non-functional: no ESLint config exists, `next lint` prompts interactively. Not run.",
+  "typecheck_frontend": "201 pre-existing errors across tests/unit/chat-workspace.test.tsx, chat.test.ts, openai-format.test.ts, tour-data.test.ts (missing vitest globals types), measured with `npx tsc --noEmit -p tsconfig.json --incremental false`. All in tests/unit/; zero in src/ or server/.",
+  "typecheck_server": "clean (npx tsc --noEmit -p tsconfig.server.json --incremental false)",
+  "live_ollama_host": "unreachable in this sandbox (curl http://localhost:11434/api/tags -> connection refused / timeout). AC-TOK-1 and AC-TOK-5 (this story's own live-gated test, tests/integration/reconciliation-live.test.ts) skip cleanly via the same AC-ERR-3 gate rather than fail.",
+  "chat_workspace_net_lines_before_s4": 28,
+  "chat_workspace_net_lines_budget": 60,
+  "chat_workspace_net_lines_measurement": "git diff --numstat 4568f350ee65a73824efc56b2f9a524eacde71f2 -- src/components/chat-workspace.tsx | awk '{print $1-$2}', against epic-state.json's baseline_sha"
+}

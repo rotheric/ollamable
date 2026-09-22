@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import {
   DndContext,
   closestCenter,
@@ -99,6 +99,7 @@ import {
 import { useWebSocket } from "@/src/lib/use-websocket";
 import { BackendClient, WS_URL } from "@/src/lib/backend-client";
 import { TokenViewStepContent } from "@/src/components/token-view-step-content";
+import { RequestPreviewExtras } from "@/src/components/request-preview-extras";
 import { buildOpenAIRequestBody, toOpenAIMessages } from "@/shared/openai-format";
 import {
   tourSteps,
@@ -930,16 +931,29 @@ export function ChatWorkspace() {
     }
     return null;
   }, [selectedConversation, streaming]);
+  // Shared by requestJsonPreview below and by the S4 request-preview panel
+  // (RequestPreviewExtras needs the OllamaModel object, not just its name,
+  // to call fetchModelMeta for the verbatim /api/show template string).
+  const previewModel = useMemo(
+    () =>
+      availableModels.find(
+        (m) =>
+          m.name === selectedConversation?.model &&
+          m.provider === selectedConversation?.provider
+      ),
+    [availableModels, selectedConversation]
+  );
+  // The S4 request-preview panel's figures/rendering are all Ollama-
+  // specific (built from toOllamaFilteredMessages, labelled
+  // prompt_eval_count) — gating on this avoids showing them, mislabelled,
+  // for an openai-compat conversation.
+  // Keys on provider ID; ProviderConfig.type is not surfaced to the frontend.
+  const isOllamaPreviewModel = previewModel ? previewModel.provider === "ollama" : true;
   const requestJsonPreview = useMemo(() => {
     if (!selectedConversation) {
       return "";
     }
 
-    const previewModel = availableModels.find(
-      (m) =>
-        m.name === selectedConversation.model &&
-        m.provider === selectedConversation.provider
-    );
     const previewReasoningSupported = previewModel
       ? isReasoningModel(previewModel)
       : false;
@@ -958,7 +972,7 @@ export function ChatWorkspace() {
       null,
       2
     );
-  }, [activeTools, availableModels, composerValue, selectedConversation]);
+  }, [activeTools, composerValue, previewModel, selectedConversation]);
 
   useEffect(() => {
     if (!selectedConversation && conversations.length > 0) {
@@ -3081,6 +3095,22 @@ export function ChatWorkspace() {
         title="Request JSON"
         subtitle="OpenAI-compatible format"
         json={requestJsonPreview}
+        extra={
+          showTokens && selectedConversation ? (
+            isOllamaPreviewModel ? (
+              <RequestPreviewExtras
+                open={requestJsonOpen}
+                steps={selectedConversation.steps}
+                model={previewModel}
+                tokenizeText={tokenizeStepText}
+              />
+            ) : (
+              <Alert severity="info" data-testid="request-preview-ollama-only">
+                Token boundaries, the chat template, and reconciliation are only available for Ollama-provider conversations.
+              </Alert>
+            )
+          ) : undefined
+        }
       />
 
       <JsonPreviewDialog
@@ -3606,12 +3636,13 @@ function formatKeyValueSummary(modelMeta: OllamaModelMeta) {
 }
 
 
-function JsonPreviewDialog({ open, onClose, title, subtitle, json }: {
+function JsonPreviewDialog({ open, onClose, title, subtitle, json, extra }: {
   open: boolean;
   onClose: () => void;
   title: string;
   subtitle: string;
   json: string;
+  extra?: ReactNode;
 }) {
   const [copyState, setCopyState] = useState<"idle" | "copied" | "error">("idle");
 
@@ -3653,6 +3684,7 @@ function JsonPreviewDialog({ open, onClose, title, subtitle, json }: {
         {copyState === "error" ? (
           <Alert severity="warning" sx={{ mb: 2 }}>Failed to copy JSON to clipboard.</Alert>
         ) : null}
+        {extra}
         <Typography
           component="pre"
           variant="body2"

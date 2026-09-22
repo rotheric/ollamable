@@ -1,5 +1,6 @@
 import type { ConversationStep, ReasoningEffort, ToolDefinition } from "./types.js";
 import { randomUUID } from "node:crypto";
+import { toOllamaMessages } from "../shared/ollama-format.js";
 
 const DEFAULT_OLLAMA_URL = process.env.OLLAMA_URL ?? "http://localhost:11434/api";
 
@@ -244,77 +245,8 @@ function compactSteps(
   ) as ConversationStep[];
 }
 
-function toOllamaMessages(steps: ConversationStep[]) {
-  const messages: Array<Record<string, unknown>> = [];
-  let pendingToolCalls: Array<{
-    function: { name: string; arguments: Record<string, unknown> };
-  }> = [];
-
-  for (const step of steps) {
-    if (step.kind === "meta") continue;
-
-    if (step.kind === "system") {
-      if (step.content.trim().length > 0) {
-        flushPendingToolCalls(messages, pendingToolCalls);
-        pendingToolCalls = [];
-        messages.push({ role: "system", content: step.content });
-      }
-      continue;
-    }
-
-    if (step.kind === "user" || step.kind === "assistant") {
-      if (pendingToolCalls.length > 0) {
-        messages.push({
-          role: "assistant",
-          content: step.kind === "assistant" ? step.content : "",
-          tool_calls: pendingToolCalls,
-        });
-        pendingToolCalls = [];
-        if (step.kind === "assistant") continue;
-      }
-      messages.push({ role: step.kind, content: step.content });
-      continue;
-    }
-
-    if (step.kind === "tool_call" && step.toolCall) {
-      pendingToolCalls.push({
-        function: {
-          name: step.toolCall.name,
-          arguments: step.toolCall.arguments,
-        },
-      });
-      continue;
-    }
-
-    if (step.kind === "tool_result" && step.toolResult) {
-      flushPendingToolCalls(messages, pendingToolCalls);
-      pendingToolCalls = [];
-      messages.push({
-        role: "tool",
-        content: step.content,
-        tool_name: step.toolResult.name,
-      });
-    }
-  }
-
-  flushPendingToolCalls(messages, pendingToolCalls);
-
-  return messages;
-}
-
-function flushPendingToolCalls(
-  messages: Array<Record<string, unknown>>,
-  pendingToolCalls: Array<{
-    function: { name: string; arguments: Record<string, unknown> };
-  }>
-) {
-  if (pendingToolCalls.length === 0) return;
-  messages.push({
-    role: "assistant",
-    content: "",
-    tool_calls: pendingToolCalls,
-  });
-}
+// toOllamaMessages — imported from ../shared/ollama-format.js (single
+// implementation shared with src/lib/token-view.ts).
 
 function parseToolSchema(inputSchema: string) {
   try {

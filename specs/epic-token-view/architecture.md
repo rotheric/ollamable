@@ -115,10 +115,19 @@ from exploration.)*
 9. **Pre-existing red state, not to be "fixed" by this epic.**
    - `npm run lint` is non-functional: no ESLint config exists; `next lint` prompts interactively.
      No verification step may claim a green lint.
-   - `npx tsc --noEmit -p tsconfig.json` is already red — **~201 errors across four files**
-     (`tests/unit/chat-workspace.test.tsx`, `tour-data.test.ts`, `chat.test.ts`,
-     `openai-format.test.ts`), all from missing `"types": ["vitest/globals"]`. **All are in
+   - `npx tsc --noEmit -p tsconfig.json` is already red — **181 errors across three files**
+     (`tests/unit/chat-workspace.test.tsx` 115, `tour-data.test.ts` 47,
+     `openai-format.test.ts` 19), all from missing `"types": ["vitest/globals"]`. **All are in
      `tests/unit/`; zero in `src/` or `server/` production code.**
+     *Amended at epic close (was ~201 across four files, including `chat.test.ts`).* The
+     pre-ship mutation gate's remediation round had to add
+     `import { describe, it, expect, beforeEach } from "vitest"` to `tests/unit/chat.test.ts`
+     for its own 10 new test blocks — without it they contributed ~28 NEW errors, breaking the
+     binding zero-net-new rule, and there was no option that both added the tests and preserved
+     201. The same import incidentally resolved that file's 20 pre-existing errors of the
+     identical kind, which is why the baseline fell rather than rose. Every sibling test file
+     already uses explicit imports, so this follows the repo's own convention. Machine-readable
+     source of truth: `epic-state.json#frontend_typecheck_baseline`.
      **Always measure this with `--incremental false`.** The original exploration reported "17
      errors in one file" because it read a stale `tsconfig.tsbuildinfo`, which was already dirty
      at epic start (it is in `pre_existing_dirty_files`). Corrected during S1.
