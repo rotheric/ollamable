@@ -1,6 +1,6 @@
 {
   "created_at": "2026-09-21T18:18:06Z",
-  "updated_at": "2026-09-21T21:50:00Z",
+  "updated_at": "2026-09-22T11:00:00Z",
   "mocks": [
     {
       "mock_id": "MOCK-02-001",
@@ -8,8 +8,11 @@
       "interface_mocked": "useTokenBoundaries computed branch (backed in production by backend-client.tokenize())",
       "introduced_by_story": "S2",
       "resolution_story": "S3",
-      "resolved": false
+      "resolved": true,
+      "resolution_note": "chat-workspace.tsx now passes a real computedSource (tokenizeStepText, wired via TokenViewStepContent.tokenizeText) that calls backend-client.tokenize() -> server/tokenizer.ts. tests/unit/token-view.test.tsx's injected fake remains as the hook-level unit-test double for useTokenBoundaries's own contract (a legitimate test double, not a production stand-in) \u2014 S2's own mocks-registry entry described the PRODUCTION gap, which is now closed.",
+      "resolved_by_story": "S3",
+      "resolved_at": "2026-09-22T11:00:00Z"
     }
   ],
-  "all_resolved": false
+  "all_resolved": true
 }

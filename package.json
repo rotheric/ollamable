@@ -34,6 +34,7 @@
     "ws": "^8.20.0"
   },
   "devDependencies": {
+    "@huggingface/transformers": "^4.3.0",
     "@modyfi/vite-plugin-yaml": "^1.1.1",
     "@playwright/test": "^1.54.2",
     "@testing-library/jest-dom": "^6.8.0",
@@ -45,6 +46,7 @@
     "@types/ws": "^8.18.1",
     "@vitejs/plugin-react": "^5.0.2",
     "concurrently": "^9.2.1",
+    "fast-check": "^4.10.2",
     "jsdom": "^26.1.0",
     "tsx": "^4.21.0",
     "typescript": "^5.8.2",

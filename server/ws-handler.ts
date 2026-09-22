@@ -4,8 +4,9 @@ import { ToolDispatcher } from "./tool-executor.js";
 import { WebSearchExecutor } from "./tools/web-search.js";
 import { CurlExecutor } from "./tools/curl.js";
 import { McpBridge } from "./tools/mcp-bridge.js";
-import { LlmRouter } from "./llm-router.js";
+import { LlmRouter, UnsupportedProviderError } from "./llm-router.js";
 import { loadProviderConfigs } from "./provider-config.js";
+import { VocabUnavailableError } from "./tokenizer.js";
 import type {
   ClientMessage,
   ConversationStep,
@@ -13,6 +14,16 @@ import type {
   ServerMessage,
   ToolDefinition,
 } from "./types.js";
+
+/**
+ * Cap on `tokenize`'s `text` field (S3-C5). 200,000 chars comfortably
+ * exceeds any real chat step a user would paste (tens of thousands of
+ * chars for a long document), while keeping the worst case for
+ * `bpeMerge`'s O(n^2)-per-pre-token merge loop and the pre-tokenizer's
+ * unbounded letter-run branch bounded to a sub-second cost per request.
+ * Chosen within the finding's suggested 64k-256k range.
+ */
+const MAX_TOKENIZE_TEXT_LENGTH = 200_000;
 
 interface McpConfig {
   mcpServers?: Record<
@@ -39,7 +50,12 @@ export class ConnectionHandler {
     this.dispatcher.register(this.mcpBridge);
 
     ws.on("message", (data) => {
-      void this.handleMessage(data.toString());
+      // A rejection here would otherwise be unhandled and abort the whole
+      // process (S3-F1) — e.g. a malformed `tokenize`/`chat.send` message
+      // whose shape violation throws ahead of any per-branch try/catch.
+      void this.handleMessage(data.toString()).catch((err) => {
+        console.error("[ws] handler error", err);
+      });
     });
 
     ws.on("close", () => {
@@ -103,6 +119,80 @@ export class ConnectionHandler {
         `[ws] <- chat.send  conversation=${msg.conversationId}  model=${msg.model}  steps=${msg.steps.length}  tools=[${toolNames}]  temp=${msg.temperature ?? "default"}  maxTokens=${msg.maxOutputTokens ?? "default"}  reasoning=${msg.reasoningEffort ?? "default"}`
       );
       await this.handleChatSend(msg);
+      return;
+    }
+
+    if (msg.type === "tokenize") {
+      await this.handleTokenize(msg);
+      return;
+    }
+  }
+
+  /**
+   * Routes via `LlmRouter.tokenizeText`, which gates strictly on
+   * `ProviderConfig.type` (never provider name), mirroring the existing
+   * `showModelMeta` precedent (architecture.md Boundary Rule 4). An
+   * explicit `provider` field threads through to the router the same way
+   * `chat.send` does, so tokenize can never silently resolve to a
+   * different provider than the conversation's chat when two providers
+   * serve the same model name (S3-F4). A non-Ollama provider fails with
+   * `reason: "unsupported_provider"`; a model reporting an unsupported
+   * `tokenizer.ggml.pre` surfaces as `reason: "vocab_unavailable"`
+   * (VocabUnavailableError, thrown by server/tokenizer.ts) — neither case
+   * ever replies with a `tokenize.result` built from a different model's
+   * vocabulary.
+   *
+   * `text`/`model` are validated before use: a malformed message (missing
+   * or non-string fields) replies `reason: "internal"` instead of
+   * throwing ahead of this try block, which would otherwise crash the
+   * process via an unhandled rejection (S3-F1).
+   *
+   * `text` is also capped at `MAX_TOKENIZE_TEXT_LENGTH` (S3-C5): a
+   * WS client can send any size payload, `bpeMerge` is O(n^2) per
+   * pre-token, and the pre-tokenizer's letter-run branch
+   * (`[^\r\n\p{L}\p{N}]?\p{L}+`) admits an unbounded run as a single
+   * pre-token — so one oversized message can pin this process's single
+   * thread. A too-long `text` replies `reason: "too_large"` instead of
+   * being routed to the tokenizer at all. (The identical exposure on
+   * `chat.send`'s message content is pre-existing and out of scope for
+   * this story.)
+   */
+  private async handleTokenize(
+    msg: Extract<ClientMessage, { type: "tokenize" }>
+  ): Promise<void> {
+    const { requestId, model, text, provider } = msg;
+
+    if (typeof text !== "string" || typeof model !== "string") {
+      this.send({ type: "tokenize.error", requestId, reason: "internal" });
+      return;
+    }
+
+    if (text.length > MAX_TOKENIZE_TEXT_LENGTH) {
+      console.log(
+        `[ws] <- tokenize  requestId=${requestId}  model=${model}  textLength=${text.length}  rejected: too_large`
+      );
+      this.send({ type: "tokenize.error", requestId, reason: "too_large" });
+      return;
+    }
+
+    try {
+      console.log(`[ws] <- tokenize  requestId=${requestId}  model=${model}  textLength=${text.length}`);
+      const { tokens, tokenIds } = await this.router.tokenizeText(provider, model, text);
+      this.send({ type: "tokenize.result", requestId, tokens, tokenIds });
+    } catch (error) {
+      if (error instanceof VocabUnavailableError) {
+        this.send({ type: "tokenize.error", requestId, reason: "vocab_unavailable" });
+        return;
+      }
+      if (error instanceof UnsupportedProviderError) {
+        this.send({ type: "tokenize.error", requestId, reason: "unsupported_provider" });
+        return;
+      }
+      console.error(
+        `[ws] tokenize error  requestId=${requestId}  model=${model}:`,
+        error instanceof Error ? error.message : error
+      );
+      this.send({ type: "tokenize.error", requestId, reason: "internal" });
     }
   }
 

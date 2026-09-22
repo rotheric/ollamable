@@ -1,7 +1,7 @@
 {
   "spec_sha": "aa546af0d903",
-  "git_sha": "4568f350ee65a73824efc56b2f9a524eacde71f2",
-  "computed_at": "2026-09-21T19:42:00Z",
+  "git_sha": "d63acbe08d75acd624c11a2f8fe5eae6076ca56d",
+  "computed_at": "2026-09-22T00:00:00Z",
   "verdicts": [
     {
       "ac_id": "AC-STRUCT-1",

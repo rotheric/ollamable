@@ -106,7 +106,7 @@
           "server/types.ts / src/types/chat.ts: ClientMessage tokenize variant; ServerMessage tokenize.result and tokenize.error(reason: unsupported_provider | vocab_unavailable | internal) variants",
           "src/lib/backend-client.ts: tokenize(model, text) minting a requestId and resolving on the matching tokenize.result, sitting ahead of/independent of the conversationId-drop guard (Implementation Constraint 1)",
           "src/lib/token-view.ts: the real useTokenBoundaries computed branch (debounce, per-step cache, calls backend-client.tokenize())",
-          "scripts/capture-vocab-fixture.mjs (new); tests/fixtures/qwen3-1.7b-vocab.json (gzipped per Implementation Constraint 8) and tests/fixtures/qwen3-1.7b-goldens.json",
+          "scripts/capture-vocab-fixture.mjs (new); tests/fixtures/qwen3-1.7b-vocab.json.gz (gzipped per Implementation Constraint 8) and tests/fixtures/qwen3-1.7b-goldens.json",
           "tests/integration (vitest.server.config.ts, node env): conformance suite including the AC-TOK-6 property test over fc.fullUnicodeString, with the property-testing library added as a dev dependency"
         ],
         "excludes": [
@@ -133,7 +133,7 @@
           "permanent": true
         }
       ],
-      "status": "pending",
+      "status": "done",
       "owning_module": "tokenizer",
       "creates_seam": true,
       "consumes_seams": [],
@@ -334,5 +334,5 @@
       ]
     }
   ],
-  "updated_at": "2026-09-21T20:26:51Z"
+  "updated_at": "2026-09-22T11:00:00Z"
 }

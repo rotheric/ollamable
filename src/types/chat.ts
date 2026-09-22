@@ -99,6 +99,34 @@ export interface OllamaModel {
   capabilities?: string[];
 }
 
+/** `tokenize.error`'s typed reason enum. Mirrors server/types.ts's
+ *  ClientMessage/ServerMessage duplication convention — no import across
+ *  the server/src boundary (architecture.md Boundary Rule 1). */
+export type TokenizeErrorReason = "unsupported_provider" | "vocab_unavailable" | "too_large" | "internal";
+
+/** `tokenize` client message (epic-token-view story S3). backend-client.ts
+ *  mints `requestId` and correlates the response via its own map, ahead
+ *  of the conversationId-gated `pending` guard used for chat messages. */
+export interface TokenizeRequestMessage {
+  type: "tokenize";
+  requestId: string;
+  model: string;
+  text: string;
+  /**
+   * Sourced from the conversation's own `provider` field (mirroring
+   * `chat.send`), so tokenize resolves the exact same provider the
+   * conversation's chat used rather than falling through to
+   * `modelProviderMap`'s model-name-only, last-writer-wins fallback
+   * (S3-F4).
+   */
+  provider?: string;
+}
+
+/** `tokenize.result` / `tokenize.error` server messages. */
+export type TokenizeResponseMessage =
+  | { type: "tokenize.result"; requestId: string; tokens: string[]; tokenIds: number[] }
+  | { type: "tokenize.error"; requestId: string; reason: TokenizeErrorReason };
+
 export interface OllamaModelMeta {
   name: string;
   modifiedAt?: string;

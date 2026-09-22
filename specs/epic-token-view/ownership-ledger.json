@@ -29,14 +29,32 @@
       "name": "N concurrent first-calls on one (baseUrl, model) issue exactly one /api/show",
       "type": "invariant",
       "owning_module": "tokenizer",
-      "added_by_story": "S3"
+      "added_by_story": "S3",
+      "reviewer_findings": [
+        {
+          "finding_type": "verified",
+          "reported_at": "2026-09-22T10:00:00Z",
+          "story_id": "S3",
+          "resolved": true,
+          "description": "AC-PERF-1 holds and is stronger than at S3 implementation. loadVocab stores the catch-wrapped promise synchronously before any await, so concurrent first calls share one POST /api/show; a failed load is evicted before the rejection reaches awaiters and can be retried. The 3-entry LRU evicts only SETTLED entries (settlement tracked in a WeakSet fed by promise.finally on the same object the map holds), and failure cleanup deletes by promise identity, closing the stale-rejection-evicts-a-live-entry hole an earlier LRU draft had opened. Pinned by an integration test loading 4 keys with the 3rd in flight, asserting both directions. UNDISTURBED by the token_type threading (that happens inside fetchVocab, inside the cached promise; keying and identity untouched). Residual S3-T2: the cap is a steady-state target, not a hard ceiling - one eviction per touch, touch-driven."
+        }
+      ]
     },
     {
       "id": "public-contract-tokenize-wire",
       "name": "tokenize / tokenize.result / tokenize.error correlate by requestId, not conversationId",
       "type": "public_contract",
       "owning_module": "backend-client",
-      "added_by_story": "S3"
+      "added_by_story": "S3",
+      "reviewer_findings": [
+        {
+          "finding_type": "verified",
+          "reported_at": "2026-09-22T10:00:00Z",
+          "story_id": "S3",
+          "resolved": true,
+          "description": "Closed on all three axes. Correlation: requestId-keyed, sited ahead of the conversationId-drop guard in handleServerMessage. Lifecycle: immediate reject on a dropped send (send() now returns boolean), 10s timeout, try/catch around send, cancelPendingTokenize on socket close; every exit path clears the timer and deletes the map entry before settling, so no double-settle and no entry outlives its promise. Shape: asTokenizeResponse validates every field of both variants and returns null on anything malformed, so a holed message falls through to timeout rather than resolving with undefined tokens. Covers the widened too_large union unchanged, since it validates typeof reason === 'string' rather than enum membership."
+        }
+      ]
     },
     {
       "id": "public-contract-boundary-source",
@@ -57,7 +75,16 @@
       "name": "Ollama-only capabilities gate on ProviderConfig.type, never provider name",
       "type": "validation_rule",
       "owning_module": "llm-router",
-      "added_by_story": "S3"
+      "added_by_story": "S3",
+      "reviewer_findings": [
+        {
+          "finding_type": "verified",
+          "reported_at": "2026-09-22T10:00:00Z",
+          "story_id": "S3",
+          "resolved": true,
+          "description": "SINGLE-OWNER RESTORED and survives the too_large widening. An S3 draft had widened resolveProvider from private to public so ws-handler could read config.type itself, splitting the gate across two modules with two failure shapes. Now: LlmRouter.tokenizeText mirrors showModelMeta, resolveProvider is private again, ws-handler imports only the error class and does protocol mapping. Error->reason mapping is total (UnsupportedProviderError, VocabUnavailableError, else internal). Provider id threads from the conversation through the wire to resolveProvider, closing the modelProviderMap last-writer-wins hole where one model name served by two providers could tokenize against the wrong one. The too_large cap is correctly sited in ws-handler BEFORE the router call - a transport/DoS concern, not a provider-capability one - so it does not re-fragment the gate."
+        }
+      ]
     },
     {
       "id": "validation-reconcile-source",
@@ -71,7 +98,16 @@
       "name": "tests/fixtures/*.json.gz, inflated via node zlib in test setup",
       "type": "path_convention",
       "owning_module": "tokenizer",
-      "added_by_story": "S3"
+      "added_by_story": "S3",
+      "reviewer_findings": [
+        {
+          "finding_type": "verified",
+          "reported_at": "2026-09-22T10:00:00Z",
+          "story_id": "S3",
+          "resolved": true,
+          "description": "Convention and reality agree. An S3 draft shipped gzip bytes under a plain .json extension while architecture.md Constraint 8 and this concept both declare *.json.gz; the lead adjudicated for the declared convention and the fixture was renamed, with all 8 stale references corrected including the normative glossary at acceptance-criteria.md and spec.md (verified path-only: no AC wording, ID or numbering altered). Survives the token_type extension: still .json.gz, still gzip, ids 0-294 byte-identical with 295-296 appended, goldens independently re-derived and unchanged. The capture script stays congruent - its tokenizer.ggml.* prefix filter picks up token_type with no script change."
+        }
+      ]
     },
     {
       "id": "path-tokenizer-suite-node-env",
@@ -109,6 +145,13 @@
           "story_id": "S1",
           "resolved": false,
           "description": "ConversationStep declared twice and kept congruent by hand; no structural or test enforcement. tsc -p tsconfig.json is already red for unrelated reasons so even incidental compilation signal is unreadable. S2 adds boundary-source shape, S3 tokenize payloads, S4 reconciliation figures - drift surface compounds each story."
+        },
+        {
+          "finding_type": "convention_drift",
+          "reported_at": "2026-09-22T10:00:00Z",
+          "story_id": "S3",
+          "resolved": false,
+          "description": "Improved but still load-bearing. Down from three copies to two: backend-client.ts now imports TokenizeRequestMessage/TokenizeResponseMessage and types its outgoing literal, so the client's wire usage is compile-checked against a declaration for the first time in this epic. The server/src pair stays hand-maintained by design (Boundary Rule 1). NOTE WHY too_large moved cleanly across both declarations: the client validates shape, never enum membership, so a ONE-SIDED widening would have passed typecheck and tests just as cleanly - this change did not actually exercise the congruence risk. The first field consumed BY VALUE on both sides is where it bites; S4's reconciliation figures are the likely candidate. CARRY TO S4."
         }
       ]
     },
@@ -118,6 +161,83 @@
       "type": "invariant",
       "owning_module": "ollama-client",
       "added_by_story": "S1"
+    },
+    {
+      "id": "invariant-computed-boundary-model-key",
+      "name": "a computed boundary set is valid only for the model it was computed under; the cache key must include the model",
+      "type": "invariant",
+      "owning_module": "token-view",
+      "added_by_story": "S3",
+      "reviewer_findings": [
+        {
+          "finding_type": "verified",
+          "reported_at": "2026-09-22T10:00:00Z",
+          "story_id": "S3",
+          "resolved": true,
+          "description": "ENFORCED. An S3 draft keyed the computed cache on (step.id, step.content) with model-free effect deps, while the real source closed over the conversation's model - so a model switch left old-model boundaries under AC-UX-8's 'computed under the conversation's current model' notice. Now keyed on (step.id, step.content, cacheKeySuffix) with chat-workspace passing selectedConversation?.model. Critically the S2-F2/S2-F8 ref-read-through invariant survives: computedSource is still absent from the effect deps and hasComputedSource is still the stable boolean, so invalidation happens via the key rather than via identity. Pinned by a test varying ONLY the suffix."
+        }
+      ]
+    },
+    {
+      "id": "invariant-close-path-cancellation-scope",
+      "name": "a socket-close handler may only cancel work correlated to that socket's own bookkeeping; cancelling a chat stream must be distinguishable from a user-initiated stop",
+      "type": "invariant",
+      "owning_module": "backend-client",
+      "added_by_story": "S3",
+      "reviewer_findings": [
+        {
+          "finding_type": "verified",
+          "reported_at": "2026-09-22T10:00:00Z",
+          "story_id": "S3",
+          "resolved": true,
+          "description": "HOLDS. An S3 remediation wired the whole of cancelAll() into onClose, which also rejected in-flight chat streams with Error('AbortError') - the exact sentinel chat-workspace uses to mean 'the user pressed stop' - so a transient reconnect rendered as 'Generation stopped.'. Narrowed to cancelPendingTokenize(), which drains only the tokenize map. Pinned by a test that invokes the captured onClose and asserts cancelPendingTokenize fired once and cancelAll never did. CONSEQUENCE FOR THE LEAD: cancelAll() is now caller-less, and the pre-epic 'chat stream hangs forever when the socket drops mid-stream' behavior it would have covered is back at baseline. Outside every S3 AC - routed to BACKLOG as S3-T1, deliberately not a further remediation round."
+        }
+      ]
+    },
+    {
+      "id": "external-claims-register",
+      "name": "load-bearing claims about systems outside this repo, which this repo's tests structurally cannot falsify",
+      "type": "external_claim",
+      "owning_module": "tokenizer",
+      "added_by_story": "S3",
+      "rationale": "S3's severity-7 (the cl100k vs Qwen digit rule) lived in a line the incremental reviewer read three times and recorded as 'internally consistent by construction', having correctly named it the top target for a cold cross-vendor pass. The warning was right; it was not a finding, and the pass never ran because the configured backend was unavailable. The ledger had no state for 'asserted, not verified' - every concept resolves to true/false - so the claim decayed into prose in a snapshot string instead of sitting in a re-verification queue. This concept IS that queue.",
+      "claims": [
+        {
+          "id": "EC-1",
+          "claim": "QWEN2_SPLIT_REGEX matches Qwen2/2.5/3's tokenizer.json pre-tokenizer and llama.cpp LLAMA_VOCAB_PRE_TYPE_QWEN2 regex_exprs",
+          "status": "corrected_by_cold_review",
+          "verified_by": "independent cold model (Fable), round 4; NOT by this repo's tests",
+          "residual": "the corrected pattern is pinned by fixture-independent tests (digit isolation via a mutated vocab containing a '2 0' merge, U+0345 case-fold, U+0085, U+FEFF) that a reader can re-derive without inheriting the claim - the strongest form available without a host. Verified character-for-character against the reference by the cold reviewer, including alternation order."
+        },
+        {
+          "id": "EC-2",
+          "claim": "the hand-constructed vocab/merge/golden fixture's segmentations match what qwen3:1.7b actually produces",
+          "status": "asserted_unverifiable",
+          "residual": "disclosed accurately and completely in result.json's fixture_provenance. Re-run scripts/capture-vocab-fixture.mjs (now with HF_TOKENIZER_ID support) against a live host to replace. Until then AC-TOK-7 proves algorithm CLASS (merge-consulting vs byte-split/greedy-longest-match), not model fidelity."
+        },
+        {
+          "id": "EC-3",
+          "claim": "token_type 4 (USER_DEFINED) is what a real Qwen3 GGUF assigns <|im_start|>/<|im_end|>",
+          "status": "corrected",
+          "verified_by": "both reviewers independently; convert_hf_to_gguf's _set_vocab_gpt2 assigns CONTROL(3) to any added token that is special OR not normalized, which covers all of Qwen's",
+          "residual": "fixture corrected to 3 and the comment reworded to state the real rule. 4 remains in the accepted set but is now unexercised. NOTE: this was the SAME failure mode as EC-1 recurring in the very round that fixed EC-1 - a confident claim about an upstream system written into a comment AND into the fixture built from it, both authored together and therefore self-consistent."
+        },
+        {
+          "id": "EC-4",
+          "claim": "Ollama's verbose /api/show emits tokenizer.ggml.token_type for gpt2-type vocabularies",
+          "status": "asserted_unverifiable",
+          "residual": "the code degrades to the shape regex when absent, so a wrong claim costs Qwen3's <think>/<tool_call> handling rather than correctness. The fallback branch is now tested (token_type deleted, and truncated-array length-guard cases)."
+        }
+      ],
+      "reviewer_findings": [
+        {
+          "finding_type": "process",
+          "reported_at": "2026-09-22T10:00:00Z",
+          "story_id": "S3",
+          "resolved": false,
+          "description": "DIVISION OF LABOUR, for S4 and every later story. All 27 findings the incremental reviewer produced across three rounds were seam, lifecycle or contract defects - the class a ledger-backed accumulated model is genuinely strong at. It produced ZERO external-claim findings, and could not: a comment asserting upstream behavior plus a fixture built from that same assertion are self-consistent, so more passes by the same reader cannot separate them. Cold cross-vendor review is not a redundancy check over the incremental pass; it is the ONLY detector for this class. Treat it as a gate: when unavailable, record the story as CONDITIONALLY closed with its external claims listed, rather than closed."
+        }
+      ]
     }
   ],
   "stories": [
@@ -312,11 +432,87 @@
           "reason": "TokenViewHarness duplicates TokenViewStepContent's boundary->tokens mapping verbatim; since the S2-F1 extraction the real component is importable, so 5 rendering-contract tests verify a copy. Fold in when S3 wires computedSource"
         }
       ]
+    },
+    {
+      "story_id": "S3",
+      "remediation_rounds": 4,
+      "review_outcome": "closed",
+      "reviewers": [
+        "incremental Opus (RESUME, ledger-rehydrated)",
+        "independent cold Fable (cross-vendor substitute; configured Codex backend unavailable - token refresh failure)"
+      ],
+      "surfaces_touched": [
+        "server/tokenizer.ts (new)",
+        "server/llm-router.ts (tokenizeText capability; resolveProvider stays private)",
+        "server/ws-handler.ts (handleTokenize, dispatch .catch guard, 200k length cap)",
+        "server/types.ts + src/types/chat.ts (tokenize wire payloads incl. too_large)",
+        "src/lib/backend-client.ts (pendingTokenize, tokenize(), cancelPendingTokenize)",
+        "src/lib/use-websocket.ts (send() -> boolean, onClose callback)",
+        "src/lib/token-view.ts (computed branch, debounce, cacheKeySuffix, COMPUTED_FAILED_REASON)",
+        "src/components/token-view-step-content.tsx",
+        "src/components/chat-workspace.tsx (net 28 of 60 AC-STRUCT-3 budget)",
+        "scripts/capture-vocab-fixture.mjs (+.d.mts)",
+        "tests/fixtures/qwen3-1.7b-vocab.json.gz, tests/fixtures/qwen3-1.7b-goldens.json",
+        "tests/integration/{tokenizer,tokenizer-live-gate,capture-vocab-fixture,ws-handler-tokenize}.test.ts",
+        "tests/unit/{backend-client-tokenize,token-view,chat-workspace-token-view,chat-workspace}.test.tsx",
+        "package.json (fast-check devDependency)"
+      ],
+      "review_history": "Round 1 (incremental): 16 findings, 2 at severity 7 - a remote process kill (malformed tokenize message threw outside handleTokenize's try; unguarded void dispatch, no unhandledRejection handler) and a never-settling promise plus unbounded pendingTokenize leak. Round 2: 7 findings, 2 at severity 5, BOTH NEW and introduced by round 1's own fixes - the same failure mode twice, a fix reaching wider than the finding it closed. Round 3: 4 findings, max severity 3, no new defects; fixpoint declared, with QWEN2_SPLIT_REGEX and the hand-built fixture named as the top targets for a cross-vendor pass. Round 4 (cold, independent): a severity-7 in exactly that line - the pre-tokenizer used cl100k_base's \\p{N}{1,3} rather than Qwen's bare \\p{N} - plus 9 others. Round 5: 4 small test/comment items, two of which both reviewers found independently. Final: both reviewers consider S3 closed. Test count 175 -> 200 across all rounds with no load-bearing test weakened and no golden value regenerated.",
+      "carried_forward_resolved": [
+        {
+          "id": "S2-F4",
+          "status": "resolved",
+          "reason": "streaming TextDecoder(ignoreBOM) in decodeTokens; no lone surrogate can reach formatTokenViewText. fc.string({unit:'binary'}) empirically probed: 0 lone surrogates, astral present to U+10FFFF."
+        },
+        {
+          "id": "S2-F11",
+          "status": "resolved",
+          "reason": "TokenViewHarness deleted; all rendering-contract tests render the real TokenViewStepContent."
+        },
+        {
+          "id": "VQ-S2-016",
+          "status": "resolved",
+          "reason": "trigger fired in S3 (computedSource can now fail); COMPUTED_FAILED_REASON added with an explicit error branch, so a user whose round trip failed is no longer told none ran."
+        }
+      ],
+      "open_items_to_backlog": [
+        {
+          "id": "S3-T1",
+          "severity": 3,
+          "category": "architecture",
+          "reason": "cancelAll() caller-less after the close-path narrowing; the pre-epic chat-stream-hangs-on-disconnect behavior it would cover is back at baseline. Decide relabel-and-wire (distinct ConnectionLost sentinel) vs delete-and-file. Predates the epic, no AC covers it."
+        },
+        {
+          "id": "S3-T2",
+          "severity": 3,
+          "category": "best_practices",
+          "reason": "vocab LRU comment implies a hard cap; it is one-eviction-per-touch and touch-driven, so it does not self-restore without traffic. Bounded by peak concurrent distinct in-flight keys."
+        },
+        {
+          "id": "S3-T3",
+          "severity": 2,
+          "category": "testing",
+          "reason": "chat-workspace.test.tsx's plain-const mocks are safe only via lazy mockImplementation reads; the comment gives the typecheck motive but not the hoisting safety condition. The trade itself was right - importing vi would have removed ~15 of the 201 pre-existing errors and broken architecture.md Constraint 9's pinned baseline mid-epic."
+        },
+        {
+          "id": "S3-T4",
+          "severity": 2,
+          "category": "testing",
+          "reason": "the cancelAll() test now pins only a delegation line; fold into whichever S3-T1 option is chosen rather than orphaning it."
+        },
+        {
+          "id": "S3-T7",
+          "severity": 1,
+          "category": "inference",
+          "reason": "the spelled-out contractions miss '\u017f (U+017F), which the reference's (?i:'s) matches via case folding. llama.cpp's own rewrite has the identical gap and the character does not occur in modern text. Deliberately declined."
+        }
+      ]
     }
   ],
   "reviewer_state": {
-    "last_story_reviewed": "S2",
-    "model_at": "2026-09-21T20:26:51Z",
-    "cross_story_model_snapshot": "S1 + S2 closed (fixpoint reached both). CARRY TO S3 \u2014 this is the story every item targets: (1) S2-F4 - formatTokenViewText indexes by UTF-16 code unit; byte-level BPE can end a token mid-character; AC-TOK-6's fullUnicodeString generator surfaces it. Decide: tokenize() guarantees character-aligned boundaries, or the formatter snaps off low surrogates. (2) S2-F11 - fold TokenViewHarness into the real TokenViewStepContent when wiring computedSource. (3) VQ-S2-016 - re-evaluate splitting UNAVAILABLE_REASON once computedSource can actually fail; S3 is what makes it fail. (4) invariant-format-precondition-join - validated at the RESOLUTION layer (resolveBoundarySource), not the render layer; whichever layer drops boundaries must also decide the label. AC-TOK-5's wrong-source risk is how S3 breaks it; symptom is a silently-unavailable computed source. (5) public-contract-computed-source-stability - THREE constraints must survive S3's wiring: inline lambdas are safe (ref read-through), presence tracked by a stable boolean in deps, and the ref-update effect MUST stay declared above the fetch effect (reordering breaks arrival silently). (6) path-tokenizer-suite-node-env - tokenizer tests in tests/integration (node), never tests/unit (jsdom). (7) path-test-fixtures + path-stream-transcript-fixtures - oracle values READ FROM the recording, never restated as literals. S1 needed two rounds to get this right; S3 has vocab AND golden fixtures. (8) public-contract-tokenize-wire - correlate by requestId; backend-client.handleServerMessage:60 drops conversationId-less messages, so the tokenize branch must sit ahead of that guard. (9) validation-provider-type-gate - AC-ERR-2 gates on ProviderConfig.type, never provider name; also the likely trigger for conditional computedSource supply. (10) convention-duplicated-step-type - S3 adds tokenize wire payload types; both declarations move together. S3 RISK: first story where a test can be CONFIDENTLY WRONG rather than merely thin - tokens.join('')===s holds for many segmentations that are not the model's. AC-TOK-7's golden fixture is the only thing between 'well-formed' and 'correct'. CARRY TO S4: 45 of 60 AC-STRUCT-3 lines remain; S1-F9/S2-F5 persistence-signal gap routes at wrap-up."
+    "last_story_reviewed": "S3",
+    "model_at": "2026-09-22T10:00:00Z",
+    "review_outcome": "closed",
+    "cross_story_model_snapshot": "S1+S2+S3 closed. S3 took 4 remediation rounds: severity 7 -> 5 -> 3 -> (cold pass) 7 -> closed. WHAT THE LEDGER LEARNED, and why external-claims-register now exists as a concept type: the incremental reviewer produced 27 findings across three rounds, ALL seam/lifecycle/contract defects, ZERO external-claim defects. It cannot produce the latter - a comment asserting upstream behavior plus a fixture built from that same assertion are self-consistent, so re-reading separates nothing. It DID correctly name the exact line and the exact reason, which is the most that role can do; the gap was that a named-but-unverifiable claim had no ledger state between 'resolved' and 'open', so it decayed into prose. Four such claims are now registered as EC-1..EC-4 with explicit status, and S4 inherits them as a queue rather than a warning. TREAT THE CROSS-VENDOR PASS AS A GATE - it was unavailable once here and a severity-7 rode through three clean-looking rounds as a result; a gate that fails open is not a gate. VERIFIED GOOD ACROSS ALL ROUNDS, do not re-litigate: S2-F4's streaming-TextDecoder fix; S2-F11's harness fold-in; the AC-PERF-1 in-flight promise cache with settled-only eviction and identity-guarded failure cleanup; the single-owner provider-type gate (survives the too_large widening, correctly sited in ws-handler); the tokenize wire contract end to end (correlation, lifecycle, shape); and the load-bearing tests - AC-TOK-7's six-string golden loop, AC-TOK-2's per-index decodeTokenIds check, AC-TOK-6's property (fc.string({unit:'binary'}), 300 runs), AC-DEP-1's merge-rank-swap test (the ONLY pin on min-vs-max tie-break) and the new fixture-independent digit test (independently confirmed to fail against the old regex) - all unweakened, with goldens independently re-derived in round 4. CARRY TO S4: (1) re-measure the AC-STRUCT-3 budget before planning; roughly 32 of 60 chat-workspace.tsx lines remain. (2) convention-duplicated-step-type survived too_large only because the client validates shape, never enum membership - S4's reconciliation figures are the first fields likely consumed BY VALUE on both sides, which is where it actually bites. (3) COMPUTED_MISMATCH_REASON already anticipates AC-TOK-5's wrong-source risk; do NOT add a second mismatch check downstream of resolveBoundarySource - whichever layer drops boundaries owns the label. (4) the vocab LRU is a steady-state target, not a hard cap; S4 adds another tokenize consumer and another (baseUrl, model) pair. (5) EC-2 bounds what any S4 claim about token counts can honestly assert: AC-TOK-7 proves algorithm class, not model fidelity, until a host re-captures the fixture. (6) S1-F9/S2-F5 persistence-signal gap still unowned; routes at wrap-up."
   }
 }

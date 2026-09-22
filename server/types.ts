@@ -76,6 +76,11 @@ export interface MetaEvent {
   durationMs?: number;
 }
 
+/** `tokenize.error`'s typed reason enum (epic-token-view story S3). No
+ *  precedent elsewhere in this protocol — every other error path
+ *  (`chat.error`) is an untyped message string. */
+export type TokenizeErrorReason = "unsupported_provider" | "vocab_unavailable" | "too_large" | "internal";
+
 // Client → Server messages
 export type ClientMessage =
   | {
@@ -90,6 +95,7 @@ export type ClientMessage =
       reasoningEffort?: ReasoningEffort;
     }
   | { type: "chat.stop"; conversationId: string }
+  | { type: "tokenize"; requestId: string; model: string; text: string; provider?: string }
   | { type: "ping" };
 
 // Server → Client messages
@@ -100,4 +106,6 @@ export type ServerMessage =
   | { type: "chat.error"; conversationId: string; message: string }
   | { type: "meta.event"; conversationId: string; event: MetaEvent }
   | { type: "tools.update"; tools: ToolDefinition[] }
+  | { type: "tokenize.result"; requestId: string; tokens: string[]; tokenIds: number[] }
+  | { type: "tokenize.error"; requestId: string; reason: TokenizeErrorReason }
   | { type: "pong" };

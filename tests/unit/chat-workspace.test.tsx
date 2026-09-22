@@ -6,14 +6,27 @@ import { fetchModelMeta } from "@/src/lib/ollama";
 import { SELECTED_KEY, STORAGE_KEY } from "@/src/lib/chat";
 
 const { mockSend, mockStartStream, mockCancelAll } = vi.hoisted(() => ({
-  mockSend: vi.fn(),
+  mockSend: vi.fn(() => true),
   mockStartStream: vi.fn(),
   mockCancelAll: vi.fn(),
 }));
+// Plain functions, not vi.fn() (unlike chat-workspace-token-view.test.tsx,
+// which does assert on these): this file never asserts on
+// cancelPendingTokenize/tokenize, they only need to exist so the mock
+// satisfies the real BackendClient shape (S3-R4) without throwing. Kept as
+// non-vi.fn() to avoid adding new `vi` reference sites in a file that
+// (pre-existing, unrelated to this fix) has no explicit `import { vi } from
+// "vitest"` and so has no static type for the global.
+const mockCancelPendingTokenize = () => {};
+const mockTokenize = () => Promise.resolve({ tokens: [] as string[], tokenIds: [] as number[] });
 
 vi.mock("@/src/lib/use-websocket", () => ({
-  useWebSocket: (_url: string, onMessage: (data: unknown) => void) => {
+  // Arity-3 (S3-R4): the real contract (src/lib/use-websocket.ts) takes an
+  // `onClose` third argument that chat-workspace.tsx wires to
+  // `BackendClient.cancelPendingTokenize()` (S3-R1).
+  useWebSocket: (_url: string, onMessage: (data: unknown) => void, onClose?: () => void) => {
     (globalThis as Record<string, unknown>).__wsMockOnMessage = onMessage;
+    (globalThis as Record<string, unknown>).__wsMockOnClose = onClose;
     return { send: mockSend, connected: true, lastMessage: null };
   },
 }));
@@ -23,6 +36,8 @@ vi.mock("@/src/lib/backend-client", () => ({
     handleServerMessage: vi.fn(),
     startStream: mockStartStream,
     cancelAll: mockCancelAll,
+    cancelPendingTokenize: mockCancelPendingTokenize,
+    tokenize: mockTokenize,
   })),
   WS_URL: "ws://localhost:3001",
 }));
@@ -119,6 +134,7 @@ describe("ChatWorkspace", () => {
     window.localStorage.setItem("ollamable.tourCompleted", "true");
     mockStartStream.mockClear();
     mockSend.mockClear();
+    mockCancelAll.mockClear();
     setupStartStream();
     mockedFetchModelMeta.mockClear();
     Object.defineProperty(window.navigator, "clipboard", {

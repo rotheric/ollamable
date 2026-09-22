@@ -16,7 +16,7 @@
 - **raw-count oracle** — `prompt_eval_count` from `POST {OLLAMA_URL}/generate` with
   `{"raw": true, "stream": false, "options": {"num_predict": 1}}`, which reports how many tokens
   Ollama ingested for a string with no chat template applied. Verified against Ollama 0.30.8.
-- **vocab fixture** — `tests/fixtures/qwen3-1.7b-vocab.json`, a committed snapshot of
+- **vocab fixture** — `tests/fixtures/qwen3-1.7b-vocab.json.gz`, a committed snapshot of
   `model_info["tokenizer.ggml.tokens"]`, `["tokenizer.ggml.merges"]`, and the scalar
   `tokenizer.ggml.*` fields for `qwen3:1.7b`.
 - **golden fixture** — `tests/fixtures/qwen3-1.7b-goldens.json`, committed expected `tokenIds`

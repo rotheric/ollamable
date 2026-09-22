@@ -24,15 +24,22 @@ import { ChatWorkspace } from "@/src/components/chat-workspace";
 import { fetchModelMeta } from "@/src/lib/ollama";
 import { SELECTED_KEY, STORAGE_KEY, SIDEBAR_STATE_KEY } from "@/src/lib/chat";
 
-const { mockSend, mockStartStream, mockCancelAll } = vi.hoisted(() => ({
-  mockSend: vi.fn(),
+const { mockSend, mockStartStream, mockCancelAll, mockCancelPendingTokenize, mockTokenize } = vi.hoisted(() => ({
+  mockSend: vi.fn(() => true),
   mockStartStream: vi.fn(),
   mockCancelAll: vi.fn(),
+  mockCancelPendingTokenize: vi.fn(),
+  mockTokenize: vi.fn().mockResolvedValue({ tokens: [], tokenIds: [] }),
 }));
 
 vi.mock("@/src/lib/use-websocket", () => ({
-  useWebSocket: (_url: string, onMessage: (data: unknown) => void) => {
+  // Arity-3 (S3-R4): the real contract (src/lib/use-websocket.ts) takes an
+  // `onClose` third argument that chat-workspace.tsx wires to
+  // `BackendClient.cancelPendingTokenize()` (S3-R1). Capturing it here lets
+  // tests invoke the close path directly instead of leaving it uncovered.
+  useWebSocket: (_url: string, onMessage: (data: unknown) => void, onClose?: () => void) => {
     (globalThis as Record<string, unknown>).__wsMockOnMessage = onMessage;
+    (globalThis as Record<string, unknown>).__wsMockOnClose = onClose;
     return { send: mockSend, connected: true, lastMessage: null };
   },
 }));
@@ -42,6 +49,8 @@ vi.mock("@/src/lib/backend-client", () => ({
     handleServerMessage: vi.fn(),
     startStream: mockStartStream,
     cancelAll: mockCancelAll,
+    cancelPendingTokenize: mockCancelPendingTokenize,
+    tokenize: mockTokenize,
   })),
   WS_URL: "ws://localhost:3001",
 }));
@@ -139,7 +148,24 @@ describe("chat-workspace token view", () => {
     window.localStorage.setItem("ollamable.tourCompleted", "true");
     mockStartStream.mockClear();
     mockSend.mockClear();
+    mockCancelAll.mockClear();
+    mockCancelPendingTokenize.mockClear();
+    mockTokenize.mockClear();
     Element.prototype.scrollIntoView = vi.fn();
+  });
+
+  it("S3-R1/S3-R4: the socket's onClose runs the narrowed tokenize-cancel path, not cancelAll()", async () => {
+    seedConversation([]);
+    renderWorkspace();
+    await screen.findByText("Token view chat");
+
+    const onClose = (globalThis as Record<string, unknown>).__wsMockOnClose as (() => void) | undefined;
+    expect(onClose).toBeTypeOf("function");
+
+    onClose!();
+
+    expect(mockCancelPendingTokenize).toHaveBeenCalledTimes(1);
+    expect(mockCancelAll).not.toHaveBeenCalled();
   });
 
   it("AC-UX-1: renders a labelled showTokens switch, persists via updateSidebar, and survives reload", async () => {

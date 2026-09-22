@@ -7,6 +7,19 @@ import type { ProviderConfig } from "./provider-config.js";
 import type { ConversationStep, ReasoningEffort, ToolDefinition } from "./types.js";
 import { fetchOllamaModelMeta, streamOllamaResponse } from "./ollama-client.js";
 import { fetchOpenAIModels, streamOpenAIResponse } from "./openai-client.js";
+import { tokenize, type TokenizeResult } from "./tokenizer.js";
+
+/**
+ * Thrown by `tokenizeText` when the resolved provider isn't Ollama-typed.
+ * Mapped by server/ws-handler.ts to `tokenize.error{reason:
+ * "unsupported_provider"}` (AC-ERR-2).
+ */
+export class UnsupportedProviderError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "UnsupportedProviderError";
+  }
+}
 
 // ── Public model type returned by the router ─────────────────────────
 
@@ -125,8 +138,36 @@ export class LlmRouter {
     return fetchOllamaModelMeta(config.baseUrl, modelName);
   }
 
-  // ── Private helpers ──────────────────────────────────────────────
+  /**
+   * Tokenizes `text` against `model`'s vocabulary. Mirrors `showModelMeta`
+   * (architecture.md Boundary Rule 4): the router owns the provider-type
+   * gate and exposes a capability method, rather than handing the caller
+   * the raw `ProviderConfig` (credentials included) to gate on itself.
+   * Throws `UnsupportedProviderError` when the resolved provider isn't
+   * Ollama-typed, or `VocabUnavailableError` (propagated from
+   * server/tokenizer.ts) when the model's vocabulary can't be
+   * loaded/used — both left for the caller to map to a typed
+   * `tokenize.error` reason.
+   */
+  async tokenizeText(
+    provider: string | undefined,
+    model: string,
+    text: string
+  ): Promise<TokenizeResult> {
+    const config = this.resolveProvider(provider, model);
+    if (config.type !== "ollama") {
+      throw new UnsupportedProviderError(
+        `Tokenization is only available for Ollama models (provider: ${config.name}).`
+      );
+    }
+    return tokenize(config.baseUrl, model, text);
+  }
 
+  /**
+   * Resolves the provider config for a model, by explicit provider id
+   * first, then the map populated by listAllModels(), then defaulting to
+   * the first configured provider.
+   */
   private resolveProvider(
     providerId: string | undefined,
     modelName: string

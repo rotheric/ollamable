@@ -1,0 +1,68 @@
+{
+  "module_name": "tokenizer",
+  "purpose": "Byte-level BPE tokenizer sourced live from Ollama's POST /show (verbose). Owns the vocab/merge table cache keyed by (baseUrl, model) with a shared in-flight-promise cache (AC-PERF-1 / Order-Sensitive Composition Flow 1), the qwen2-style pre-tokenizer split, the GPT-2 byte<->unicode alphabet, BPE merge application by rank, and special-token matching ahead of the pre-tokenizer split. Also wires the tokenize WS request/response pair (server/ws-handler.ts), the backend-client.tokenize() promise API (src/lib/backend-client.ts), and the real useTokenBoundaries computed branch (src/lib/token-view.ts + src/components/token-view-step-content.tsx) that S2 mocked.",
+  "public_api": [
+    {
+      "name": "loadVocab",
+      "signature": "loadVocab(baseUrl: string, model: string): Promise<VocabTable>",
+      "description": "Loads (and caches) the vocab/merge table for (baseUrl, model). Stores the in-flight promise itself synchronously before any await, so concurrent first calls attach to the same promise (AC-PERF-1). A failed load is not cached — the next call retries."
+    },
+    {
+      "name": "tokenize",
+      "signature": "tokenize(baseUrl: string, model: string, text: string): Promise<{ tokens: string[]; tokenIds: number[] }>",
+      "description": "Loads the vocab for (baseUrl, model) then tokenizes text against it. Entry point server/ws-handler.ts calls for the tokenize WS message."
+    },
+    {
+      "name": "tokenizeWithVocab",
+      "signature": "tokenizeWithVocab(vocab: VocabTable, text: string): TokenizeResult",
+      "description": "Tokenizes text against an already-loaded vocab table (no network call). Used directly by the conformance test suite to avoid re-fetching per assertion."
+    },
+    {
+      "name": "decodeTokenIds",
+      "signature": "decodeTokenIds(vocab: VocabTable, tokenIds: number[]): string[]",
+      "description": "Decodes an explicit token-id sequence via the same streaming-decode logic tokenize() uses internally. Exposed for AC-TOK-2's per-index vocab-lookup/byte-decode assertion."
+    },
+    {
+      "name": "bpeMerge",
+      "signature": "bpeMerge(token: string[], mergeRank: Map<string, number>): string[]",
+      "description": "Standard BPE merge loop (mirrors GPT-2's bpe()). Exported so the fixture-construction tooling can mechanically verify a hand-designed merge table's segmentation without duplicating the algorithm."
+    },
+    {
+      "name": "VocabUnavailableError",
+      "signature": "class VocabUnavailableError extends Error",
+      "description": "Thrown when a model's vocabulary cannot be used: unreachable /show, missing model_info fields, or an unsupported tokenizer.ggml.pre. Mapped by ws-handler.ts to tokenize.error{reason: \"vocab_unavailable\"}."
+    },
+    {
+      "name": "__resetVocabCacheForTests",
+      "signature": "__resetVocabCacheForTests(): void",
+      "description": "Test-only: clears the module-level vocab cache between test cases."
+    }
+  ],
+  "private_files": [
+    "server/tokenizer.ts (buildByteToUnicode, byteEncode, byteDecodeToBytes, preTokenize, getPairs, buildVocabTable, fetchVocab, cacheKey, splitOnSpecialTokens, encodeToIds, decodeTokens — all internal to the exports above)"
+  ],
+  "owned_data": [
+    "vocabCache: Map<string, Promise<VocabTable>> keyed by `${baseUrl}\\u0000${model}` — the only owner of vocab/merge state; nothing else in server/ reads or writes it."
+  ],
+  "dependencies_allowed": [
+    "none beyond Node built-ins (node:zlib not used here; only global fetch/TextEncoder/TextDecoder) — server/tokenizer.ts imports nothing else under server/ or shared/"
+  ],
+  "dependencies_forbidden": [
+    "no import of a reference tokenizer package (llama.cpp bindings, @xenova/transformers, tiktoken, gpt-tokenizer, etc.) anywhere under server/ — enforced by a static grep test in tests/integration/capture-vocab-fixture.test.ts",
+    "no import of tests/fixtures/* or any committed JSON vocab file from server/tokenizer.ts — the only data source is the live POST /show response (AC-DEP-1); verified by a static grep test in tests/integration/tokenizer.test.ts",
+    "no import across server/ <-> src/ (architecture.md Boundary Rule 1) — server/tokenizer.ts is server-only; the frontend never tokenizes (Design Decision 5), it only sends/receives primitives over the WebSocket (tokens: string[], tokenIds: number[])"
+  ],
+  "external_ports": [
+    "POST {baseUrl}/show with { model, verbose: true } — the only network call this module makes"
+  ],
+  "events_emitted": [],
+  "events_consumed": [],
+  "test_targets": [
+    "tests/integration/tokenizer.test.ts — AC-DEP-1, AC-TOK-1 (live-gated), AC-TOK-7, AC-TOK-2, AC-TOK-3, AC-PERF-1, AC-ERR-2 (vocab_unavailable half), AC-TOK-6 property test",
+    "tests/integration/tokenizer-live-gate.test.ts — AC-ERR-3 gate-check helper",
+    "tests/integration/ws-handler-tokenize.test.ts — AC-ERR-2 (unsupported_provider half, type-not-name routing), tokenize wire request/response, requestId correlation of concurrent calls",
+    "tests/integration/capture-vocab-fixture.test.ts — AC-DEP-2 (idempotency, tokenizer.ggml.* field scoping, no reference-tokenizer import)",
+    "tests/unit/backend-client-tokenize.test.ts — requestId correlation independent of the conversationId guard (architecture.md Implementation Constraint 1)",
+    "tests/unit/token-view.test.tsx (extended) — the new debounce test for useTokenBoundaries's computed branch"
+  ]
+}

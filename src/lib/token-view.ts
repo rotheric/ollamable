@@ -8,11 +8,13 @@
  * unavailable). None of this logic may be duplicated inline in
  * chat-workspace.tsx — that file only calls these exports.
  *
- * S2 does not depend on S3: the `computed` boundary source is exercised
- * exclusively through an injected fake in tests/unit/token-view.test.tsx.
- * Production wiring in chat-workspace.tsx passes no `computedSource` yet, so
- * only the stream/unavailable sources occur there; supplying the real
- * useTokenBoundaries computed branch backed by backend-client.tokenize().
+ * S2's own tests exercise the `computed` boundary source exclusively
+ * through an injected fake (tests/unit/token-view.test.tsx). Story S3
+ * folded in the real production wiring: chat-workspace.tsx's
+ * `TokenViewStepContent` call site (`~2264`) passes `tokenizeStepText`
+ * (backend-client.tokenize() against the conversation's current model) as
+ * `computedSource`, so `computed` is now reachable in production, not
+ * only under test.
  */
 
 import { useEffect, useRef, useState } from "react";
@@ -27,6 +29,14 @@ export const NEWLINE_MARKER = "↵";
 /** Substituted 1:1 for each space that is part of a run of 2+ consecutive spaces. U+00B7. */
 export const SPACE_RUN_MARKER = "·";
 
+/**
+ * Delay (ms) before a newly-mounted/changed computed round trip actually
+ * fires (story S3). No debounce utility existed anywhere in this repo
+ * before this epic (architecture.md Implementation Constraint 6);
+ * `setTimeout` + cleanup is sufficient for this single call site.
+ */
+export const COMPUTED_SOURCE_DEBOUNCE_MS = 150;
+
 export type BoundarySource = "stream" | "computed" | "pending" | "unavailable";
 
 export interface TokenBoundaryResult {
@@ -38,18 +48,30 @@ export interface TokenBoundaryResult {
 }
 
 /**
- * Covers BOTH `unavailable` sub-cases with one message: (1) nothing was ever
- * attempted, and (2) a computed round trip was attempted and errored. Only (1)
- * is reachable while no caller supplies a `computedSource` that can fail.
+ * Covers the "nothing was ever attempted" `unavailable` sub-case: no
+ * `computedSource` was supplied at all, or the step carries neither
+ * `contentTokens` nor any computed state yet.
  *
- * AC-ERR-1 requires "a visible notice naming the reason" (singular) and does
- * not require the sub-cases be distinguishable, so one constant satisfies it
- * today — a deferred decision, not a defect.
- * Revisit once a `computedSource` that can fail is wired: that is when a
- * computed-failure message may need splitting out from never-attempted.
+ * This was, until story S3, the only reachable `unavailable` sub-case —
+ * no caller supplied a `computedSource` that could fail. S3 wired a real
+ * one (backend-client.tokenize(), which can reject), making the "attempted
+ * and errored" sub-case reachable too; that case now gets its own
+ * `COMPUTED_FAILED_REASON` below instead of this message; before that
+ * split, a user whose round trip ran and failed would have been told none
+ * ran at all (S3-F5).
  */
 export const UNAVAILABLE_REASON =
   "No token boundaries are available for this step (nothing was captured while streaming, and no computed round trip has run).";
+
+/**
+ * Reason surfaced when a computed round trip was actually attempted and
+ * failed (the `computedSource` promise rejected — e.g. a `tokenize.error`
+ * from the server, or a dropped WebSocket connection). Distinct from
+ * `UNAVAILABLE_REASON` so the notice never claims nothing was attempted
+ * when something was attempted and failed (S3-F5).
+ */
+export const COMPUTED_FAILED_REASON =
+  "A computed round trip for this step's tokens failed, so no boundaries are shown.";
 
 /**
  * Reason surfaced when a resolved computed round trip's tokens don't
@@ -111,31 +133,54 @@ export function resolveBoundarySource(
     }
     return { source: "computed", tokens };
   }
+  if (computedState.status === "error") {
+    // A round trip was actually attempted and failed — never reported as
+    // UNAVAILABLE_REASON's "nothing was captured... no computed round
+    // trip has run", which would tell the user something false (S3-F5).
+    return { source: "unavailable", tokens: [], reason: COMPUTED_FAILED_REASON };
+  }
   return { source: "unavailable", tokens: [], reason: UNAVAILABLE_REASON };
 }
 
 export interface UseTokenBoundariesOptions {
   /**
-   * Injected computed-boundary provider. Only ever supplied in this
-   * module's own tests, or by real wiring once a caller supplies one —
-   * chat-workspace.tsx's call site passes none today.
+   * Injected computed-boundary provider. Exercised via an injected fake in
+   * this module's own tests; chat-workspace.tsx's production call site
+   * passes `tokenizeStepText` (backend-client.tokenize() against the
+   * conversation's current model, story S3).
    */
   computedSource?: (step: ConversationStep) => Promise<string[]>;
+  /**
+   * Included in the pending/resolved cache key alongside (step.id,
+   * step.content), so a change invalidates any already-resolved computed
+   * result instead of leaving it displayed as still current. Production
+   * wiring passes the conversation's current model: `computedSource`
+   * closes over the model already (chat-workspace.tsx's `tokenizeStepText`),
+   * but switching models re-creates that closure with a NEW identity while
+   * `key` stays the same (step.id/content are unaffected) — without this
+   * suffix in the key, the hook would keep serving a computed result
+   * resolved under the OLD model while COMPUTED_NOTICE claims it was
+   * computed under the conversation's CURRENT one (S3-F3).
+   */
+  cacheKeySuffix?: string;
 }
 
 /**
- * Hook shell exposing a computed slot this story's own tests satisfy with
- * an injected fake. Keys the pending/resolved cache by
- * (step.id, step.content) — not step.id alone — so a stale in-flight
- * request for since-mutated content is ignored on resolution rather than
- * overwriting a newer result.
+ * Hook backing the `computed` boundary source: debounces a caller-supplied
+ * `computedSource` round trip and caches its result. Exercised via an
+ * injected fake in this module's own tests; chat-workspace.tsx wires the
+ * real production path (backend-client.tokenize(), story S3). Keys the
+ * pending/resolved cache by (step.id, step.content, cacheKeySuffix) — not
+ * step.id alone — so a stale in-flight request for since-mutated content,
+ * or a since-invalidated `cacheKeySuffix` (e.g. a model switch, S3-F3), is
+ * ignored on resolution rather than overwriting a newer result.
  */
 export function useTokenBoundaries(
   step: ConversationStep,
   options?: UseTokenBoundariesOptions
 ): TokenBoundaryResult {
   const computedSource = options?.computedSource;
-  const key = `${step.id}:${step.content}`;
+  const key = `${step.id}:${step.content}:${options?.cacheKeySuffix ?? ""}`;
   // Presence, not identity: a boolean has stable identity across renders,
   // so it can sit in the fetch effect's deps without reintroducing the
   // unbounded re-fire loop the ref below guards against, while still
@@ -170,20 +215,34 @@ export function useTokenBoundaries(
     if (!source) return;
 
     let cancelled = false;
-    source(step)
-      .then((tokens) => {
-        if (cancelled) return;
-        setComputedKey(key);
-        setComputedState({ status: "resolved", tokens });
-      })
-      .catch(() => {
-        if (cancelled) return;
-        setComputedKey(key);
-        setComputedState({ status: "error" });
-      });
+    // Debounced (story S3, AC-STRUCT-3): the real computedSource is a
+    // network round trip (backend-client.tokenize()). Each mounted step
+    // owns its own hook instance and its own timer, so this delay does
+    // NOT coalesce concurrent requests across steps — toggling showTokens
+    // on a transcript with N visible steps still issues N tokenize
+    // requests, just after a shared delay. What it actually does: a step
+    // that unmounts or re-keys (content/id change) before the timer
+    // elapses never issues its request at all, so rapid remounts/edits
+    // within the window are suppressed rather than each firing its own
+    // round trip. The per-(step.id, content) cache above is what avoids
+    // repeat requests once a step's boundaries have already resolved.
+    const timer = setTimeout(() => {
+      source(step)
+        .then((tokens) => {
+          if (cancelled) return;
+          setComputedKey(key);
+          setComputedState({ status: "resolved", tokens });
+        })
+        .catch(() => {
+          if (cancelled) return;
+          setComputedKey(key);
+          setComputedState({ status: "error" });
+        });
+    }, COMPUTED_SOURCE_DEBOUNCE_MS);
 
     return () => {
       cancelled = true;
+      clearTimeout(timer);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [key, step.contentTokens, hasComputedSource]);
@@ -238,6 +297,16 @@ export function formatTokenViewText(content: string, tokens: string[] | null): s
     tokens = null;
   }
 
+  // A BPE boundary that splits a multi-byte character makes server/
+  // tokenizer.ts's decodeTokens emit "" for the token contributing only
+  // partial bytes (by design — that's what keeps the join invariant this
+  // formatter's precondition above depends on). A zero-length token
+  // advances `cumulative` by 0, so its boundary offset collides with its
+  // neighbour's and this Set silently dedups it: the user sees one
+  // separator where the model actually produced two tokens. Lossy by
+  // design at exactly that boundary — there is no better rendering for
+  // half a character — and not an AC-UX-2 violation (that AC forbids a
+  // 1:1 element-per-token rendering, not this collapse) (S3-F15).
   const boundaryOffsets = new Set<number>();
   if (tokens !== null) {
     let cumulative = 0;

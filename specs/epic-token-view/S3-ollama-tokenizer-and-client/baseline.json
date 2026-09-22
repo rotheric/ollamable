@@ -1,0 +1,15 @@
+{
+  "tests_total_unit": 93,
+  "tests_passing_unit": 92,
+  "tests_failing_unit": 1,
+  "tests_total_integration": 27,
+  "tests_passing_integration": 27,
+  "tests_failing_integration": 0,
+  "note": "Pre-existing failure: tests/unit/chat-workspace.test.tsx:175 vs chat-workspace.tsx:1759 (\"Open model settings for …\" vs expected \"Open metadata for …\"). Not attributable to this epic; not fixed. Measured before any S3 file changes (S1+S2 already merged).",
+  "lint": "NO_LINT",
+  "lint_detail": "npm run lint is non-functional: no ESLint config exists, `next lint` prompts interactively. Not run.",
+  "typecheck_frontend": "201 pre-existing errors across tests/unit/chat-workspace.test.tsx, chat.test.ts, openai-format.test.ts, tour-data.test.ts (missing vitest globals types), measured with `npx tsc --noEmit -p tsconfig.json --incremental false`. All in tests/unit/; zero in src/ or server/.",
+  "typecheck_server": "clean (npx tsc --noEmit -p tsconfig.server.json --incremental false)",
+  "live_ollama_host": "unreachable in this sandbox (curl http://localhost:11434/api/tags -> connection refused). AC-TOK-1 and the live-gated portion of AC-TOK-5 (S4's) skip cleanly rather than fail — see tests/integration/tokenizer-live-gate.ts.",
+  "fast_check_present": false
+}

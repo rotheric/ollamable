@@ -1,19 +1,20 @@
 /**
  * Unit tests for src/lib/token-view.ts — the module owning separator
  * formatting, whitespace markers, and boundary-source resolution for the
- * `showTokens` display mode (epic-token-view story S2).
+ * `showTokens` display mode (epic-token-view story S2, extended by S3).
  *
  * Covers AC-UX-2, AC-UX-4, AC-UX-8, AC-ERR-1, and AC-STRUCT-3's
- * formatting/resolution-placement requirement. The `computed` and
- * `pending` boundary sources are exercised here exclusively via an
- * injected fake (MOCK-02-001) per AC-UX-2's explicit no-S3 clause and
- * story S2's scope — production chat-workspace.tsx wiring passes no
- * computedSource until S3 lands.
+ * formatting/resolution-placement requirement. The rendering-contract
+ * suite below exercises the REAL `TokenViewStepContent` component (story
+ * S3 folded in the S2-F1/S2-F11 harness duplicate now that production
+ * wiring exists) rather than a hand-rolled copy of its boundary->tokens
+ * mapping.
  */
 
 import { describe, it, expect, vi } from "vitest";
 import { render, screen, waitFor, renderHook, act } from "@testing-library/react";
 import type { ConversationStep } from "@/src/types/chat";
+import { TokenViewStepContent } from "@/src/components/token-view-step-content";
 import {
   SEPARATOR,
   NEWLINE_MARKER,
@@ -24,6 +25,8 @@ import {
   COMPUTED_NOTICE,
   UNAVAILABLE_REASON,
   COMPUTED_MISMATCH_REASON,
+  COMPUTED_FAILED_REASON,
+  COMPUTED_SOURCE_DEBOUNCE_MS,
   resolveBoundarySource,
   useTokenBoundaries,
   formatTokenViewText,
@@ -52,6 +55,18 @@ describe("formatTokenViewText", () => {
     const out = formatTokenViewText("a b c", ["a", " b", " c"]);
     expect(typeof out).toBe("string");
     expect(out).toBe(`a${SEPARATOR} b${SEPARATOR} c`);
+  });
+
+  it("collapses a zero-length token's boundary into its neighbour's, by design (S3-F15)", () => {
+    // A BPE boundary that splits a multi-byte character makes
+    // server/tokenizer.ts's decodeTokens emit "" for the token
+    // contributing only partial bytes. tokens = ["a", "", "€", "b"]
+    // simulates that: there are two real boundaries around the "" token
+    // (a|"" and ""|€), but a zero-length token advances the cumulative
+    // offset by 0, so its boundary collides with its neighbour's and only
+    // one separator renders instead of two.
+    const out = formatTokenViewText("a€b", ["a", "", "€", "b"]);
+    expect(out).toBe(`a${SEPARATOR}€${SEPARATOR}b`);
   });
 
   it("keeps a literal '|' in content distinguishable from the SEPARATOR", () => {
@@ -125,12 +140,12 @@ describe("resolveBoundarySource", () => {
     expect(result.tokens).toEqual(["Hello", " world"]);
   });
 
-  it("returns unavailable with a reason when contentTokens is absent and no computedState is supplied", () => {
+  it("returns unavailable with UNAVAILABLE_REASON (never attempted) when contentTokens is absent and no computedState is supplied", () => {
     const step = makeStep({ contentTokens: undefined });
     const result = resolveBoundarySource(step);
     expect(result.source).toBe("unavailable");
     expect(result.tokens).toEqual([]);
-    expect(result.reason).toBeTruthy();
+    expect(result.reason).toBe(UNAVAILABLE_REASON);
   });
 
   it("returns pending while a computed round trip is in flight", () => {
@@ -147,11 +162,12 @@ describe("resolveBoundarySource", () => {
     expect(result.tokens).toEqual(["Hi"]);
   });
 
-  it("falls back to unavailable (never re-tokenizes) when the computed round trip errors", () => {
+  it("falls back to unavailable with COMPUTED_FAILED_REASON — not the generic never-attempted reason — when the computed round trip errors (S3-F5)", () => {
     const step = makeStep({ contentTokens: undefined });
     const result = resolveBoundarySource(step, { status: "error" });
     expect(result.source).toBe("unavailable");
-    expect(result.reason).toBeTruthy();
+    expect(result.reason).toBe(COMPUTED_FAILED_REASON);
+    expect(result.reason).not.toBe(UNAVAILABLE_REASON);
   });
 
   it("degrades a resolved computed state to unavailable with a mismatch reason when tokens.join('') !== step.content (S2-F9), instead of labeling a mismatch as computed", () => {
@@ -234,6 +250,9 @@ describe("useTokenBoundaries", () => {
     const { result } = renderHook(() => useTokenBoundaries(step, { computedSource: fake }));
     expect(result.current.source).toBe("pending");
 
+    // S3's debounce (COMPUTED_SOURCE_DEBOUNCE_MS) delays the actual
+    // computedSource() call — wait for it to have fired before resolving.
+    await waitFor(() => expect(fake).toHaveBeenCalled());
     await act(async () => {
       resolveFake(["Hi"]);
       await Promise.resolve();
@@ -243,12 +262,39 @@ describe("useTokenBoundaries", () => {
     expect(result.current.tokens).toEqual(["Hi"]);
   });
 
-  it("falls back to unavailable when the fake computedSource rejects", async () => {
+  it("falls back to unavailable with COMPUTED_FAILED_REASON when the fake computedSource rejects (S3-F5)", async () => {
     const step = makeStep({ contentTokens: undefined, content: "Hi" });
     const fake = vi.fn(() => Promise.reject(new Error("boom")));
 
     const { result } = renderHook(() => useTokenBoundaries(step, { computedSource: fake }));
     await waitFor(() => expect(result.current.source).toBe("unavailable"));
+    expect(result.current.reason).toBe(COMPUTED_FAILED_REASON);
+  });
+
+  it("invalidates a resolved computed result when cacheKeySuffix changes (e.g. the conversation's model, S3-F3)", async () => {
+    // Both fakes must join to the SAME unchanged step.content ("Hi") —
+    // only the model-derived cacheKeySuffix changes here, not the step
+    // itself — so their differing token counts (not differing text) is
+    // what distinguishes "A resolved" from "B resolved" below.
+    const step = makeStep({ contentTokens: undefined, content: "Hi" });
+    const sourceA = vi.fn(() => Promise.resolve(["Hi"]));
+    const sourceB = vi.fn(() => Promise.resolve(["H", "i"]));
+
+    const { result, rerender } = renderHook(
+      ({ computedSource, cacheKeySuffix }) => useTokenBoundaries(step, { computedSource, cacheKeySuffix }),
+      { initialProps: { computedSource: sourceA, cacheKeySuffix: "model-a" } }
+    );
+
+    await waitFor(() => expect(result.current.source).toBe("computed"));
+    expect(result.current.tokens).toEqual(["Hi"]);
+
+    // Same step id/content — only the model-derived suffix changes.
+    rerender({ computedSource: sourceB, cacheKeySuffix: "model-b" });
+    expect(result.current.source).toBe("pending");
+
+    await waitFor(() => expect(result.current.source).toBe("computed"));
+    expect(result.current.tokens).toEqual(["H", "i"]);
+    expect(sourceB).toHaveBeenCalledTimes(1);
   });
 
   it("ignores a stale in-flight computed response after the step's content changes", async () => {
@@ -262,6 +308,12 @@ describe("useTokenBoundaries", () => {
       { initialProps: { s: stepA, computedSource: slow } }
     );
     expect(result.current.source).toBe("pending");
+
+    // Let stepA's debounced call actually fire (so its promise is
+    // genuinely in flight) before switching to stepB — otherwise the
+    // debounce's own cleanup would cancel it before it ever starts,
+    // and there would be nothing "stale" left to ignore.
+    await waitFor(() => expect(slow).toHaveBeenCalled());
 
     const stepB = makeStep({ contentTokens: undefined, content: "BBB" });
     rerender({ s: stepB, computedSource: fast });
@@ -306,6 +358,28 @@ describe("useTokenBoundaries", () => {
     expect(result.current.source).toBe("computed");
     expect(result.current.tokens).toEqual(["Hi"]);
   });
+
+  it("debounces the computedSource call, and cancels it entirely if the step changes before it fires (story S3)", async () => {
+    const stepA = makeStep({ contentTokens: undefined, content: "AAA" });
+    const stepB = makeStep({ contentTokens: undefined, content: "BBB" });
+    const sourceA = vi.fn(() => Promise.resolve(["AAA"]));
+    const sourceB = vi.fn(() => Promise.resolve(["BBB"]));
+
+    const { result, rerender } = renderHook(
+      ({ s, computedSource }) => useTokenBoundaries(s, { computedSource }),
+      { initialProps: { s: stepA, computedSource: sourceA } }
+    );
+    expect(result.current.source).toBe("pending");
+
+    // Switch away from stepA immediately, well inside the debounce
+    // window — sourceA must never fire at all (not "fire and be
+    // ignored"; the debounced call itself must be cancelled by cleanup).
+    rerender({ s: stepB, computedSource: sourceB });
+    await waitFor(() => expect(result.current.source).toBe("computed"));
+    expect(result.current.tokens).toEqual(["BBB"]);
+    expect(sourceA).not.toHaveBeenCalled();
+    expect(sourceB).toHaveBeenCalledTimes(1);
+  });
 });
 
 describe("getBoundaryNotice", () => {
@@ -339,35 +413,18 @@ describe("getBoundaryNotice", () => {
 });
 
 /**
- * End-to-end rendering contract, exercised against both the `stream` source
- * (real contentTokens) and MOCK-02-001's fake `computed` source, using a
- * minimal harness that mirrors chat-workspace.tsx's own consumption
- * pattern of these exports (single formatted string as a Typography's only
- * child — never one element per token).
+ * End-to-end rendering contract, exercised against both the `stream`
+ * source (real contentTokens) and a real computedSource (via
+ * TokenViewStepContent's `tokenizeText` prop, story S3) — the ACTUAL
+ * production component, not a hand-rolled copy of its boundary->tokens
+ * mapping (S2-F11: folded in now that real computedSource wiring
+ * exists). `tokenizeText` takes `(text: string) => Promise<string[]>`;
+ * fakes below only need `step.content`, so they ignore the argument.
  */
-function TokenViewHarness({
-  step,
-  computedSource,
-}: {
-  step: ConversationStep;
-  computedSource?: (step: ConversationStep) => Promise<string[]>;
-}) {
-  const boundary = useTokenBoundaries(step, { computedSource });
-  const tokens = boundary.source === "stream" || boundary.source === "computed" ? boundary.tokens : null;
-  const text = formatTokenViewText(step.content, tokens);
-  const notice = getBoundaryNotice(boundary);
-  return (
-    <div>
-      {notice ? <div data-testid="notice">{notice.label} — {notice.detail}</div> : null}
-      <div data-testid="token-text">{text}</div>
-    </div>
-  );
-}
-
-describe("rendering contract (stream + MOCK-02-001 computed)", () => {
+describe("rendering contract (stream + real computed via TokenViewStepContent)", () => {
   it("renders a single text node with SEPARATOR between tokens for the stream source", () => {
     const step = makeStep({ contentTokens: ["Hello", " world"], content: "Hello world" });
-    render(<TokenViewHarness step={step} />);
+    render(<TokenViewStepContent step={step} />);
     const node = screen.getByTestId("token-text");
     expect(node.childNodes).toHaveLength(1);
     expect(node.childNodes[0].nodeType).toBe(Node.TEXT_NODE);
@@ -375,10 +432,10 @@ describe("rendering contract (stream + MOCK-02-001 computed)", () => {
     expect(screen.getByTestId("notice").textContent).toContain(STREAM_LABEL);
   });
 
-  it("renders a single text node with SEPARATOR between tokens for the injected computed source", async () => {
-    const step = makeStep({ contentTokens: undefined, content: "Hi there" });
+  it("renders a single text node with SEPARATOR between tokens for a real computedSource (user-kind step)", async () => {
+    const step = makeStep({ kind: "user", contentTokens: undefined, content: "Hi there" });
     const fake = vi.fn(() => Promise.resolve(["Hi", " there"]));
-    render(<TokenViewHarness step={step} computedSource={fake} />);
+    render(<TokenViewStepContent step={step} tokenizeText={fake} />);
 
     await waitFor(() => {
       expect(screen.getByTestId("token-text").textContent).toBe(`Hi${SEPARATOR} there`);
@@ -386,31 +443,61 @@ describe("rendering contract (stream + MOCK-02-001 computed)", () => {
     const node = screen.getByTestId("token-text");
     expect(node.childNodes).toHaveLength(1);
     expect(screen.getByTestId("notice").textContent).toContain(COMPUTED_LABEL);
+    expect(fake).toHaveBeenCalledWith("Hi there");
+  });
+
+  it("never calls tokenizeText for an assistant-kind step, and renders unavailable instead of computed (AC-ERR-1, VQ-S3-P03)", async () => {
+    const step = makeStep({ kind: "assistant", contentTokens: undefined, content: "orphaned assistant text" });
+    const fake = vi.fn(() => Promise.resolve(["orphaned", " assistant", " text"]));
+    render(<TokenViewStepContent step={step} tokenizeText={fake} />);
+
+    // Give any (incorrect) debounced call a chance to fire before asserting.
+    // Coupled explicitly to the real debounce constant (S3-F11) rather than
+    // a hard-coded value chosen to exceed it — a negative assertion
+    // (`not.toHaveBeenCalled`) would otherwise pass vacuously if the
+    // constant ever grew past a stale hard-coded margin.
+    await new Promise((resolve) => setTimeout(resolve, COMPUTED_SOURCE_DEBOUNCE_MS * 2));
+
+    expect(fake).not.toHaveBeenCalled();
+    expect(screen.getByTestId("token-text").textContent).toBe("orphaned assistant text");
+    expect(screen.getByTestId("token-text").textContent).not.toContain(SEPARATOR);
+    expect(screen.getByTestId("notice")).toBeTruthy();
+  });
+
+  it("never calls tokenizeText for a reasoning-kind step either", async () => {
+    const step = makeStep({ kind: "reasoning", contentTokens: undefined, content: "orphaned reasoning" });
+    const fake = vi.fn(() => Promise.resolve(["orphaned", " reasoning"]));
+    render(<TokenViewStepContent step={step} tokenizeText={fake} />);
+    // Coupled to the real debounce constant (S3-F11) — see the identical
+    // rationale on the assistant-kind test above.
+    await new Promise((resolve) => setTimeout(resolve, COMPUTED_SOURCE_DEBOUNCE_MS * 2));
+    expect(fake).not.toHaveBeenCalled();
+    expect(screen.getByTestId("token-text").textContent).toBe("orphaned reasoning");
   });
 
   it("renders unavailable with a visible reason and unseparated content, never re-tokenizing", () => {
-    const step = makeStep({ contentTokens: undefined, content: "orphaned content" });
-    render(<TokenViewHarness step={step} />);
+    const step = makeStep({ kind: "user", contentTokens: undefined, content: "orphaned content" });
+    render(<TokenViewStepContent step={step} />);
     expect(screen.getByTestId("token-text").textContent).toBe("orphaned content");
     expect(screen.getByTestId("notice")).toBeTruthy();
     expect(screen.getByTestId("token-text").textContent).not.toContain(SEPARATOR);
   });
 
   it("renders pending with no notice", () => {
-    const step = makeStep({ contentTokens: undefined, content: "in flight" });
+    const step = makeStep({ kind: "user", contentTokens: undefined, content: "in flight" });
     const neverResolves = vi.fn(() => new Promise<string[]>(() => {}));
-    render(<TokenViewHarness step={step} computedSource={neverResolves} />);
+    render(<TokenViewStepContent step={step} tokenizeText={neverResolves} />);
     expect(screen.queryByTestId("notice")).toBeNull();
     expect(screen.getByTestId("token-text").textContent).toBe("in flight");
   });
 
   it("never shows a 'computed boundaries' label over unseparated content when the computed round trip's tokens don't join to step.content (S2-F9)", async () => {
     const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
-    const step = makeStep({ contentTokens: undefined, content: "Hello world" });
+    const step = makeStep({ kind: "user", contentTokens: undefined, content: "Hello world" });
     // Mismatched: joins to "Hello" only — as a wrong-source tokenize call
     // (AC-TOK-5) would produce.
     const fake = vi.fn(() => Promise.resolve(["Hello"]));
-    render(<TokenViewHarness step={step} computedSource={fake} />);
+    render(<TokenViewStepContent step={step} tokenizeText={fake} />);
 
     await waitFor(() => {
       expect(screen.getByTestId("notice")).toBeTruthy();

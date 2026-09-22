@@ -7,107 +7,324 @@
       "question_id": "VQ-S3-001",
       "phase": "pre-impl",
       "category": "QUALITY",
-      "question": "A byte-splitting or vocab-longest-match tokenizer that never consults the merge table can satisfy round-trip (AC-TOK-2), special-token handling (AC-TOK-3), and even the mutated-fixture behavioral check (AC-DEP-1, since renaming a vocab entry or reordering merge ranks can be observed without ever applying a merge) — AC-TOK-7's exact tokenId-sequence match is the only real discriminator. Demonstrate that AC-TOK-7's test would fail for a merge-table-free implementation: reason precisely from the vocab fixture what a byte-level/no-merge split of \"strawberry\" would produce as tokenIds (one element per byte or per single-character vocab entry, i.e. far more than 3), and show this differs from the golden fixture's 3-token entry for \"strawberry\" (per the terminology glossary). Do not accept an implementation whose AC-TOK-7 test still passes with merge-application short-circuited or no-op'd — if such a no-op run were performed, the test must fail visibly."
+      "question": "A byte-splitting or vocab-longest-match tokenizer that never consults the merge table can satisfy round-trip (AC-TOK-2), special-token handling (AC-TOK-3), and even the mutated-fixture behavioral check (AC-DEP-1, since renaming a vocab entry or reordering merge ranks can be observed without ever applying a merge) \u2014 AC-TOK-7's exact tokenId-sequence match is the only real discriminator. Demonstrate that AC-TOK-7's test would fail for a merge-table-free implementation: reason precisely from the vocab fixture what a byte-level/no-merge split of \"strawberry\" would produce as tokenIds (one element per byte or per single-character vocab entry, i.e. far more than 3), and show this differs from the golden fixture's 3-token entry for \"strawberry\" (per the terminology glossary). Do not accept an implementation whose AC-TOK-7 test still passes with merge-application short-circuited or no-op'd \u2014 if such a no-op run were performed, the test must fail visibly.",
+      "answer": {
+        "verdict": "YES",
+        "severity": 1,
+        "confidence": 1.0,
+        "root_cause_category": null,
+        "evidence": "AC-TOK-7 golden loop discriminates merge-table-free implementations: byte-split 'strawberry' yields 10 tokenIds vs golden 3. tokenizer.test.ts:207-211.",
+        "answered_at": "2026-09-22T10:30:00Z",
+        "answered_by": "base:verification-examiner (4 parallel batches); VQ-S3-008 rescored by the lead after Decider adjudication"
+      }
     },
     {
       "question_id": "VQ-S3-002",
       "phase": "pre-impl",
       "category": "ARCHITECTURE",
-      "question": "Per architecture.md, server/tokenizer.ts must not import from src/, and per AC-DEP-1 must not read vocab/merges from a bundled file or npm package at runtime. Inspect loadVocab and confirm its only data source is the POST {OLLAMA_URL}/show response body, with no fallback to a committed fixture or bundled vocab file reachable from the production code path — the committed fixtures under tests/fixtures/ must be wired only into test setup's fetch stub, never imported directly by server/tokenizer.ts."
+      "question": "Per architecture.md, server/tokenizer.ts must not import from src/, and per AC-DEP-1 must not read vocab/merges from a bundled file or npm package at runtime. Inspect loadVocab and confirm its only data source is the POST {OLLAMA_URL}/show response body, with no fallback to a committed fixture or bundled vocab file reachable from the production code path \u2014 the committed fixtures under tests/fixtures/ must be wired only into test setup's fetch stub, never imported directly by server/tokenizer.ts.",
+      "answer": {
+        "verdict": "YES",
+        "severity": 1,
+        "confidence": 1.0,
+        "root_cause_category": null,
+        "evidence": "loadVocab sources vocab only from POST {OLLAMA_URL}/show verbose:true (tokenizer.ts:332-344). Behaviourally pinned: mutated vocab entry and swapped merge ranks both observable in tokenize() output (tokenizer.test.ts:69-82, 84-109). Static guards: no /tests/fixtures literal, no .json literal, no node:fs import.",
+        "answered_at": "2026-09-22T10:30:00Z",
+        "answered_by": "base:verification-examiner (4 parallel batches); VQ-S3-008 rescored by the lead after Decider adjudication"
+      }
     },
     {
       "question_id": "VQ-S3-003",
       "phase": "pre-impl",
       "category": "ARCHITECTURE",
-      "question": "Could `tokenizer` be deleted and rewritten without modifying any file outside its `dependencies_allowed` list? If not, which cross-module dependencies exist and do they flow through declared seam contracts in architecture.md?"
+      "question": "Could `tokenizer` be deleted and rewritten without modifying any file outside its `dependencies_allowed` list? If not, which cross-module dependencies exist and do they flow through declared seam contracts in architecture.md?",
+      "answer": {
+        "verdict": "YES",
+        "severity": 1,
+        "confidence": 1.0,
+        "root_cause_category": null,
+        "evidence": "server/tokenizer.ts imports nothing from other server modules, shared/ or src/ \u2014 Node built-ins only, matching architecture.json dependencies_allowed. Deletable and rewritable behind its public exports.",
+        "answered_at": "2026-09-22T10:30:00Z",
+        "answered_by": "base:verification-examiner (4 parallel batches); VQ-S3-008 rescored by the lead after Decider adjudication"
+      }
     },
     {
       "question_id": "VQ-S3-004",
       "phase": "pre-impl",
       "category": "TEST",
-      "question": "Order-Sensitive Composition Flow 1's candidate guarantee is: for any interleaving of N concurrent first-calls on one (baseUrl, model) key, exactly one /api/show is issued and all N resolve to the same vocab table. AC-PERF-1 only mandates the N=2 Promise.all case explicitly — does the test suite also exercise N greater than 2 (e.g. N=5) concurrent first calls, asserting both the single-request count and that every caller's resolved result is value-identical to every other caller's (not merely that the request count is one)? Cite the request-counting stub and the multi-caller assertion; a single N=2 example alone is a smell for a property this general."
+      "question": "Order-Sensitive Composition Flow 1's candidate guarantee is: for any interleaving of N concurrent first-calls on one (baseUrl, model) key, exactly one /api/show is issued and all N resolve to the same vocab table. AC-PERF-1 only mandates the N=2 Promise.all case explicitly \u2014 does the test suite also exercise N greater than 2 (e.g. N=5) concurrent first calls, asserting both the single-request count and that every caller's resolved result is value-identical to every other caller's (not merely that the request count is one)? Cite the request-counting stub and the multi-caller assertion; a single N=2 example alone is a smell for a property this general.",
+      "answer": {
+        "verdict": "YES",
+        "severity": 1,
+        "confidence": 1.0,
+        "root_cause_category": null,
+        "evidence": "AC-PERF-1 exercised at N=5 concurrent first calls on one key with a request-counting spy asserting exactly 1 fetch, plus per-caller value-identity assertions. tokenizer.test.ts:458-475.",
+        "answered_at": "2026-09-22T10:30:00Z",
+        "answered_by": "base:verification-examiner (4 parallel batches); VQ-S3-008 rescored by the lead after Decider adjudication"
+      }
     },
     {
       "question_id": "VQ-S3-005",
       "phase": "pre-impl",
       "category": "SPEC",
-      "question": "Confirm the full fixture set from the terminology glossary is exercised in the conformance suite: at minimum \"Hello world\" (2 tokens), \"strawberry\" (3 tokens), \"Die Verkehrsinfrastruktur\" (7 tokens), plus one string containing a fenced code block, one containing consecutive newlines, and one containing a literal `|` — and that AC-TOK-6's property generator explicitly produces well-formed Unicode scalar values only (no lone surrogates, e.g. fc.fullUnicodeString or equivalent), per the AC's own text. Evidence: the fixture-set literal strings and the property generator's configuration."
+      "question": "Confirm the full fixture set from the terminology glossary is exercised in the conformance suite: at minimum \"Hello world\" (2 tokens), \"strawberry\" (3 tokens), \"Die Verkehrsinfrastruktur\" (7 tokens), plus one string containing a fenced code block, one containing consecutive newlines, and one containing a literal `|` \u2014 and that AC-TOK-6's property generator explicitly produces well-formed Unicode scalar values only (no lone surrogates, e.g. fc.fullUnicodeString or equivalent), per the AC's own text. Evidence: the fixture-set literal strings and the property generator's configuration.",
+      "answer": {
+        "verdict": "YES",
+        "severity": 1,
+        "confidence": 1.0,
+        "root_cause_category": null,
+        "evidence": "All six fixture-set strings present in the goldens. AC-TOK-6 property uses fc.string({unit:'binary'}), which excludes lone surrogates as the AC requires.",
+        "answered_at": "2026-09-22T10:30:00Z",
+        "answered_by": "base:verification-examiner (4 parallel batches); VQ-S3-008 rescored by the lead after Decider adjudication"
+      }
     },
     {
       "question_id": "VQ-S3-006",
       "phase": "pre-impl",
       "category": "SECURITY",
-      "question": "server/tokenizer.ts's tokenize() receives `text` and `model` directly from an untrusted WS client message routed via server/ws-handler.ts's new tokenize case. Confirm: (a) `text` is validated/typed as a string before entering the BPE pipeline, so a malformed message cannot throw an unhandled exception that crashes the connection or the process, (b) a very large `text` payload does not pathologically hang the event loop beyond what the existing chat-completion path already tolerates, and (c) the `model` value is used only to select a vocab cache key and to construct the request body — it cannot redirect the request to a host other than the server-configured OLLAMA_URL, since baseUrl comes from server config (server/provider-config.ts) and is never derived from the client message."
+      "question": "server/tokenizer.ts's tokenize() receives `text` and `model` directly from an untrusted WS client message routed via server/ws-handler.ts's new tokenize case. Confirm: (a) `text` is validated/typed as a string before entering the BPE pipeline, so a malformed message cannot throw an unhandled exception that crashes the connection or the process, (b) a very large `text` payload does not pathologically hang the event loop beyond what the existing chat-completion path already tolerates, and (c) the `model` value is used only to select a vocab cache key and to construct the request body \u2014 it cannot redirect the request to a host other than the server-configured OLLAMA_URL, since baseUrl comes from server config (server/provider-config.ts) and is never derived from the client message.",
+      "answer": {
+        "verdict": "YES",
+        "severity": 3,
+        "confidence": 1.0,
+        "root_cause_category": null,
+        "evidence": "Three safeguards verified: .catch()-guarded WS dispatch (ws-handler.ts:56), typeof text/model validation before any BPE work (:165), MAX_TOKENIZE_TEXT_LENGTH=200_000 cap (:26,170-176). Malformed, oversized and zero-provider messages each produce a typed error and leave the connection alive (ws-handler-tokenize.test.ts:191-248).",
+        "answered_at": "2026-09-22T10:30:00Z",
+        "answered_by": "base:verification-examiner (4 parallel batches); VQ-S3-008 rescored by the lead after Decider adjudication"
+      }
     },
     {
       "question_id": "VQ-S3-007",
       "phase": "pre-impl",
       "category": "SPEC",
       "ac_id": "AC-DEP-1",
-      "question": "AC-DEP-1 requires server/tokenizer.ts to source vocab/merges only from POST {OLLAMA_URL}/show with body {\"model\": <model>, \"verbose\": true}, reading model_info[\"tokenizer.ggml.tokens\"] and [\"tokenizer.ggml.merges\"], proven behaviorally by observing a deliberately mutated fixture's mutation reflected in tokenize() output. Show: (a) the production fetch call including `verbose: true` in the request body (currently `grep -n \"verbose\" server/tokenizer.ts` cannot match since the file does not exist; post-implementation it must show at least one match), (b) the test that mutates one vocab entry's name and swaps two merge ranks and asserts the mutation appears in tokenize() output, and (c) confirmation the test is not a pure mock-spy proxy that only checks fetch was called with the right URL/body, without checking the mutation actually propagated into tokenize()'s returned tokens/tokenIds."
+      "question": "AC-DEP-1 requires server/tokenizer.ts to source vocab/merges only from POST {OLLAMA_URL}/show with body {\"model\": <model>, \"verbose\": true}, reading model_info[\"tokenizer.ggml.tokens\"] and [\"tokenizer.ggml.merges\"], proven behaviorally by observing a deliberately mutated fixture's mutation reflected in tokenize() output. Show: (a) the production fetch call including `verbose: true` in the request body (currently `grep -n \"verbose\" server/tokenizer.ts` cannot match since the file does not exist; post-implementation it must show at least one match), (b) the test that mutates one vocab entry's name and swaps two merge ranks and asserts the mutation appears in tokenize() output, and (c) confirmation the test is not a pure mock-spy proxy that only checks fetch was called with the right URL/body, without checking the mutation actually propagated into tokenize()'s returned tokens/tokenIds.",
+      "answer": {
+        "verdict": "YES",
+        "severity": 1,
+        "confidence": 1.0,
+        "root_cause_category": null,
+        "evidence": "verbose:true present in the request body; AC-DEP-1 pinned behaviourally by vocab-rename and merge-rank-swap mutations observed in real output, not via mock-spy proxies.",
+        "answered_at": "2026-09-22T10:30:00Z",
+        "answered_by": "base:verification-examiner (4 parallel batches); VQ-S3-008 rescored by the lead after Decider adjudication"
+      }
     },
     {
       "question_id": "VQ-S3-008",
       "phase": "pre-impl",
       "category": "SPEC",
       "ac_id": "AC-DEP-2",
-      "question": "AC-DEP-2 requires scripts/capture-vocab-fixture.mjs to write a vocab fixture byte-identical to live model_info values and a golden fixture mapping fixture-set strings to reference tokenIds, be idempotent across two runs against an unchanged model, and never let the reference tokenizer appear in package.json dependencies or be imported under server/. Show: (a) the script's two output-file writes (tests/fixtures/qwen3-1.7b-vocab.json, gzipped, and tests/fixtures/qwen3-1.7b-goldens.json — currently neither file nor script exists), (b) evidence of two invocations producing byte-identical output, and (c) confirmation the reference tokenizer package, if any, is a devDependency used only by this script and is never imported by anything under server/."
+      "question": "AC-DEP-2 requires scripts/capture-vocab-fixture.mjs to write a vocab fixture byte-identical to live model_info values and a golden fixture mapping fixture-set strings to reference tokenIds, be idempotent across two runs against an unchanged model, and never let the reference tokenizer appear in package.json dependencies or be imported under server/. Show: (a) the script's two output-file writes (tests/fixtures/qwen3-1.7b-vocab.json.gz, gzipped, and tests/fixtures/qwen3-1.7b-goldens.json \u2014 currently neither file nor script exists), (b) evidence of two invocations producing byte-identical output, and (c) confirmation the reference tokenizer package, if any, is a devDependency used only by this script and is never imported by anything under server/.",
+      "answer": {
+        "verdict": "YES",
+        "severity": 1,
+        "confidence": 1.0,
+        "root_cause_category": null,
+        "evidence": "RESOLVED BY GENUINE RECAPTURE. The earlier PARTIAL was correct at the time: no reference tokenizer was believed reachable, so the committed golden was self-derived and AC-DEP-2's 'produced by the reference tokenizer' clause was unmet. The premise was false - the Ollama host is at host.lima.internal:11434, not localhost, and huggingface.co is reachable. @huggingface/transformers is now a devDependency (permitted: AC-DEP-2 bars only `dependencies` and imports under server/ - both verified clean), wired into capture-vocab-fixture.mjs as the reference path. Fixtures recaptured for real: vocab 151936 tokens / 151387 merges taken byte-identically from live POST /api/show verbose (1.4MB gzip), goldens generated by the reference tokenizer. Idempotency re-verified on a real re-run - gzip bytes byte-identical.",
+        "answered_at": "2026-09-22T11:00:00Z",
+        "answered_by": "lead, after genuine fixture recapture authorised by the user",
+        "supersedes": "earlier PARTIAL recorded against the false no-host premise"
+      }
     },
     {
       "question_id": "VQ-S3-009",
       "phase": "pre-impl",
       "category": "SPEC",
       "ac_id": "AC-TOK-1",
-      "question": "AC-TOK-1 (live-gated) requires tokenize()'s output length to equal the raw-count oracle (prompt_eval_count from POST {OLLAMA_URL}/generate with raw:true, stream:false, options.num_predict:1) for every fixture-set string, skipping (never failing) when the live gate (AC-ERR-3) is closed. Show the oracle-fetching test code, confirm it is gated behind the same live-check AC-ERR-3 describes, and confirm that running with OLLAMA_URL pointed at a closed port shows this test reported as skipped, not passed and not failed."
+      "question": "AC-TOK-1 (live-gated) requires tokenize()'s output length to equal the raw-count oracle (prompt_eval_count from POST {OLLAMA_URL}/generate with raw:true, stream:false, options.num_predict:1) for every fixture-set string, skipping (never failing) when the live gate (AC-ERR-3) is closed. Show the oracle-fetching test code, confirm it is gated behind the same live-check AC-ERR-3 describes, and confirm that running with OLLAMA_URL pointed at a closed port shows this test reported as skipped, not passed and not failed.",
+      "answer": {
+        "verdict": "YES",
+        "severity": 1,
+        "confidence": 1.0,
+        "root_cause_category": null,
+        "evidence": "Oracle is POST /generate with raw:true, stream:false, num_predict:1 reading prompt_eval_count (tokenizer.test.ts:175-186). Gate closes on host-unreachable OR model-not-pulled with distinct reasons; with the gate closed the suite reports 89 passed / 1 skipped / 0 failed, exit 0.",
+        "answered_at": "2026-09-22T10:30:00Z",
+        "answered_by": "base:verification-examiner (4 parallel batches); VQ-S3-008 rescored by the lead after Decider adjudication"
+      }
     },
     {
       "question_id": "VQ-S3-010",
       "phase": "pre-impl",
       "category": "SPEC",
       "ac_id": "AC-TOK-2",
-      "question": "AC-TOK-2 requires tokens.join('') === s, tokens/tokenIds of equal length with tokenIds[i] indexing tokens[i] in the vocabulary, and byte-level decoding of tokenIds[i] yielding tokens[i]. Show a test asserting all three properties together for at least the fenced-code-block and literal-`|` fixture strings, and confirm it is not satisfiable by a naive whole-string single-token split (which trivially round-trips but would fail the vocab-index/byte-decode check for any string that is not itself a single vocab entry)."
+      "question": "AC-TOK-2 requires tokens.join('') === s, tokens/tokenIds of equal length with tokenIds[i] indexing tokens[i] in the vocabulary, and byte-level decoding of tokenIds[i] yielding tokens[i]. Show a test asserting all three properties together for at least the fenced-code-block and literal-`|` fixture strings, and confirm it is not satisfiable by a naive whole-string single-token split (which trivially round-trips but would fail the vocab-index/byte-decode check for any string that is not itself a single vocab entry).",
+      "answer": {
+        "verdict": "YES",
+        "severity": 1,
+        "confidence": 1.0,
+        "root_cause_category": null,
+        "evidence": "AC-TOK-2's three properties asserted together in one loop \u2014 join invariant, equal-length arrays, per-index byte-decode \u2014 which rules out single-token shortcuts. tokenizer.test.ts:227-243.",
+        "answered_at": "2026-09-22T10:30:00Z",
+        "answered_by": "base:verification-examiner (4 parallel batches); VQ-S3-008 rescored by the lead after Decider adjudication"
+      }
     },
     {
       "question_id": "VQ-S3-011",
       "phase": "pre-impl",
       "category": "SPEC",
       "ac_id": "AC-TOK-3",
-      "question": "AC-TOK-3 requires `<|im_start|>` and `<|im_end|>` to each tokenize as exactly one element with the matching vocabulary index, never split across multiple tokens. Show a test asserting the tokens array contains exactly one element for each special-token occurrence with the correct tokenIds entry (not merely that the substring appears somewhere in the joined output), and confirm the production code matches special tokens ahead of the qwen2 pre-tokenizer split, per the story's stated ordering."
+      "question": "AC-TOK-3 requires `<|im_start|>` and `<|im_end|>` to each tokenize as exactly one element with the matching vocabulary index, never split across multiple tokens. Show a test asserting the tokens array contains exactly one element for each special-token occurrence with the correct tokenIds entry (not merely that the substring appears somewhere in the joined output), and confirm the production code matches special tokens ahead of the qwen2 pre-tokenizer split, per the story's stated ordering.",
+      "answer": {
+        "verdict": "YES",
+        "severity": 1,
+        "confidence": 1.0,
+        "root_cause_category": null,
+        "evidence": "<|im_start|> and <|im_end|> each occupy exactly one element (exact count via filter().toHaveLength(1), not substring presence) with correct vocab ids; special-token matching runs before the pre-tokenizer split in encodeToIds().",
+        "answered_at": "2026-09-22T10:30:00Z",
+        "answered_by": "base:verification-examiner (4 parallel batches); VQ-S3-008 rescored by the lead after Decider adjudication"
+      }
     },
     {
       "question_id": "VQ-S3-012",
       "phase": "pre-impl",
       "category": "SPEC",
       "ac_id": "AC-TOK-6",
-      "question": "AC-TOK-6 requires a property test over a well-formed-Unicode-only generator (e.g. fc.fullUnicodeString, no lone surrogates) asserting tokens.join('') === s across mixed scripts, emoji, whitespace runs, empty strings, and length-1 strings, phrased to fail on any counterexample. Show: (a) the property-testing library added as a dev dependency (currently absent from package.json), (b) the property written against the generator rather than a fixed list of examples in a for-loop (example-shaped, not property-shaped), and (c) confirmation the generator's configuration excludes lone surrogates."
+      "question": "AC-TOK-6 requires a property test over a well-formed-Unicode-only generator (e.g. fc.fullUnicodeString, no lone surrogates) asserting tokens.join('') === s across mixed scripts, emoji, whitespace runs, empty strings, and length-1 strings, phrased to fail on any counterexample. Show: (a) the property-testing library added as a dev dependency (currently absent from package.json), (b) the property written against the generator rather than a fixed list of examples in a for-loop (example-shaped, not property-shaped), and (c) confirmation the generator's configuration excludes lone surrogates.",
+      "answer": {
+        "verdict": "YES",
+        "severity": 1,
+        "confidence": 1.0,
+        "root_cause_category": null,
+        "evidence": "fast-check ^4.10.2 added as a devDependency by this story; AC-TOK-6 phrased as fc.asyncProperty over fc.string({unit:'binary'}) at 300 runs, failing on any counterexample.",
+        "answered_at": "2026-09-22T10:30:00Z",
+        "answered_by": "base:verification-examiner (4 parallel batches); VQ-S3-008 rescored by the lead after Decider adjudication"
+      }
     },
     {
       "question_id": "VQ-S3-013",
       "phase": "pre-impl",
       "category": "SPEC",
       "ac_id": "AC-TOK-7",
-      "question": "AC-TOK-7 requires tokenize() against the vocab fixture to return tokenIds exactly equal, element for element, to the golden fixture's entry for every fixture-set string. Show the exact-array-equality assertion (not a length-only or set-membership check) for every fixture-set string, and per VQ-S3-001, confirm this specific test is the one that would fail for a merge-table-free implementation — i.e. it is the discriminator the other TOK ACs are not."
+      "question": "AC-TOK-7 requires tokenize() against the vocab fixture to return tokenIds exactly equal, element for element, to the golden fixture's entry for every fixture-set string. Show the exact-array-equality assertion (not a length-only or set-membership check) for every fixture-set string, and per VQ-S3-001, confirm this specific test is the one that would fail for a merge-table-free implementation \u2014 i.e. it is the discriminator the other TOK ACs are not.",
+      "answer": {
+        "verdict": "YES",
+        "severity": 1,
+        "confidence": 1.0,
+        "root_cause_category": null,
+        "evidence": "RESOLVED BY GENUINE RECAPTURE. AC-TOK-7 now asserts against reference-tokenizer-derived goldens over the real 151936-entry qwen3:1.7b vocab, so it proves model FIDELITY and not merely algorithm class. Independently confirmed by the lead before recapture: a 17-case diff of our tokenize() against @huggingface/transformers over the real vocab matched exactly on all 17, covering digits, <|im_start|>, <think>, contractions, U+0085, U+FEFF, emoji, CJK and fenced code. A dedicated fixture-backed conformance suite (10 cases) now pins this in the repo. Live AC-TOK-1 also runs and passes against the real host (integration 100 passed / 0 skipped with OLLAMA_URL set). NOTE: 2 of the 6 previously hand-derived goldens had the WRONG token count (fenced code block guessed 9 vs real 5; triple-newline guessed 5 vs real 3) - the fabricated fixture was not merely unverifiable, it was partly wrong.",
+        "answered_at": "2026-09-22T11:00:00Z",
+        "answered_by": "lead, after genuine fixture recapture authorised by the user",
+        "supersedes": "earlier PARTIAL recorded against the false no-host premise"
+      }
     },
     {
       "question_id": "VQ-S3-014",
       "phase": "pre-impl",
       "category": "SPEC",
       "ac_id": "AC-PERF-1",
-      "question": "AC-PERF-1 requires exactly one POST /api/show per (baseUrl, model) key across both a sequential-calls ordering and a concurrent Promise.all ordering, with the concurrent case specifically catching a cache populated only on resolution (which would issue two requests). Show the request-counting stub, both test orderings, and confirm the production cache stores the in-flight promise itself at call time (not only the resolved value after the fact) — i.e. the second concurrent caller attaches to the same in-flight promise rather than racing a second fetch."
+      "question": "AC-PERF-1 requires exactly one POST /api/show per (baseUrl, model) key across both a sequential-calls ordering and a concurrent Promise.all ordering, with the concurrent case specifically catching a cache populated only on resolution (which would issue two requests). Show the request-counting stub, both test orderings, and confirm the production cache stores the in-flight promise itself at call time (not only the resolved value after the fact) \u2014 i.e. the second concurrent caller attaches to the same in-flight promise rather than racing a second fetch.",
+      "answer": {
+        "verdict": "YES",
+        "severity": 1,
+        "confidence": 1.0,
+        "root_cause_category": null,
+        "evidence": "Request-counting stubs for both orderings; production caches the in-flight PROMISE before any await, marking settled only via .finally(). Eviction test (tokenizer.test.ts:490-540) confirms in-flight entries are never evicted, only settled ones.",
+        "answered_at": "2026-09-22T10:30:00Z",
+        "answered_by": "base:verification-examiner (4 parallel batches); VQ-S3-008 rescored by the lead after Decider adjudication"
+      }
     },
     {
       "question_id": "VQ-S3-015",
       "phase": "pre-impl",
       "category": "SPEC",
       "ac_id": "AC-ERR-2",
-      "question": "AC-ERR-2 requires: (a) a tokenize message for a provider whose ProviderConfig.type is not \"ollama\" produces tokenize.error{reason: \"unsupported_provider\"}, routed strictly on `.type` (not on provider name — evidence: a test using a provider whose `name` field contains \"ollama\" but whose `type` does not, still errors), and (b) a message whose model reports an unsupported tokenizer.ggml.pre value produces reason: \"vocab_unavailable\", with neither case ever returning a tokenize.result carrying boundaries derived from a different model's vocabulary. Show both test cases and the routing code's conditional on `.type`, mirroring the existing provider_type_gate_precedent at server/llm-router.ts:112-126."
+      "question": "AC-ERR-2 requires: (a) a tokenize message for a provider whose ProviderConfig.type is not \"ollama\" produces tokenize.error{reason: \"unsupported_provider\"}, routed strictly on `.type` (not on provider name \u2014 evidence: a test using a provider whose `name` field contains \"ollama\" but whose `type` does not, still errors), and (b) a message whose model reports an unsupported tokenizer.ggml.pre value produces reason: \"vocab_unavailable\", with neither case ever returning a tokenize.result carrying boundaries derived from a different model's vocabulary. Show both test cases and the routing code's conditional on `.type`, mirroring the existing provider_type_gate_precedent at server/llm-router.ts:112-126.",
+      "answer": {
+        "verdict": "YES",
+        "severity": 1,
+        "confidence": 1.0,
+        "root_cause_category": null,
+        "evidence": "Routing keys on config.type !== 'ollama' (llm-router.ts:152-164). Pinned by a provider NAMED 'Ollama Clone' with type openai-compat being rejected, and one named 'Anything' with type ollama succeeding.",
+        "answered_at": "2026-09-22T10:30:00Z",
+        "answered_by": "base:verification-examiner (4 parallel batches); VQ-S3-008 rescored by the lead after Decider adjudication"
+      }
     },
     {
       "question_id": "VQ-S3-016",
       "phase": "pre-impl",
       "category": "SPEC",
       "ac_id": "AC-ERR-3",
-      "question": "AC-ERR-3 requires the live gate to close when OLLAMA_URL is unreachable OR when GET {OLLAMA_URL}/tags does not list the fixture model, with the live-gated tests (AC-TOK-1, AC-TOK-5) reporting skipped — never failed, never passed — with a reason distinguishing host-unreachable from model-not-pulled, while every fixture-backed test in the same suite still executes and reports a real verdict; the suite must run under vitest.server.config.ts (node environment). Show: (a) the gate-check code and its two distinct reason strings, (b) confirmation this suite's test path is included under vitest.server.config.ts's `include` glob (tests/integration/**/*.test.ts) rather than the jsdom vitest.config.ts, and (c) confirmation that running the suite with OLLAMA_URL pointed at a closed port exits zero with a non-zero skip count, and every fixture-backed test still reports pass/fail rather than being swept into the skip count."
+      "question": "AC-ERR-3 requires the live gate to close when OLLAMA_URL is unreachable OR when GET {OLLAMA_URL}/tags does not list the fixture model, with the live-gated tests (AC-TOK-1, AC-TOK-5) reporting skipped \u2014 never failed, never passed \u2014 with a reason distinguishing host-unreachable from model-not-pulled, while every fixture-backed test in the same suite still executes and reports a real verdict; the suite must run under vitest.server.config.ts (node environment). Show: (a) the gate-check code and its two distinct reason strings, (b) confirmation this suite's test path is included under vitest.server.config.ts's `include` glob (tests/integration/**/*.test.ts) rather than the jsdom vitest.config.ts, and (c) confirmation that running the suite with OLLAMA_URL pointed at a closed port exits zero with a non-zero skip count, and every fixture-backed test still reports pass/fail rather than being swept into the skip count.",
+      "answer": {
+        "verdict": "YES",
+        "severity": 1,
+        "confidence": 1.0,
+        "root_cause_category": null,
+        "evidence": "Gate returns distinct 'host_unreachable' vs 'model_not_pulled' reasons (tokenizer-live-gate.ts:24-49); live-gated test uses ctx.skip() so it never reports pass/fail; suite runs under vitest.server.config.ts (node env); fixture-backed tests all still execute.",
+        "answered_at": "2026-09-22T10:30:00Z",
+        "answered_by": "base:verification-examiner (4 parallel batches); VQ-S3-008 rescored by the lead after Decider adjudication"
+      }
+    },
+    {
+      "question_id": "VQ-S3-P01",
+      "phase": "post-impl",
+      "category": "SPEC",
+      "ac_id": "AC-TOK-7",
+      "question": "No live Ollama host or reference tokenizer (llama.cpp llama-tokenize, HF transformers) is reachable in this sandbox, per the story Constraints. tests/fixtures/qwen3-1.7b-vocab.json.gz and -goldens.json are therefore a HAND-CONSTRUCTED fixture, not a genuine reference-tokenizer capture. Verify: (a) the vocab fixture includes all 256 base GPT-2 byte-alphabet tokens (so no arbitrary AC-TOK-6 input can hit a missing-vocab-entry error), (b) every fixture-set string's target segmentation was derived BY HAND before any code ran (see server/tokenizer.ts and the strawberry/Hello-world hand-traces in this story's result.json), and (c) the merge table includes at least one genuinely AMBIGUOUS pair (the \"xyz\" -> xy/yz case) whose rank order is what AC-DEP-1's merge-swap test actually discriminates on \u2014 confirm this is not vacuous (i.e. that most of the fixture's other merges are deliberately UNAMBIGUOUS, so a rank swap there would be a no-op, which is why a dedicated ambiguous pair was added).",
+      "answer": {
+        "verdict": "YES",
+        "severity": 1,
+        "confidence": 0.95,
+        "root_cause_category": null,
+        "evidence": "Vocab fixture holds the full 256-entry GPT-2 byte alphabet so tokenize() can never hit a missing-vocab error for arbitrary input (load-bearing for AC-TOK-6). Merge table includes a deliberately ambiguous x/y/z pair used by AC-DEP-1's rank-swap discriminator. Design is sound and fully documented in fixture_provenance. NOTE: soundness of DESIGN is not fidelity to the real model \u2014 that is VQ-S3-013/VQ-S3-008.",
+        "answered_at": "2026-09-22T10:30:00Z",
+        "answered_by": "base:verification-examiner (4 parallel batches); VQ-S3-008 rescored by the lead after Decider adjudication"
+      }
+    },
+    {
+      "question_id": "VQ-S3-P02",
+      "phase": "post-impl",
+      "category": "QUALITY",
+      "question": "decodeTokens() in server/tokenizer.ts decodes token bytes through ONE streaming TextDecoder (stream:true) per tokenize() call, with ignoreBOM:true, specifically to guarantee tokens.join(\"\") === s even when a BPE boundary falls mid-character or the input starts with U+FEFF. Confirm a test exists that would fail if this streaming/ignoreBOM design were reverted to a naive per-token new TextDecoder().decode(bytes) call (no stream flag, default ignoreBOM) \u2014 see tests/integration/tokenizer.test.ts's \"leading BOM\" and general AC-TOK-6 property tests. This resolves ownership-ledger.json's carried-forward S2-F4 finding (formatTokenViewText indexes by UTF-16 code unit; a byte-level BPE boundary mid-character could otherwise insert a separator inside a character) at the tokenizer layer rather than the formatter layer: tokens returned by tokenize() are now guaranteed to be complete, valid substrings of the input, so token-view.ts's existing UTF-16-offset-based formatter needed no change.",
+      "answer": {
+        "verdict": "YES",
+        "severity": 1,
+        "confidence": 1.0,
+        "root_cause_category": null,
+        "evidence": "decodeTokens uses ONE streaming TextDecoder('utf-8',{ignoreBOM:true}) per tokenize() call with stream:true, so tokens.join('')===s holds across BPE boundaries that split a multi-byte character. Leading-BOM case explicitly tested. Downstream lossiness (a zero-length token's boundary collapsing into its neighbour's offset in the Set) is documented and pinned by a formatter test.",
+        "answered_at": "2026-09-22T10:30:00Z",
+        "answered_by": "base:verification-examiner (4 parallel batches); VQ-S3-008 rescored by the lead after Decider adjudication"
+      }
+    },
+    {
+      "question_id": "VQ-S3-P03",
+      "phase": "post-impl",
+      "category": "ARCHITECTURE",
+      "ac_id": "AC-ERR-1",
+      "question": "S2's useTokenBoundaries hook (src/lib/token-view.ts) is kind-agnostic by design (its own test suite exercises the computed branch against an \"assistant\"-kind step) and was left UNCHANGED by this story. The AC-ERR-1 restriction \u2014 a persisted assistant/reasoning step missing contentTokens must render unavailable, never a re-tokenized computed boundary \u2014 is instead enforced at the call site: src/components/token-view-step-content.tsx only constructs a computedSource when step.kind !== \"assistant\" && step.kind !== \"reasoning\". Confirm this call-site gate is (a) covered by a test asserting an assistant-kind step with a tokenizeText prop supplied still renders unavailable/does not call tokenizeText, and (b) that placing the gate in the hook itself was considered and rejected specifically because it would have required rewriting S2's already-accepted useTokenBoundaries test contract rather than extending it.",
+      "answer": {
+        "verdict": "YES",
+        "severity": 1,
+        "confidence": 1.0,
+        "root_cause_category": null,
+        "evidence": "AC-ERR-1's exclusion is enforced at the TokenViewStepContent call site (eligibleForComputed gate), so no computedSource is constructed for assistant or reasoning steps even when tokenizeText is supplied. Two tests wait COMPUTED_SOURCE_DEBOUNCE_MS*2 and assert tokenizeText was never called. S2's kind-agnostic hook contract is left intact.",
+        "answered_at": "2026-09-22T10:30:00Z",
+        "answered_by": "base:verification-examiner (4 parallel batches); VQ-S3-008 rescored by the lead after Decider adjudication"
+      }
+    },
+    {
+      "question_id": "VQ-S3-P04",
+      "phase": "post-impl",
+      "category": "SPEC",
+      "question": "The qwen2 pre-tokenizer regex in server/tokenizer.ts is documented as \"the best-available public documentation\" (the cl100k_base/GPT-4-style split pattern) rather than a byte-for-byte verified copy of llama.cpp's LLAMA_VOCAB_PRE_TYPE_QWEN2 regex_exprs array, since neither a live host nor the llama.cpp source was reachable in this sandbox to diff against. Confirm this limitation is flagged prominently (code comment + result.json) rather than presented as verified fact, and that the vocab/golden fixtures were constructed against the SAME regex the production code uses (so the conformance suite is internally consistent regardless of whether the regex matches the real qwen2 pre-tokenizer exactly).",
+      "answer": {
+        "verdict": "YES",
+        "severity": 1,
+        "confidence": 1.0,
+        "root_cause_category": null,
+        "evidence": "QUESTION PREMISE NOW STALE, and the staleness is the point: the comment previously claimed Qwen shares cl100k_base's split regex. An independent cold review found that was false and the regex actually wrong (\\p{N}{1,3} vs Qwen's bare \\p{N}). Both are corrected; the comment now states explicitly that it is NOT cl100k's, documents the real pattern, and flags the residual limitation. Pinned by fixture-independent tests.",
+        "answered_at": "2026-09-22T10:30:00Z",
+        "answered_by": "base:verification-examiner (4 parallel batches); VQ-S3-008 rescored by the lead after Decider adjudication"
+      }
     }
-  ]
+  ],
+  "examination_summary": {
+    "answered_at": "2026-09-22T11:00:00Z",
+    "total": 20,
+    "yes": 20,
+    "partial": 0,
+    "no": 0,
+    "escalated": [],
+    "escalation_reason": "WITHDRAWN. The escalation rested on 'no live Ollama host and no reference tokenizer are reachable'. That premise was false - every probing agent tried localhost:11434 instead of host.lima.internal:11434. With the real host and a real reference tokenizer, both questions resolve YES on genuine evidence and no waiver is needed."
+  }
 }

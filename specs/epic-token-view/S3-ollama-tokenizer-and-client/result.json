@@ -1,0 +1,103 @@
+{
+  "story_id": "S3",
+  "status": "done",
+  "files_created": [
+    "server/tokenizer.ts",
+    "scripts/capture-vocab-fixture.mjs",
+    "scripts/capture-vocab-fixture.d.mts",
+    "tests/fixtures/qwen3-1.7b-vocab.json.gz",
+    "tests/fixtures/qwen3-1.7b-goldens.json",
+    "tests/integration/tokenizer.test.ts",
+    "tests/integration/tokenizer-live-gate.ts",
+    "tests/integration/tokenizer-live-gate.test.ts",
+    "tests/integration/capture-vocab-fixture.test.ts",
+    "tests/integration/ws-handler-tokenize.test.ts",
+    "tests/unit/backend-client-tokenize.test.ts",
+    "specs/epic-token-view/S3-ollama-tokenizer-and-client/architecture.json",
+    "specs/epic-token-view/S3-ollama-tokenizer-and-client/baseline.json",
+    "specs/epic-token-view/S3-ollama-tokenizer-and-client/result.json"
+  ],
+  "files_modified": [
+    "server/types.ts",
+    "server/llm-router.ts",
+    "server/ws-handler.ts",
+    "src/types/chat.ts",
+    "src/lib/backend-client.ts",
+    "src/lib/token-view.ts",
+    "src/components/token-view-step-content.tsx",
+    "src/components/chat-workspace.tsx",
+    "tests/unit/token-view.test.tsx",
+    "specs/epic-token-view/S3-ollama-tokenizer-and-client/verification.json",
+    "specs/epic-token-view/mocks-registry.json",
+    "package.json",
+    "package-lock.json"
+  ],
+  "modules_touched": [
+    "tokenizer",
+    "ws-handler",
+    "llm-router",
+    "wire types",
+    "backend-client",
+    "token-view",
+    "workspace"
+  ],
+  "tests_added": {
+    "unit": 9,
+    "integration": 47
+  },
+  "test_counts": {
+    "baseline": 119,
+    "final": 210,
+    "unit": 110,
+    "integration_hostless": 100,
+    "integration_live": 100
+  },
+  "mocks": [],
+  "remediation_rounds": 6,
+  "implementation_notes": [
+    "AC-DEP-1/AC-PERF-1: server/tokenizer.ts's loadVocab() stores the in-flight fetchVocab() PROMISE itself in vocabCache synchronously, before any await \u2014 verified with a request-counting stub for sequential calls, a Promise.all(N=2) case, and an N=5 concurrent-first-calls case asserting every caller resolves to value-identical results (VQ-S3-004). A failed load is explicitly NOT cached (removed in the .catch before rethrowing), so a transient network error doesn't poison the cache forever.",
+    "S2-F4 RESOLVED (carried-forward ownership-ledger finding): formatTokenViewText (src/lib/token-view.ts) indexes by UTF-16 code unit and was left completely UNCHANGED. Instead, decodeTokens() in server/tokenizer.ts feeds every token's raw bytes through ONE streaming TextDecoder (stream:true, ignoreBOM:true) per tokenize() call, in id order. A BPE boundary that falls mid-character decodes to \"\" for the token that only contributes partial bytes, with the complete character appearing in whichever later token finishes it \u2014 so tokens.join('') === s holds by construction for ANY well-formed input, and every tokens[i] the formatter ever sees is a complete, valid UTF-16 substring. ignoreBOM:true additionally prevents TextDecoder from silently stripping a leading U+FEFF character that fc.fullUnicodeString-equivalent generators can legally produce (found this by reasoning through the property's requirements, not by a failing test \u2014 added a dedicated 'leading BOM' test once identified).",
+    "AC-ERR-1 / VQ-S3-P03: useTokenBoundaries (src/lib/token-view.ts) was deliberately left kind-agnostic \u2014 S2's own test suite already exercises its computed branch against an assistant-kind step, and changing that would have meant rewriting an already-accepted contract rather than extending it. Instead, the AC-ERR-1 restriction (a persisted assistant/reasoning step missing contentTokens must render unavailable, never a re-tokenized computed boundary) is enforced one layer up, in src/components/token-view-step-content.tsx: `TokenViewStepContent` only constructs a computedSource when `step.kind !== \"assistant\" && step.kind !== \"reasoning\"`. Pinned by two new tests confirming tokenizeText is never called for those kinds even when supplied. In today's production wiring only `user` steps ever reach this component with kind outside that exclusion (chat-workspace.tsx's render-branch gate at the TokenViewStepContent call site only wraps assistant/user/reasoning steps), so in practice `user` is the only kind that gets a real computed round trip.",
+    "S2-F11 RESOLVED: tests/unit/token-view.test.tsx's `TokenViewHarness` (a hand-rolled duplicate of TokenViewStepContent's boundary->tokens->format mapping) was deleted; the 'rendering contract' describe block now renders the REAL `TokenViewStepContent`, adapted to its `tokenizeText: (text) => Promise<string[]>` prop shape (vs. the harness's raw `computedSource: (step) => Promise<string[]>`). Added data-testid=\"notice\"/\"token-text\" to TokenViewStepContent's two Typography elements so the existing test queries needed no other changes.",
+    "Debounce (AC-STRUCT-3's 'debounced tokenize round trip' clause): added a 150ms setTimeout inside useTokenBoundaries's existing fetch effect (src/lib/token-view.ts), with proper cleanup/cancellation on unmount or key change \u2014 kept inside the hook per AC-STRUCT-3's explicit placement requirement rather than moved to the call site. This required updating two of S2's own already-passing tests (the two that synchronously invoked a mock's resolver before the debounce had fired) to `waitFor(() => expect(fake).toHaveBeenCalled())` first \u2014 an additive timing accommodation, not a change to what those tests assert. Added a new dedicated test proving the debounce actually CANCELS an in-flight timer (not just 'fires and is ignored') when the step changes before it elapses.",
+    "AC-ERR-2: server/llm-router.ts's `resolveProvider` was made public (was already correct/complete as `private`; only the access modifier changed) so ws-handler.ts's new `handleTokenize` can route on `ProviderConfig.type` directly, mirroring the existing `showModelMeta`/`llm-router.ts:112-126` precedent. Tested with a provider literally named 'Ollama Clone' whose `type` is `openai-compat` (must reject) and a provider named 'Anything' whose `type` is `ollama` (must accept) \u2014 the name never enters the routing decision.",
+    "AC-DEP-2 / capture-vocab-fixture.mjs: refactored into an exported `run({ baseUrl, model, fetchImpl, referenceTokenizeImpl, fixturesDir, write, log })` with a thin CLI guard (`isMain`) around the real I/O, so tests/integration/capture-vocab-fixture.test.ts can drive the real capture/idempotency/field-scoping logic against a mocked host and a mocked reference-tokenize function \u2014 without a live Ollama host or a reference-tokenizer CLI, which are both unavailable in this sandbox. This proves the SCRIPT's own logic (byte-identical two-run output, tokenizer.ggml.* field scoping, no bundled-fixture leakage) mechanically rather than by inspection alone.",
+    "IMPORTANT LIMITATION (flagged per the story's Constraints, not silently absorbed): no live Ollama host or reference tokenizer (llama.cpp llama-tokenize, HF transformers) was reachable in this sandbox, so tests/fixtures/qwen3-1.7b-vocab.json.gz and -goldens.json are HAND-CONSTRUCTED rather than genuinely captured. See the dedicated 'Fixture provenance' section below for the full derivation and honesty accounting.",
+    "src/types/chat.ts gained `TokenizeRequestMessage`/`TokenizeResponseMessage` rather than a full `ClientMessage`/`ServerMessage` union mirroring server/types.ts's \u2014 the frontend never had such unions before this story (backend-client.ts has always used its own loose local `ServerMessage` interface for other message kinds); adding only the tokenize-specific types matches the existing convention rather than introducing a new one mid-story.",
+    "backend-client.ts's `tokenize(send, model, text)` mints its requestId via the EXISTING `createId()` helper in src/lib/chat.ts (which already guards `crypto.randomUUID` behind a `typeof crypto !== \"undefined\" && \"randomUUID\" in crypto` check, falling back to Math.random) rather than calling `crypto.randomUUID()` directly \u2014 this repo has a documented white-screen risk on plain-HTTP non-localhost origins from unguarded `crypto.randomUUID()` call sites (per project memory), and this avoids adding a fifth one."
+  ],
+  "fixture_provenance": {
+    "SUPERSEDED_NOTE": "The original hand-construction account below is retained for the record but NO LONGER DESCRIBES THE COMMITTED FIXTURES. It was written under the false premise that no Ollama host and no reference tokenizer were reachable; every probing agent tried localhost:11434 rather than host.lima.internal:11434.",
+    "current": "GENUINE CAPTURE. tests/fixtures/qwen3-1.7b-vocab.json.gz holds the real qwen3:1.7b tokenizer tables taken byte-identically from live POST http://host.lima.internal:11434/api/show with verbose:true - 151936 tokens, 151387 merges, tokenizer.ggml.pre = qwen2, 1424003 bytes gzipped. tests/fixtures/qwen3-1.7b-goldens.json and qwen3-1.7b-conformance-goldens.json are produced by @huggingface/transformers (devDependency; AC-DEP-2 permits this and bars only `dependencies` and imports under server/ - both verified) loading Qwen/Qwen3-1.7B's real tokenizer.json. Capture idempotency re-verified on a real re-run: gzip bytes byte-identical.",
+    "fidelity_evidence": "Lead-run 17-case differential against the HF reference over the real vocab: exact tokenId equality on all 17 (digits, <|im_start|>, <think>, contractions, U+0085 NEL, U+FEFF BOM, tabs, emoji, CJK, fenced code). Now pinned in-repo by a 10-case fixture-backed conformance suite. Live AC-TOK-1 runs and passes against the real host.",
+    "what_the_fabricated_fixture_got_wrong": "2 of 6 hand-derived goldens had the wrong token COUNT, not just wrong ids: the fenced-code-block string was guessed at 9 tokens (real: 5) and the triple-newline string at 5 (real: 3). The other 4 counts happened to be right. A self-derived oracle was not merely unverifiable - it was partly incorrect, and no test in the suite could see it.",
+    "original_hand_construction_account": {
+      "constraint": "Story Constraints section explicitly authorizes hand-construction, with disclosure, when no live host/reference tokenizer is reachable (confirmed unreachable: `curl http://localhost:11434/api/tags` -> connection refused; no llama-tokenize or python3+transformers available).",
+      "vocab_fixture": "tests/fixtures/qwen3-1.7b-vocab.json.gz contains all 256 real GPT-2 byte-alphabet base tokens (ids 0-255, generated programmatically from the same bytes_to_unicode() construction server/tokenizer.ts uses \u2014 not hand-typed), plus ~35 hand-chosen merge-result tokens and 2 special tokens (<|im_start|>, <|im_end|>). Because every raw byte has a fallback single-byte token, tokenize() can never hit a missing-vocab-entry error for arbitrary input (load-bearing for AC-TOK-6's property test).",
+      "golden_fixture_derivation": "Target segmentation for every fixture-set string was decided BY HAND FIRST, before any merge table was written: 'Hello world' -> [\"Hello\",\" world\"] (2 tokens, matches the terminology glossary); 'strawberry' -> [\"st\",\"raw\",\"berry\"] (3 tokens, matches the glossary and the well-known GPT-4/cl100k tokenization of this exact word); 'Die Verkehrsinfrastruktur' -> [\"Die\",\" Ver\",\"kehrs\",\"in\",\"fra\",\"struk\",\"tur\"] (7 tokens, matches the glossary \u2014 segmentation chosen by hand, not derived from any real qwen3 output, since none was reachable). The full BPE merge-rank trace for 'strawberry' was worked out by hand on paper (documented step-by-step in this run's reasoning trace) confirming the ambiguity-free design converges to exactly ['st','raw','berry'] regardless of the exact numeric rank values, only their relative order. A merge table was then constructed so every OTHER fixture pretoken has AT MOST ONE applicable merge at each BPE step (no genuine ambiguity), specifically so the segmentation is mechanically forced and auditable by inspection rather than emergent from BPE's tie-breaking. One deliberate exception: an auxiliary word 'xyz' (not part of the AC-DEP-2 fixture set) has a genuinely AMBIGUOUS pair \u2014 (x,y) and (y,z) both apply at the same step \u2014 used exclusively by AC-DEP-1's merge-rank-swap mutation test, since every other pair in the table would produce an observationally IDENTICAL result if its rank were swapped with another (verified this the hard way: an earlier draft swapped (b,e)/(r,a) inside 'strawberry' itself and produced no observable difference, because BPE's final result there does not depend on their relative order when each is individually forced).",
+      "mechanical_verification": "After the target segmentation was chosen by hand, a scratch script (not committed) ran the REAL bpeMerge()/preTokenize() exports from server/tokenizer.ts against the hand-designed merge table to confirm it produces the intended token counts (2, 3, 7, 9, 5, 3) before the golden fixture's numeric tokenIds were assembled. The golden fixture's numeric ids were then computed by feeding the same hand-verified segmentation through the real encodeToIds()-equivalent logic (to avoid manual off-by-one errors counting into a 295-entry vocab), not invented independently of the vocab file \u2014 this is bookkeeping, not segmentation derivation, and does not weaken AC-TOK-7's discriminating power against a merge-table-free implementation (see VQ-S3-001's dedicated test in tests/integration/tokenizer.test.ts, which shows a byte-split implementation would produce 10 tokenIds for 'strawberry' against the golden's 3).",
+      "honest_limitation": "Because golden-fixture assembly reused server/tokenizer.ts's own bpeMerge()/byteEncode() helpers (not a fully independent reference implementation), this fixture does NOT catch a bug that is consistently wrong in BOTH the golden-generation path and the production tokenize() path (e.g. a subtly incorrect BPE tie-breaking rule applied identically both times). What it DOES catch, per VQ-S3-001: any implementation that skips merge consultation entirely (byte-split, greedy longest-vocab-match) \u2014 those are structurally different algorithms that diverge from the golden's exact 3-token 'strawberry' result. The two hand-traced-on-paper cases (strawberry's full merge order; the xy/yz ambiguity) are independently verified beyond this limitation. If a live host or reference tokenizer becomes available, `node scripts/capture-vocab-fixture.mjs` should be re-run to replace this fixture with a genuine capture \u2014 the script's own real-capture logic (verified separately in tests/integration/capture-vocab-fixture.test.ts against a mocked host) is unaffected by any of the above."
+    }
+  },
+  "qwen2_regex_limitation": "The qwen2 pre-tokenizer regex in server/tokenizer.ts is documented in-code as the best-available PUBLIC documentation of the pattern (the cl100k_base/GPT-4-style split, which Qwen2's tokenizer is reported to be modeled after) rather than a byte-for-byte verified copy of llama.cpp's LLAMA_VOCAB_PRE_TYPE_QWEN2 regex_exprs array \u2014 no live host or llama.cpp source was reachable in this sandbox to diff against. The vocab/golden fixtures were constructed against this EXACT regex, so the conformance suite is internally consistent regardless of whether it matches the real qwen2 pre-tokenizer precisely. Flagged rather than silently presented as verified.",
+  "verification_summary": {
+    "pre_impl_questions": 16,
+    "post_impl_questions": 4,
+    "tsc_server": "clean (0 errors)",
+    "tsc_frontend": "201 pre-existing errors (4 files), matches baseline exactly; 0 net new (a new ambient .d.mts declaration for scripts/capture-vocab-fixture.mjs was needed to keep a new integration test file from adding one)",
+    "test_unit": "100 passed / 1 failed (baseline 91/1; +9 net new, all passing; the 1 failure is the pre-existing out-of-scope chat-workspace.test.tsx:175 button-label mismatch, unchanged)",
+    "test_integration": "73 passed / 1 skipped (baseline 27/0; +47 net new; the 1 skip is AC-TOK-1's live-gated test, closed because no Ollama host is reachable in this sandbox \u2014 verified this exits 0 with a non-zero skip count by running the full integration suite with OLLAMA_URL pointed at a closed port)"
+  },
+  "retrospective": {
+    "skipped": false,
+    "harder_than_needed": "No live Ollama host or reference tokenizer was reachable in this sandbox, so constructing a genuinely correct byte-level BPE vocab/merge/golden fixture required hand-deriving exact BPE merge traces for six fixture-set strings plus a deliberately-ambiguous auxiliary pair (for the AC-DEP-1 rank-swap test) before writing any fixture data, then mechanically verifying the design against the real implementation rather than trusting hand arithmetic across a ~295-entry vocab. This is inherently slow, error-prone work a real reference tokenizer would have eliminated entirely, and it is the reason this story's fixture_provenance field is as long as it is \u2014 the honesty accounting the story's Constraints section requires is itself substantial work. Separately, a scratch verification script using `tsx` to import an absolute-path `.ts` module from OUTSIDE the current working directory produced silently broken named exports (present as getters, but calling them threw 'is not a function') ONLY when run as a real `.mjs` file (not via `tsx -e`) \u2014 cost real debugging time before switching to driving the same checks through the actual project vitest pipeline, which is authoritative anyway and confirmed the implementation was correct all along.",
+    "surprised_by": "fast-check v4 (the version this story installed) removed `fc.fullUnicodeString` entirely \u2014 the exact API AC-TOK-6's own acceptance-criteria text names as an example generator no longer exists in the installed major version; its documented replacement is `fc.string({ unit: \"binary\" })`. Also: GPT-2's byte-to-unicode alphabet maps the space byte (0x20) to '\u0120', never literal ' ' \u2014 an easy mistake to make when hand-authoring a merge table by eye, caught only by the mechanical verification script, not by re-reading the table.",
+    "scope": "project_specific",
+    "outcome": "merged",
+    "commits_made": [],
+    "absorbed_from": [],
+    "lead_clarifications": []
+  },
+  "final_outcome": "accepted",
+  "completed_at": "2026-09-22T11:00:00Z"
+}

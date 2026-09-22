@@ -775,7 +775,7 @@ export function ChatWorkspace() {
     []
   );
 
-  const { send: wsSend, connected: wsConnected } = useWebSocket(WS_URL, handleWsMessage);
+  const { send: wsSend, connected: wsConnected } = useWebSocket(WS_URL, handleWsMessage, () => backendClientRef.current.cancelPendingTokenize());
 
   useEffect(() => {
     const initialConversations = loadConversations([]);
@@ -860,6 +860,19 @@ export function ChatWorkspace() {
   const selectedConversation = useMemo(
     () => conversations.find((conversation) => conversation.id === selectedConversationId) ?? null,
     [conversations, selectedConversationId]
+  );
+  // Real computed-boundary provider for TokenViewStepContent (story S3),
+  // fulfilling the contract S2 mocked. All separator/whitespace/boundary
+  // logic itself still lives in src/lib/token-view.ts (AC-STRUCT-3) — this
+  // is just wiring backend-client.tokenize() to the current model.
+  const tokenizeStepText = useCallback(
+    (text: string) => {
+      const model = selectedConversation?.model;
+      if (!model) return Promise.reject(new Error("no active model"));
+      // Explicit provider (S3-F4) avoids the router's model-name-only modelProviderMap fallback.
+      return backendClientRef.current.tokenize(wsSend, model, text, selectedConversation?.provider).then((r) => r.tokens);
+    },
+    [selectedConversation?.model, selectedConversation?.provider, wsSend]
   );
   useEffect(() => {
     setNoteDraft(selectedConversation?.note ?? "");
@@ -2241,7 +2254,7 @@ export function ChatWorkspace() {
                             </Stack>
                           </Stack>
                         ) : (showTokens && (step.kind === "assistant" || step.kind === "user" || step.kind === "reasoning")) ? (
-                          <TokenViewStepContent step={step} />
+                          <TokenViewStepContent step={step} tokenizeText={tokenizeStepText} cacheKeySuffix={selectedConversation?.model} />
                         ) : ((step.kind === "assistant" || step.kind === "user" || step.kind === "reasoning") && renderMarkdown) ? (
                           <Box sx={{ lineHeight: 1.7, color: "text.primary", "& pre": { fontFamily: "monospace", whiteSpace: "pre-wrap", backgroundColor: "var(--surface-inset)", p: 1.5, borderRadius: 1, overflow: "auto" }, "& code": { fontFamily: "monospace", fontSize: "0.9em" }, "& p:first-of-type": { mt: 0 }, "& p:last-of-type": { mb: 0 }, "& table": { borderCollapse: "collapse", width: "100%", my: 1 }, "& th, & td": { border: "1px solid", borderColor: "divider", px: 1.5, py: 0.75, textAlign: "left" }, "& th": { backgroundColor: "var(--surface-inset)", fontWeight: 600 } }}>
                             <Markdown remarkPlugins={[remarkGfm]}>{step.content.replace(/^\n+|\n+$/g, "")}</Markdown>

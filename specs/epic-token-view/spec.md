@@ -212,7 +212,7 @@ rather than falling back to a generic split.
 ### `scripts/capture-vocab-fixture.mjs` (new) and `tests/fixtures/`
 
 Calls `POST {OLLAMA_URL}/show` with `{"model": <arg>, "verbose": true}` and writes `tokens`,
-`merges`, and the scalar `tokenizer.ggml.*` fields to `qwen3-1.7b-vocab.json`, dropping the
+`merges`, and the scalar `tokenizer.ggml.*` fields to `qwen3-1.7b-vocab.json.gz`, dropping the
 `modelfile`, `license`, and `tensors` bulk. It then runs each fixture-set string through a
 reference tokenizer and writes the expected id sequences to `qwen3-1.7b-goldens.json`. Both are
 committed. `server/tokenizer.ts` never reads either file — they exist so tests can serve a stubbed
