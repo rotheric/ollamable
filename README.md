@@ -112,6 +112,32 @@ are rejected with an `MCP Tool Rejected` event; the first registered definition 
 its identity. Saved selections whose tool ID no longer matches fail explicitly and
 need to be refreshed, rather than invoking another tool with the same name.
 
+## Verification
+
+With dependencies already installed, `node scripts/run-checks.mjs` is the release
+gate (`check`, `test`, and `make test` use it). It runs unit tests, server integration
+tests, frontend/test and backend typechecks, the static production build, then browser
+tests. It stops at the first failed stage. Use `test:unit` or `test:integration` for
+focused checks; they do not establish a release pass by themselves.
+
+Install the matching Chromium browser with
+`node node_modules/@playwright/test/cli.js install chromium` (the download requires
+network access and the host must provide Chromium's system libraries). To use an
+existing compatible browser, set `PLAYWRIGHT_EXECUTABLE_PATH` to its executable.
+`node scripts/run-playwright.mjs` builds and serves the export through the backend
+and forwards Playwright filters, for example `tests/e2e/backend.spec.ts` or
+`--grep 'tool-only'`. The release gate builds once and uses `--skip-build` internally.
+
+Most browser tests mock HTTP/WebSocket responses for deterministic UI checks.
+`tests/e2e/startup.spec.ts` instead launches the actual production/development
+entrypoints and uses a local deterministic provider over HTTP. Its production case
+executes the real curl tool against a local HTTP target and checks the tool-call
+and tool-result wire messages on the next provider request. These tests need local
+TCP/WebSocket sockets and child processes; launch/environment failures should be
+reported separately from failed application assertions. They do not require a
+live model or external tool service. The separate live tokenizer checks remain
+gated and report skips when their configured host is unavailable.
+
 ## License
 
 [MIT](LICENSE)

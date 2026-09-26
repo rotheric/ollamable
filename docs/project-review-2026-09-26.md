@@ -45,7 +45,7 @@ Repository constraints from [AGENTS.md](../AGENTS.md): package-manager guidance 
 - [x] **R23 — P2:** Documented development startup and `dev:full` are miswired.
 - [x] **R24 — P2:** Handwritten environment loading preserves quoting syntax.
 - [x] **R25 — P3:** Standalone frontend typechecking fails on test globals.
-- [ ] **R26 — P3:** Broadly named test commands omit integration checks; E2E mocks the backend.
+- [x] **R26 — P3:** Broadly named test commands omit integration checks; E2E mocks the backend.
 - [ ] **R27 — P2:** Finishing the tour deletes modified example conversations.
 - [ ] **R28 — P3:** Tour completion does not restore the original sidebar state.
 - [ ] **R29 — P3:** Guided-tour lifecycle has no browser coverage.
@@ -450,6 +450,11 @@ The standalone command produced 183 diagnostic lines, including missing `vi`, `d
 **Implementation context:** Explicit test imports or an appropriately scoped test type configuration can make the standalone check meaningful. Avoid simply excluding all tests without retaining a way to typecheck them. Re-run both frontend and backend TypeScript commands; their configurations differ.
 
 ### R26 — Broad test commands omit integration checks; E2E mocks the backend
+
+Owner: Codex
+State: COMPLETE
+
+Resolution: test/check/make test now run an explicit fail-fast release gate: unit, server integration, both typechecks, static build and browser tests. The browser runner uses installed Node entrypoints and the unified backend, supports a configurable browser executable, and builds only once in the gate. Fast browser mocks remain; the production startup scenario now traverses a real browser, backend, HTTP provider fixture and curl tool, validating call/result wire messages on the second model invocation. README documents scope, browser installation and socket/network prerequisites. The new gate completed successfully: 220 unit tests, 313 integration tests (2 live-provider skips), both typechecks, build, and all 45 browser tests.
 
 **Priority:** P3. **Evidence:** Coverage/configuration inspection.  
 **Location:** [package.json](../package.json), `test`; [Makefile](../Makefile), `test`; [scripts/run-playwright.mjs](../scripts/run-playwright.mjs); [tests/e2e/backend.spec.ts](../tests/e2e/backend.spec.ts).

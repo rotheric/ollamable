@@ -19,9 +19,8 @@ build: ## Clean and build the project
 	$(MAKE) clean
 	npm run build
 
-test: ## Run all tests (unit + e2e)
-	npm run test:unit
-	npm run test:e2e
+test: ## Release gate: unit, integration, types, build, and browser tests
+	node scripts/run-checks.mjs
 
 test-unit: ## Run unit tests
 	npm run test:unit

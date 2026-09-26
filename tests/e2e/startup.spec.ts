@@ -21,11 +21,12 @@ function isListening(port: number): Promise<boolean> {
 
 // No page.route or routeWebSocket: browser -> real backend -> local deterministic provider.
 for (const mode of ["production", "development"] as const) {
-  test(`${mode} entrypoint serves a real browser/backend/provider round trip`, async ({ page }) => {
+  test(`${mode} entrypoint serves a real browser/backend/provider${mode === "production" ? "/tool" : ""} round trip`, async ({ page }) => {
     test.setTimeout(90_000);
     const frontendPort = await freePort();
     const backendPort = mode === "production" ? frontendPort : await freePort();
-    const requests: Array<{ model?: string; messages?: Array<{ role: string; content: string }> }> = [];
+    const requests: Array<{ model?: string; tools?: Array<{ function: { name: string } }>; messages?: Array<{ role: string; content: string; tool_calls?: unknown[]; tool_name?: string }> }> = [];
+    let toolRequests = 0;
     const provider = createServer(async (req, res) => {
       res.setHeader("Content-Type", "application/json");
       if (req.url === "/api/tags") res.end(JSON.stringify({ models: [{ name: "qwen3:latest", details: { family: "qwen" } }] }));
@@ -35,7 +36,13 @@ for (const mode of ["production", "development"] as const) {
         for await (const chunk of req) raw += chunk;
         requests.push(JSON.parse(raw));
         res.setHeader("Content-Type", "application/x-ndjson");
-        res.end(JSON.stringify({ message: { role: "assistant", content: "Real provider response" }, done: true, prompt_eval_count: 5, eval_count: 3 }) + "\n");
+        const message = mode === "production" && requests.length === 1
+          ? { role: "assistant", content: "", tool_calls: [{ function: { name: "curl", arguments: { url: `http://127.0.0.1:${providerPort}/tool-target` } } }] }
+          : { role: "assistant", content: "Real provider response" };
+        res.end(JSON.stringify({ message, done: true, prompt_eval_count: 5, eval_count: 3 }) + "\n");
+      } else if (req.url === "/tool-target") {
+        toolRequests++;
+        res.end(JSON.stringify({ evidence: "real local tool result" }));
       } else { res.writeHead(404); res.end(); }
     });
     await new Promise<void>((resolve) => provider.listen(0, "127.0.0.1", resolve));
@@ -59,11 +66,27 @@ for (const mode of ["production", "development"] as const) {
       await page.addInitScript(() => { localStorage.setItem("ollamable.tourCompleted", "true"); });
       await page.goto(`http://127.0.0.1:${frontendPort}`);
       await expect.poll(() => output.includes("[ws] client connected")).toBe(true);
+      if (mode === "production") {
+        await page.getByRole("button", { name: "Expand tools sidebar" }).click();
+        await page.getByRole("button", { name: "Tools", exact: true }).click();
+        await page.getByText("built-in").click();
+        await page.getByRole("checkbox", { name: /^curl/ }).check();
+      }
       await page.getByRole("textbox", { name: "User Prompt" }).fill("Real startup request");
       await page.getByRole("textbox", { name: "User Prompt" }).press("Enter");
       await expect(page.getByText("Real provider response", { exact: true })).toBeVisible();
-      expect(requests).toHaveLength(1);
+      expect(requests).toHaveLength(mode === "production" ? 2 : 1);
       expect(requests[0]).toMatchObject({ model: "qwen3:latest", messages: expect.arrayContaining([{ role: "user", content: "Real startup request" }]) });
+      if (mode === "production") {
+        expect(toolRequests).toBe(1);
+        expect(requests[0].tools?.map((tool) => tool.function.name)).toContain("curl");
+        expect(requests[1].messages).toEqual(expect.arrayContaining([
+          { role: "assistant", content: "", tool_calls: [{ function: { name: "curl", arguments: { url: `http://127.0.0.1:${providerPort}/tool-target` } } }] },
+          expect.objectContaining({ role: "tool", tool_name: "curl", content: expect.stringContaining("real local tool result") }),
+        ]));
+        await expect(page.getByRole("region", { name: "Tool activity", exact: true })).toContainText("real local tool result");
+        await expect(page.locator('[data-step-kind="assistant"]')).toHaveCount(1);
+      }
     } catch (error) {
       throw new Error(`${String(error)}\nStartup logs:\n${output}`);
     } finally {
