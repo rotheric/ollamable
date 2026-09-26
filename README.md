@@ -37,7 +37,30 @@ npm install
 npm run dev
 ```
 
-Then open [http://localhost:3000](http://localhost:3000).
+`dev`, `dev:full`, and `dev:auto` all start Next.js on 127.0.0.1:3000 and
+its backend on 127.0.0.1:3001, with the frontend WebSocket URL and allowed origin
+wired together. `node scripts/run-dev.mjs` is the direct entrypoint. Set
+`FRONTEND_PORT` (or `PORT`) and `BACKEND_PORT` to override the ports; they must differ.
+Set `OPEN_BROWSER=0` to suppress browser launch. Stop the runner to stop both services.
+`dev:frontend` starts only Next.js for frontend-only work.
+
+Ollama defaults to `http://localhost:11434/api`; set `OLLAMA_URL` for another server.
+Set `MINIMAX_API_KEY` (and optionally `MINIMAX_BASE_URL`) to enable MiniMax.
+Remote development uses the authenticated reverse-proxy setup below; `make dev-remote`
+requires its WebSocket URL, allowed origin and token rather than exposing an unauthenticated backend.
+
+For production, build the static export and start the backend that serves it:
+
+```bash
+node node_modules/next/dist/bin/next build
+node scripts/start.mjs
+```
+
+The `start` package script uses the same entrypoint. It requires `out/index.html`
+(or `STATIC_DIR/index.html`) and serves assets, model/tool APIs and WebSocket chat
+on one port (`PORT`, default 3000). `next start` is not used with the static export.
+Keep the installed `tsx` runtime available when starting the TypeScript backend.
+Open [http://localhost:3000](http://localhost:3000).
 
 The backend reads `.env`, then `.envrc`, using Node’s dotenv syntax (quoted values,
 comments and optional `export` prefixes). Existing process variables, including empty

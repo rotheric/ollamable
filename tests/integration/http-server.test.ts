@@ -5,6 +5,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { request } from "node:http";
 import { WebSocket } from "ws";
+import manifest from "../../package.json";
 
 describe("production HTTP static boundary", () => {
   let child: ChildProcess;
@@ -25,7 +26,8 @@ describe("production HTTP static boundary", () => {
     writeFileSync(join(root, "space name.txt"), "space");
     symlinkSync(join(directory, "private.txt"), join(root, "escape.txt"));
     symlinkSync(join(directory, "out-sibling"), join(root, "escape-dir"));
-    child = spawn(process.execPath, ["node_modules/tsx/dist/cli.mjs", "server/index.ts"], {
+    const [command, ...args] = manifest.scripts.start.split(" ");
+    child = spawn(command === "node" ? process.execPath : command, args, {
       env: { ...process.env, PORT: "0", STATIC_DIR: root, MCP_CONFIG: join(directory, "missing.json") },
       stdio: ["ignore", "pipe", "pipe"],
     });

@@ -1,11 +1,8 @@
-SHELL := /bin/zsh
+SHELL := /bin/sh
 
 .PHONY: install clean build test test-unit test-integration test-e2e test-mutation start dev dev-remote help
 
-# Host that a non-local browser (Lima VM, phone, other LAN machine) uses to
-# reach this machine. NEXT_PUBLIC_WS_URL is inlined at dev-server startup, so
-# it must name a host the *browser* can resolve, not this machine's loopback.
-REMOTE_HOST ?= host.lima.internal
+# Ports for the local services behind a configured remote-development proxy.
 FRONTEND_PORT ?= 3000
 BACKEND_PORT ?= 3001
 
@@ -39,14 +36,12 @@ test-mutation: ## Run mutation testing (Stryker) over the audited modules
 	npm run test:mutation
 
 start: build ## Build and start production server (port 3000)
-	node --import tsx server/index.ts
+	node scripts/start.mjs
 
 dev: ## Clean and start frontend + backend dev servers
 	$(MAKE) clean
 	npm run dev:auto
 
-dev-remote: ## Start dev servers reachable from the Lima VM / LAN (override REMOTE_HOST)
-	$(MAKE) clean
-	npx concurrently -n next,server -c cyan,magenta \
-	  "NEXT_PUBLIC_WS_URL=ws://$(REMOTE_HOST):$(BACKEND_PORT) npm run dev -- --hostname 0.0.0.0 --port $(FRONTEND_PORT)" \
-	  "PORT=$(BACKEND_PORT) npm run dev:server"
+dev-remote: ## Start behind an authenticated proxy (set NEXT_PUBLIC_WS_URL and BACKEND_ALLOWED_ORIGINS)
+	@test -n "$(NEXT_PUBLIC_WS_URL)" -a -n "$(BACKEND_ALLOWED_ORIGINS)" -a -n "$(BACKEND_AUTH_TOKEN)" || { echo "Set NEXT_PUBLIC_WS_URL, BACKEND_ALLOWED_ORIGINS and BACKEND_AUTH_TOKEN for the authenticated proxy." >&2; exit 1; }
+	FRONTEND_PORT=$(FRONTEND_PORT) BACKEND_PORT=$(BACKEND_PORT) node scripts/run-dev.mjs

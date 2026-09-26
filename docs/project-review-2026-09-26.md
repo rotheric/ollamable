@@ -31,7 +31,7 @@ Repository constraints from [AGENTS.md](../AGENTS.md): package-manager guidance 
 - [x] **R09 — P2:** Curl byte limit does not bound downloads or allocations.
 - [x] **R10 — P2:** MCP initialization/disconnection leaks clients or subprocesses.
 - [x] **R11 — P2:** Tool loop has no execution budget.
-- [ ] **R12 — P2:** Production start script is incompatible with static export.
+- [x] **R12 — P2:** Production start script is incompatible with static export.
 - [ ] **R13 — P2:** Tool-only replies become synthetic assistant transcript steps.
 - [x] **R14 — P2:** Failed chat sends leave unresolved promises.
 - [x] **R15 — P2:** Overlapping generations share ownership and message correlation.
@@ -42,7 +42,7 @@ Repository constraints from [AGENTS.md](../AGENTS.md): package-manager guidance 
 - [x] **R20 — P2:** Invalid final tool arguments become an executable empty object.
 - [ ] **R21 — P3:** Tool-only/reasoning-only responses lose usage metadata.
 - [x] **R22 — P2:** MCP tool names collide across servers and built-ins.
-- [ ] **R23 — P2:** Documented development startup and `dev:full` are miswired.
+- [x] **R23 — P2:** Documented development startup and `dev:full` are miswired.
 - [x] **R24 — P2:** Handwritten environment loading preserves quoting syntax.
 - [x] **R25 — P3:** Standalone frontend typechecking fails on test globals.
 - [ ] **R26 — P3:** Broadly named test commands omit integration checks; E2E mocks the backend.
@@ -380,6 +380,11 @@ The default Playwright MCP command points at `/home/mrother.linux/.cache/ms-play
 
 ### R12 — Production start script is incompatible with static export
 
+Owner: Codex
+State: COMPLETE
+
+Resolution: The package and Makefile production entrypoints now launch the unified backend/static server. Production startup checks for the export after loading environment configuration, with an actionable missing-build error. Deployment documentation states the build and tsx runtime requirements. The actual package entrypoint passes all 22 HTTP/static/backend integration tests; a real browser/backend/local-provider generation passes through the same production port.
+
 **Priority:** P2. **Evidence:** Reproduced.  
 **Location:** [package.json](../package.json), `scripts.start`; [next.config.ts](../next.config.ts), `output: "export"`; [Makefile](../Makefile), `start`.
 
@@ -388,6 +393,11 @@ The package start script runs `next start`, which exits with an explicit static-
 **Implementation context:** Align the advertised production entrypoint with that unified server rather than changing the frontend away from static export. Verify root assets and a backend endpoint through the same production process. Ensure runtime dependencies required by the chosen launch command are available in the deployment installation.
 
 ### R23 — Documented development startup and `dev:full` are miswired
+
+Owner: Codex
+State: COMPLETE
+
+Resolution: All combined development aliases use one runner that starts distinct frontend/backend ports, injects the WebSocket URL and matching local origins, and stops both children together. Port overrides are validated; identical ports fail clearly. The frontend-only entrypoint is explicit. README documents provider setup, local/remote configuration and overrides. A real browser/backend/local-provider development generation passes, including shutdown assertions for both ports. Both standalone TypeScript checks pass.
 
 **Priority:** P2. **Evidence:** Inspection.  
 **Location:** [README.md](../README.md), Getting Started; [package.json](../package.json), `dev`, `dev:full`, `dev:auto`; [scripts/run-dev.mjs](../scripts/run-dev.mjs); [backend-client.ts](../src/lib/backend-client.ts), URL selection.

@@ -20,6 +20,10 @@ const PROJECT_ROOT = resolve(__dirname, "..");
 loadEnvironment(PROJECT_ROOT);
 const PORT = parseInt(process.env.PORT ?? process.env.WS_PORT ?? "3000", 10);
 const STATIC_DIR = resolve(process.env.STATIC_DIR ?? resolve(PROJECT_ROOT, "out"));
+if (process.argv.includes("--require-static-export") && !existsSync(resolve(STATIC_DIR, "index.html"))) {
+  console.error("Static export missing. Build first: node node_modules/next/dist/bin/next build");
+  process.exit(1);
+}
 const MCP_CONFIG = process.env.MCP_CONFIG ?? resolve(__dirname, "mcp-config.json");
 const accessPolicy = new AccessPolicy();
 
