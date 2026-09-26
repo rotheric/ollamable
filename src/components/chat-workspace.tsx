@@ -1400,7 +1400,8 @@ export function ChatWorkspace() {
       const connectionLost = streamError instanceof Error && streamError.name === "ConnectionLostError";
       const message = isAbort
         ? "Generation stopped."
-        : connectionLost ? streamError.message : "Failed to stream from backend.";
+        : connectionLost ? streamError.message
+          : streamError instanceof Error ? `Failed to stream from backend: ${streamError.message}` : "Failed to stream from backend.";
       setError(message);
       updateConversation(nextConversation.id, (conversation) => {
         const cleanedSteps = conversation.steps.flatMap((step) => {

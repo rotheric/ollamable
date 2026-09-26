@@ -405,7 +405,7 @@ test("handles chat.error from the backend and displays an error message", async 
   await page.getByRole("textbox", { name: "User Prompt" }).fill("Trigger an error");
   await page.getByRole("textbox", { name: "User Prompt" }).press("Enter");
 
-  await expect(page.getByText("Failed to stream from backend.")).toBeVisible();
+  await expect(page.getByText("Failed to stream from backend: Ollama request failed: 503")).toBeVisible();
 });
 
 test("sends chat.stop when the user clicks stop during streaming", async ({ page }) => {

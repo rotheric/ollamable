@@ -508,6 +508,22 @@ describe("ConnectionHandler", () => {
     } finally { ws.close(); }
   });
 
+  it.each([{}, { url: 123 }, { url: "https://example.com", method: "DESTROY" }, null, [], "text"])("rejects invalid tool arguments before execution: %j", async (args) => {
+    const fetchSpy = vi.spyOn(globalThis, "fetch");
+    mockStreamOllama.mockResolvedValue([makeStep("tool_call", "", {
+      toolCall: { name: "curl", arguments: args as unknown as Record<string, unknown> },
+    })]);
+    const ws = await connectClient();
+    try {
+      const error = waitForMessage(ws, (m) => m.type === "chat.error");
+      // A permissive client-supplied schema cannot weaken the server's actual tool schema.
+      sendJson(ws, makeChatSend({ tools: [{ ...new CurlExecutor().getToolDefinitions()[0], inputSchema: "{}" }] }));
+      expect((await error).message).toContain("Invalid arguments for tool curl");
+      expect(fetchSpy).not.toHaveBeenCalled();
+      expect(mockStreamOllama).toHaveBeenCalledTimes(1);
+    } finally { ws.close(); }
+  });
+
   // ── Tool loop ────────────────────────────────────────────────────
 
   it("executes the tool loop when Ollama returns tool calls", async () => {

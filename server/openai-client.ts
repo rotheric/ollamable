@@ -213,7 +213,7 @@ export async function streamOpenAIResponse(args: {
   thinkState.pending = "";
 
   // Finalise tool steps with fully accumulated arguments
-  const finalToolSteps = materialiseToolSteps(pendingToolCalls, toolSteps);
+  const finalToolSteps = materialiseToolSteps(pendingToolCalls, toolSteps, true);
 
   if (lastUsage || finishReason) {
     assistantStep.usage = {
@@ -322,17 +322,22 @@ function processLine(
  */
 function materialiseToolSteps(
   pendingToolCalls: Map<number, { id: string; name: string; arguments: string }>,
-  existing: ConversationStep[]
+  existing: ConversationStep[],
+  final = false
 ): ConversationStep[] {
   const result = [...existing];
 
   for (const [index, tc] of pendingToolCalls) {
     let parsedArgs: Record<string, unknown> = {};
     try {
-      parsedArgs = JSON.parse(tc.arguments) as Record<string, unknown>;
+      const parsed: unknown = JSON.parse(tc.arguments);
+      if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) throw new Error("not an object");
+      parsedArgs = parsed as Record<string, unknown>;
     } catch {
-      // Arguments may still be incomplete during streaming
+      if (final) throw new Error(`Invalid arguments for tool ${tc.name || tc.id}: expected a complete JSON object`);
+      // Partial previews are never execution-ready final calls.
     }
+    if (final && !tc.name.trim()) throw new Error(`Missing tool name for call ${tc.id}`);
 
     if (index < result.length && result[index]?.toolCall) {
       // Update existing step with latest data

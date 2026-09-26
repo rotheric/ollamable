@@ -39,7 +39,7 @@ Repository constraints from [AGENTS.md](../AGENTS.md): package-manager guidance 
 - [x] **R17 — P2:** Invalid explicit provider IDs silently fall back to another provider.
 - [ ] **R18 — P2:** Tokenization caches omit provider identity.
 - [ ] **R19 — P2:** Discovery and tool network requests lack application deadlines.
-- [ ] **R20 — P2:** Invalid final tool arguments become an executable empty object.
+- [x] **R20 — P2:** Invalid final tool arguments become an executable empty object.
 - [ ] **R21 — P3:** Tool-only/reasoning-only responses lose usage metadata.
 - [ ] **R22 — P2:** MCP tool names collide across servers and built-ins.
 - [ ] **R23 — P2:** Documented development startup and `dev:full` are miswired.
@@ -300,6 +300,11 @@ These requests have no explicit application timeout/caller cancellation. Model d
 **Implementation context:** Transport/runtime defaults are not a deliberate application deadline. Define finite discovery/tool behavior and preserve successful providers when another fails. Shared vocabulary fetches require ownership care: cancellation of one waiting request should not necessarily abort work still needed by others. This is separate from R04's missing tool cancellation propagation.
 
 ### R20 — Invalid final tool arguments become an executable empty object
+
+Owner: Codex
+State: COMPLETE
+
+Resolution: the OpenAI adapter distinguishes provisional arguments from final executable objects and rejects malformed/non-object JSON or missing final tool names. `ToolDispatcher` validates objects against the executor-owned schema using the existing MCP SDK JSON Schema validator; caller-supplied schemas cannot weaken enforcement. The workspace surfaces the resulting server error. Adapter/real-WebSocket regressions: 99 passed (including truncated length-finish arguments, primitives/null/arrays, required fields, types, enums and valid fragmented JSON); workspace tests: 16 passed; error-display browser test, production build and backend TypeScript passed.
 
 **Priority:** P2. **Evidence:** Inspection.  
 **Location:** [server/openai-client.ts](../server/openai-client.ts), `materialiseToolSteps` around lines 330–349; [server/ws-handler.ts](../server/ws-handler.ts), dispatch.

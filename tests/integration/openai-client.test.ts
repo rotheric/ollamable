@@ -50,3 +50,22 @@ describe("OpenAI reasoning delimiter streaming", () => {
     expect(steps.find((s) => s.kind === kind)?.content).toBe(expected);
   });
 });
+
+describe("OpenAI final tool arguments", () => {
+  it.each(['{"url":', "null", "[]", "true", "42", '"text"'])("rejects non-executable final arguments %s", async (argumentsText) => {
+    const body = `data: ${JSON.stringify({ choices: [{ delta: { tool_calls: [{ index: 0, id: "call-1", function: { name: "curl", arguments: argumentsText } }] }, finish_reason: "length" }] })}\n\ndata: [DONE]\n\n`;
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(body));
+    const delta = vi.fn();
+    await expect(streamOpenAIResponse({ config: { id: "test", type: "openai-compat", name: "Test", baseUrl: "https://example.test" }, model: "model", steps: [], tools: [], onDelta: delta }))
+      .rejects.toThrow("Invalid arguments for tool curl: expected a complete JSON object");
+    expect(delta).toHaveBeenCalled(); // provisional display still works before final validation
+  });
+
+  it("accepts a fragmented object only after its final closing delimiter arrives", async () => {
+    const body = ['{"url":', '"https://example.com"}'].map((argumentsText, index) =>
+      `data: ${JSON.stringify({ choices: [{ delta: { tool_calls: [{ index: 0, id: "call-1", function: { ...(index === 0 ? { name: "curl" } : {}), arguments: argumentsText } }] } }] })}\n\n`).join("");
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(body));
+    const steps = await streamOpenAIResponse({ config: { id: "test", type: "openai-compat", name: "Test", baseUrl: "https://example.test" }, model: "model", steps: [], tools: [], onDelta: () => {} });
+    expect(steps[0].toolCall).toEqual({ id: "call-1", name: "curl", arguments: { url: "https://example.com" } });
+  });
+});
