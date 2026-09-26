@@ -12,7 +12,7 @@ This project is a **demo for educational purposes** — it exposes the internals
 - **Reasoning/thinking** — watch the model's chain-of-thought reasoning appear in real time as a separate step, distinct from the final answer
 - **Message roles** — understand how system, user, assistant, tool_call, and tool_result steps combine to form the full conversation protocol
 - **Streaming** — observe NDJSON streaming from the Ollama API as deltas arrive and assemble into complete responses
-- **Request/response inspection** — preview the exact JSON payload sent to Ollama before each request, including message history, tool definitions, and model parameters
+- **Request/response inspection** — inspect message history, tool definitions, and model parameters in the labeled OpenAI-compatible JSON preview. This is a protocol view, not the exact Ollama request: Ollama uses fields such as `options.num_predict`, `options.temperature`, and `think`. The separate token/template panel shows Ollama-specific tokenization details.
 
 ## Features
 

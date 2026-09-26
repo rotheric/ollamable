@@ -54,7 +54,7 @@ Repository constraints from [AGENTS.md](../AGENTS.md): package-manager guidance 
 - [ ] **R32 — P3:** Workspace component concentrates too many responsibilities.
 - [ ] **R33 — P3:** Default MCP configuration hardcodes a machine-specific browser path.
 - [ ] **R34 — P3:** Persistence failures are inconsistently handled and not surfaced to users.
-- [ ] **R35 — P3:** README promises exact Ollama JSON, but the main preview is OpenAI format.
+- [x] **R35 — P3:** README promises exact Ollama JSON, but the main preview is OpenAI format.
 - [ ] **R36 — P3:** Package-manager instructions disagree with the executable workflow.
 
 ## Verification already performed
@@ -535,6 +535,11 @@ Conversation saves retry quota errors after stripping `contentTokens`, but a sec
 **Implementation context:** Keep the useful token-stripping fallback and expose persistent save failure without deleting existing data. Share safe storage behavior across settings/order/selection writes. Verify both quota exhaustion and unavailable storage; passing conversation quota tests does not establish that all storage paths are safe. Partial streamed steps are also persisted during generation; recovery semantics after refresh remain worth checking while working here.
 
 ### R35 — README promises exact Ollama JSON, but preview is OpenAI format
+
+Owner: Codex
+State: COMPLETE
+
+Resolution: README now describes the labeled OpenAI-compatible protocol preview and explicitly distinguishes it from Ollama wire fields and the separate token/template panel. Confirmed against requestJsonPreview/buildOpenAIRequestBody and buildOllamaChatBody; this documentation-only correction changes no preview behavior.
 
 **Priority:** P3. **Evidence:** Documentation and code inspection.  
 **Location:** [README.md](../README.md), request/response inspection description; [chat-workspace.tsx](../src/components/chat-workspace.tsx), `requestJsonPreview` around line 952 and modal subtitle around line 3096; [server/ollama-client.ts](../server/ollama-client.ts), `buildOllamaChatBody`.
