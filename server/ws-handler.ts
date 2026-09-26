@@ -24,6 +24,9 @@ import type {
  * Chosen within the finding's suggested 64k-256k range.
  */
 const MAX_TOKENIZE_TEXT_LENGTH = 200_000;
+// Server-owned limits: a request cannot raise its own execution allowance.
+export const MAX_MODEL_INVOCATIONS = 8;
+export const MAX_TOOL_CALLS = 32;
 
 interface McpConfig {
   mcpServers?: Record<
@@ -209,11 +212,15 @@ export class ConnectionHandler {
     const originalCount = steps.length;
 
     let loopIteration = 0;
+    let toolCallCount = 0;
 
     try {
       // Tool loop: keep calling the LLM until we get a response with no tool calls
       while (true) {
         if (controller.signal.aborted) break;
+        if (loopIteration >= MAX_MODEL_INVOCATIONS) {
+          throw new Error(`Execution budget exceeded: at most ${MAX_MODEL_INVOCATIONS} model invocations per request.`);
+        }
         loopIteration++;
 
         console.log(`[ws] conversation=${conversationId} loop=${loopIteration} sending ${steps.length} steps to ${provider ?? "default"}/${model}`);
@@ -246,6 +253,10 @@ export class ConnectionHandler {
         const toolCallSteps = responseSteps.filter(
           (s) => s.kind === "tool_call" && s.toolCall
         );
+        if (toolCallCount + toolCallSteps.length > MAX_TOOL_CALLS) {
+          throw new Error(`Execution budget exceeded: at most ${MAX_TOOL_CALLS} tool calls per request.`);
+        }
+
         // Prompt visibility is not authorization: history can contain disabled calls.
         const enabledNames = new Set((tools ?? []).map((tool) => tool.name));
         for (const step of toolCallSteps) {
@@ -312,6 +323,7 @@ export class ConnectionHandler {
 
         for (const toolStep of executableToolCalls) {
           controller.signal.throwIfAborted();
+          toolCallCount++;
           const { name, arguments: toolArgs } = toolStep.toolCall!;
           const argSummary = JSON.stringify(toolArgs);
           const truncatedArgs = argSummary.length > 200 ? argSummary.slice(0, 200) + "…" : argSummary;

@@ -27,7 +27,7 @@ vi.mock("../../server/ollama-client.js", () => ({
 
 import { CurlExecutor } from "../../server/tools/curl.js";
 import { WebSearchExecutor } from "../../server/tools/web-search.js";
-import { ConnectionHandler } from "../../server/ws-handler.js";
+import { ConnectionHandler, MAX_MODEL_INVOCATIONS, MAX_TOOL_CALLS } from "../../server/ws-handler.js";
 import { streamOllamaResponse } from "../../server/ollama-client.js";
 import type { ConversationStep } from "../../server/types.js";
 
@@ -403,6 +403,38 @@ describe("ConnectionHandler", () => {
     } finally {
       ws.close();
     }
+  });
+
+  it("terminates repeated tool calls at the model budget and preserves completed results", async () => {
+    mockBraveSearchFetch();
+    mockStreamOllama.mockImplementation(async () => [makeStep("tool_call", "", {
+      toolCall: { name: "web_search", arguments: { query: "repeat" } },
+    })]);
+    const ws = await connectClient();
+    try {
+      const received = collectMessages(ws, (messages) => messages.some((m) => m.type === "chat.error"));
+      sendJson(ws, makeChatSend({ tools: new WebSearchExecutor().getToolDefinitions() }));
+      const messages = await received;
+      expect(messages.at(-1)?.message).toContain("Execution budget exceeded");
+      expect(mockStreamOllama).toHaveBeenCalledTimes(MAX_MODEL_INVOCATIONS);
+      const completed = messages.flatMap((m) => m.steps ?? []).filter((s) => s.kind === "tool_result" && s.title.startsWith("Result:"));
+      expect(completed).toHaveLength(MAX_MODEL_INVOCATIONS);
+    } finally { ws.close(); }
+  });
+
+  it("rejects a batch exceeding the remaining action budget before any side effects", async () => {
+    const fetchSpy = vi.spyOn(globalThis, "fetch");
+    mockStreamOllama.mockResolvedValue(Array.from({ length: MAX_TOOL_CALLS + 1 }, (_, index) => makeStep("tool_call", "", {
+      toolCall: { id: String(index), name: "curl", arguments: { url: "https://example.com" } },
+    })));
+    const ws = await connectClient();
+    try {
+      const error = waitForMessage(ws, (m) => m.type === "chat.error");
+      sendJson(ws, makeChatSend({ tools: new CurlExecutor().getToolDefinitions() }));
+      expect((await error).message).toContain(`${MAX_TOOL_CALLS} tool calls`);
+      expect(fetchSpy).not.toHaveBeenCalled();
+      expect(mockStreamOllama).toHaveBeenCalledTimes(1);
+    } finally { ws.close(); }
   });
 
   // ── Tool loop ────────────────────────────────────────────────────

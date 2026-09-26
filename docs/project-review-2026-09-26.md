@@ -30,7 +30,7 @@ Repository constraints from [AGENTS.md](../AGENTS.md): package-manager guidance 
 - [ ] **R08 — P2:** Split reasoning tags corrupt assistant/reasoning separation.
 - [x] **R09 — P2:** Curl byte limit does not bound downloads or allocations.
 - [ ] **R10 — P2:** MCP initialization/disconnection leaks clients or subprocesses.
-- [ ] **R11 — P2:** Tool loop has no execution budget.
+- [x] **R11 — P2:** Tool loop has no execution budget.
 - [ ] **R12 — P2:** Production start script is incompatible with static export.
 - [ ] **R13 — P2:** Tool-only replies become synthetic assistant transcript steps.
 - [ ] **R14 — P2:** Failed chat sends leave unresolved promises.
@@ -148,6 +148,11 @@ Resolution: `server/tools/curl.ts` now reads incrementally into a capped buffer 
 **Implementation context:** Consume the body incrementally and cancel it when the limit is reached. Define whether the reported byte count is observed bytes or a known total: after early cancellation the current exact `totalBytes` claim is no longer generally possible. Exercise a response substantially larger than the requested limit without downloading an enormous real file.
 
 ### R11 — Tool loop has no execution budget
+
+Owner: Codex
+State: COMPLETE
+
+Resolution: `server/ws-handler.ts` enforces server-owned limits of eight model invocations and 32 tool calls per request. Exhaustion emits correlated `chat.error` (which BackendClient rejects and removes from pending), retaining previously delivered steps. Oversized batches are rejected before execution. Handler regressions exercise an always-tool-calling provider, preservation of completed results, and oversized batches; Stop/disconnect tests still pass. Full integration suite: 184 passed, 2 live-provider skips; backend TypeScript passed.
 
 **Priority:** P2. **Evidence:** Inspection.  
 **Location:** [server/ws-handler.ts](../server/ws-handler.ts), `while (true)` around line 215.
