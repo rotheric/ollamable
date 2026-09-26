@@ -7,6 +7,7 @@ import { McpBridge } from "./tools/mcp-bridge.js";
 import { LlmRouter, UnsupportedProviderError } from "./llm-router.js";
 import { loadProviderConfigs } from "./provider-config.js";
 import { VocabUnavailableError } from "./tokenizer.js";
+import { isRecord, validateChatRequest } from "./request-validation.js";
 import type {
   ClientMessage,
   ConversationStep,
@@ -61,6 +62,10 @@ export class ConnectionHandler {
       });
     });
 
+    ws.on("error", (error) => {
+      console.warn("[ws] transport error", error.message);
+    });
+
     ws.on("close", () => {
       for (const { controller } of this.generations.values()) {
         controller.abort();
@@ -94,12 +99,34 @@ export class ConnectionHandler {
   }
 
   private async handleMessage(raw: string): Promise<void> {
-    let msg: ClientMessage;
+    let parsed: unknown;
     try {
-      msg = JSON.parse(raw) as ClientMessage;
+      parsed = JSON.parse(raw);
     } catch {
+      this.send({ type: "protocol.error", message: "Invalid JSON message" });
       return;
     }
+    if (!isRecord(parsed) || typeof parsed.type !== "string") {
+      this.send({ type: "protocol.error", message: "Expected a message object with a type" });
+      return;
+    }
+    if (parsed.type === "chat.send") {
+      const error = validateChatRequest(parsed);
+      if (error) {
+        if (typeof parsed.conversationId === "string" && parsed.conversationId.trim()) {
+          this.send({ type: "chat.error", conversationId: parsed.conversationId,
+            requestId: typeof parsed.requestId === "string" ? parsed.requestId : undefined,
+            message: error });
+        } else this.send({ type: "protocol.error", message: error });
+        return;
+      }
+    }
+    if (parsed.type === "chat.stop" && (typeof parsed.conversationId !== "string" ||
+      (parsed.requestId !== undefined && typeof parsed.requestId !== "string"))) {
+      this.send({ type: "protocol.error", message: "Invalid Stop request" });
+      return;
+    }
+    const msg = parsed as unknown as ClientMessage;
 
     if (msg.type === "ping") {
       this.send({ type: "pong" });
@@ -128,6 +155,7 @@ export class ConnectionHandler {
       await this.handleTokenize(msg);
       return;
     }
+    this.send({ type: "protocol.error", message: "Unknown message type" });
   }
 
   /**

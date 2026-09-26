@@ -368,7 +368,7 @@ describe("ConnectionHandler", () => {
     const ws = await connectClient();
     try {
       const error = waitForMessage(ws, (m) => m.type === "chat.error");
-      sendJson(ws, makeChatSend({ tools: [{ name: "missing_tool", description: "", parameters: {} }] }));
+      sendJson(ws, makeChatSend({ tools: [{ id: "missing", name: "missing_tool", description: "", inputSchema: "{}" }] }));
       expect((await error).message).toContain("Tool is not available on this server: missing_tool");
       expect(mockStreamOllama).toHaveBeenCalledTimes(1);
     } finally {
@@ -477,6 +477,35 @@ describe("ConnectionHandler", () => {
       await new Promise((resolve) => setTimeout(resolve, 20));
       expect(messages.filter((message) => message.requestId === "older").map((message) => message.type)).toEqual(["chat.error"]);
     } finally { for (const call of calls) call.release(); ws.close(); }
+  });
+
+  it.each([
+    { steps: null }, { steps: {} }, { steps: [null] },
+    { steps: [{ kind: "assistant", content: 42 }] },
+    { tools: {} }, { tools: [null] }, { tools: [{ name: "curl" }] },
+    { model: null }, { provider: 7 }, { temperature: "hot" },
+    { maxOutputTokens: -1 }, { reasoningEffort: "unknown" },
+  ])("rejects malformed chat with correlation before provider invocation: %j", async (invalid) => {
+    const ws = await connectClient();
+    try {
+      const error = waitForMessage(ws, (m) => m.type === "chat.error");
+      sendJson(ws, makeChatSend({ conversationId: "malformed", requestId: "bad-request", ...invalid }));
+      expect(await error).toMatchObject({ conversationId: "malformed", requestId: "bad-request" });
+      expect(mockStreamOllama).not.toHaveBeenCalled();
+      const pong = waitForMessage(ws, (m) => m.type === "pong");
+      sendJson(ws, { type: "ping" });
+      await pong;
+    } finally { ws.close(); }
+  });
+
+  it.each(["{broken", "null", "[]", "42", '{"type":"chat.send","steps":[]}'])("returns a protocol error for uncorrelatable input %s", async (raw) => {
+    const ws = await connectClient();
+    try {
+      const error = waitForMessage(ws, (m) => m.type === "protocol.error");
+      ws.send(raw);
+      expect((await error).message).toBeTruthy();
+      expect(mockStreamOllama).not.toHaveBeenCalled();
+    } finally { ws.close(); }
   });
 
   // ── Tool loop ────────────────────────────────────────────────────

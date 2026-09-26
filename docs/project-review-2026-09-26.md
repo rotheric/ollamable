@@ -35,7 +35,7 @@ Repository constraints from [AGENTS.md](../AGENTS.md): package-manager guidance 
 - [ ] **R13 — P2:** Tool-only replies become synthetic assistant transcript steps.
 - [x] **R14 — P2:** Failed chat sends leave unresolved promises.
 - [x] **R15 — P2:** Overlapping generations share ownership and message correlation.
-- [ ] **R16 — P2:** Malformed chat messages receive no correlated failure.
+- [x] **R16 — P2:** Malformed chat messages receive no correlated failure.
 - [ ] **R17 — P2:** Invalid explicit provider IDs silently fall back to another provider.
 - [ ] **R18 — P2:** Tokenization caches omit provider identity.
 - [ ] **R19 — P2:** Discovery and tool network requests lack application deadlines.
@@ -249,6 +249,11 @@ Two requests for the same conversation overwrite each other's controller and pen
 **Implementation context:** Enforce single-generation ownership or introduce per-generation correlation end to end. At minimum, cleanup must verify that it owns the map entry. Test out-of-order completion and cancellation of two requests for the same conversation; existing different-conversation concurrency coverage does not exercise this.
 
 ### R16 — Malformed chat messages receive no correlated failure
+
+Owner: Codex
+State: COMPLETE
+
+Resolution: `server/request-validation.ts` validates chat identity, model/provider, steps, tool definitions and generation options before logging or allocating controllers. Identifiable invalid chats receive correlated `chat.error`; malformed/unidentifiable inputs receive `protocol.error`. `server/index.ts` bounds metadata uploads to 64 KiB/10 seconds, validates JSON fields, and limits WebSocket payloads to 1 MiB; transport errors are handled without crashing. Real HTTP/WebSocket regressions cover malformed input, fixed-length/chunked oversized uploads, and oversized socket frames. Focused suites: 61 passed; backend TypeScript passed. README records protocol/input limits.
 
 **Priority:** P2. **Evidence:** Inspection.  
 **Location:** [server/ws-handler.ts](../server/ws-handler.ts), `handleMessage` around lines 93–122 and `handleChatSend` before its `try`.

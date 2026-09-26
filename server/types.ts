@@ -101,6 +101,7 @@ export type ClientMessage =
 
 // Server → Client messages
 export type ServerMessage =
+  | { type: "protocol.error"; message: string }
   | { type: "chat.delta"; requestId?: string; conversationId: string; steps: ConversationStep[] }
   | { type: "chat.steps"; requestId?: string; conversationId: string; steps: ConversationStep[] }
   | { type: "chat.done"; requestId?: string; conversationId: string; steps: ConversationStep[] }

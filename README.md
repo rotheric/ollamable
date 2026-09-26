@@ -69,6 +69,11 @@ Without a configured token, loopback access trusts local native processes. Brows
 origins remain restricted. Requests without an Origin header still undergo Host
 validation and, when configured, token authentication.
 
+The backend limits WebSocket messages to 1 MiB and `/models/show` JSON uploads to
+64 KiB with a 10-second upload deadline. Invalid identifiable chat requests receive
+a correlated `chat.error`; malformed or uncorrelatable messages receive
+`protocol.error` without executing provider work.
+
 ## License
 
 [MIT](LICENSE)

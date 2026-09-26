@@ -4,6 +4,7 @@ import { mkdtempSync, mkdirSync, rmSync, symlinkSync, writeFileSync } from "node
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { request } from "node:http";
+import { WebSocket } from "ws";
 
 describe("production HTTP static boundary", () => {
   let child: ChildProcess;
@@ -48,15 +49,18 @@ describe("production HTTP static boundary", () => {
     if (directory) rmSync(directory, { recursive: true, force: true });
   });
 
-  function get(path: string): Promise<{ status: number; body: string }> {
+  function get(path: string, bodyToSend?: string, chunked = false): Promise<{ status: number; body: string }> {
     return new Promise((resolve, reject) => {
       // Raw request paths preserve dot segments that fetch/URL would normalize away.
-      const req = request({ hostname: "127.0.0.1", port, path }, (res) => {
+      const headers = bodyToSend === undefined ? {} : chunked
+        ? { "Transfer-Encoding": "chunked" } : { "Content-Length": Buffer.byteLength(bodyToSend) };
+      const req = request({ hostname: "127.0.0.1", port, path, headers, method: bodyToSend === undefined ? "GET" : "POST" }, (res) => {
         let body = "";
         res.on("data", (chunk) => { body += chunk; });
         res.on("end", () => resolve({ status: res.statusCode!, body }));
       });
       req.on("error", reject);
+      if (bodyToSend !== undefined) req.write(bodyToSend);
       req.end();
     });
   }
@@ -75,4 +79,24 @@ describe("production HTTP static boundary", () => {
   ])("serves exported content at %s", async (path, body) => {
     expect(await get(path)).toEqual({ status: 200, body });
   });
+  it.each(["{broken", "null", '{"model":1}', '{"model":"m","provider":false}'])("validates metadata JSON input %s", async (body) => {
+    expect((await get("/models/show", body)).status).toBe(400);
+  });
+
+  it.each([false, true])("rejects oversized metadata uploads with chunked=%s", async (chunked) => {
+    expect((await get("/models/show", JSON.stringify({ model: "x".repeat(70 * 1024) }), chunked)).status).toBe(413);
+    expect((await get("/tools")).status).toBe(200);
+  });
+
+  it("closes oversized WebSocket messages without crashing the backend", async () => {
+    const code = await new Promise<number>((resolve, reject) => {
+      const ws = new WebSocket(`ws://127.0.0.1:${port}`);
+      ws.on("error", reject);
+      ws.on("open", () => ws.send("x".repeat(1024 * 1024 + 1)));
+      ws.on("close", resolve);
+    });
+    expect(code).toBe(1009);
+    expect((await get("/tools")).status).toBe(200);
+  });
+
 });

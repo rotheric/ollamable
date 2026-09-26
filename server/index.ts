@@ -11,6 +11,7 @@ import { WebSearchExecutor } from "./tools/web-search.js";
 import { CurlExecutor } from "./tools/curl.js";
 import { loadProviderConfigs } from "./provider-config.js";
 import { AccessPolicy } from "./access-policy.js";
+import { HttpInputError, isRecord, readJsonBody } from "./request-validation.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const PROJECT_ROOT = resolve(__dirname, "..");
@@ -93,21 +94,18 @@ const httpServer = createServer(
 
     if (req.url === "/models/show" && req.method === "POST") {
       try {
-        const chunks: Buffer[] = [];
-        for await (const chunk of req) {
-          chunks.push(chunk as Buffer);
+        const body = await readJsonBody(req);
+        if (!isRecord(body) || typeof body.model !== "string" || !body.model.trim() ||
+          (body.provider !== undefined && (typeof body.provider !== "string" || !body.provider.trim()))) {
+          throw new HttpInputError(400, "Expected model and optional provider strings");
         }
-        const body = JSON.parse(Buffer.concat(chunks).toString()) as {
-          model: string;
-          provider?: string;
-        };
-        const meta = await router.showModelMeta(body.provider, body.model);
+        const meta = await router.showModelMeta(body.provider as string | undefined, body.model);
         res.writeHead(200, { "Content-Type": "application/json" });
         res.end(JSON.stringify(meta));
       } catch (err) {
         const message =
           err instanceof Error ? err.message : "Failed to fetch model metadata";
-        res.writeHead(500, { "Content-Type": "application/json" });
+        res.writeHead(err instanceof HttpInputError ? err.status : 500, { "Content-Type": "application/json", "Connection": "close" });
         res.end(JSON.stringify({ error: message }));
       }
       return;
@@ -153,7 +151,7 @@ const httpServer = createServer(
 
 // ── WebSocket server ─────────────────────────────────────────────────
 
-const wss = new WebSocketServer({ noServer: true });
+const wss = new WebSocketServer({ noServer: true, maxPayload: 1024 * 1024 });
 httpServer.on("upgrade", (req, socket, head) => {
   const address = httpServer.address();
   const access = accessPolicy.check(req, typeof address === "object" && address ? address.port : PORT);
