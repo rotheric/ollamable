@@ -116,6 +116,20 @@ are rejected with an `MCP Tool Rejected` event; the first registered definition 
 its identity. Saved selections whose tool ID no longer matches fail explicitly and
 need to be refreshed, rather than invoking another tool with the same name.
 
+## Browser persistence
+
+Conversation history, settings, selection and tour state are stored in this browser.
+If a conversation exceeds storage quota, saving retries once without per-token
+boundary metadata. Existing saved conversations are never deleted to make room.
+An unresolved storage failure shows a persistent warning; unrelated successful
+settings writes do not hide a failed conversation save. Keep the tab open and copy
+unsaved content before reloading. If initial storage reads fail, the app does not
+overwrite unread saved data with its fallback defaults.
+
+Reloading during generation does not resume or automatically retry the request.
+Saved partial assistant/reasoning text is retained and labeled interrupted;
+provisional streamed tool calls are discarded.
+
 ## Verification
 
 With dependencies already installed, `node scripts/run-checks.mjs` is the release

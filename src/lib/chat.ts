@@ -1,3 +1,4 @@
+import { readStorage, writeStorage, removeStorage } from "@/src/lib/persistence";
 import { normalizeResponseSteps } from "../../shared/normalize-response-steps";
 import type {
   Conversation,
@@ -63,7 +64,7 @@ const DEFAULT_SIDEBAR_STATE: SidebarState = {
 };
 
 export function loadSidebarState(): SidebarState {
-  const raw = window.localStorage.getItem(SIDEBAR_STATE_KEY);
+  const raw = readStorage(SIDEBAR_STATE_KEY);
   if (!raw) return { ...DEFAULT_SIDEBAR_STATE };
   try {
     return { ...DEFAULT_SIDEBAR_STATE, ...JSON.parse(raw) };
@@ -73,7 +74,7 @@ export function loadSidebarState(): SidebarState {
 }
 
 export function saveSidebarState(state: SidebarState): void {
-  window.localStorage.setItem(SIDEBAR_STATE_KEY, JSON.stringify(state));
+  writeStorage(SIDEBAR_STATE_KEY, JSON.stringify(state));
 }
 
 export const fallbackModels: OllamaModel[] = [
@@ -146,56 +147,17 @@ export function inferTitle(steps: ConversationStep[]): string {
   return firstUserStep.content.slice(0, 42) || "New conversation";
 }
 
-/**
- * Quota detection across browsers. Modern engines throw a DOMException named
- * "QuotaExceededError"; legacy Firefox used "NS_ERROR_DOM_QUOTA_REACHED", and
- * older engines surface the numeric code 22 instead of a recognisable name.
- * Kept deliberately wide to match `createId`'s degrade-gracefully posture a few
- * lines above, rather than assuming a modern-browser-only audience that nothing
- * in this file actually enforces.
- */
-function isQuotaExceeded(error: unknown): boolean {
-  if (!(error instanceof DOMException)) return false;
-  return (
-    error.name === "QuotaExceededError" ||
-    error.name === "NS_ERROR_DOM_QUOTA_REACHED" ||
-    error.code === 22
-  );
-}
-
 export function saveConversations(conversations: Conversation[]): void {
-  try {
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(conversations));
-  } catch (error) {
-    if (!isQuotaExceeded(error)) {
-      throw error;
-    }
-
-    const stripped = conversations.map((conversation) => ({
+  writeStorage(STORAGE_KEY, JSON.stringify(conversations), () => JSON.stringify(
+    conversations.map((conversation) => ({
       ...conversation,
-      steps: conversation.steps.map((step) => {
-        const { contentTokens, ...rest } = step;
-        return rest;
-      }),
-    }));
-
-    try {
-      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(stripped));
-    } catch (retryError) {
-      if (!isQuotaExceeded(retryError)) {
-        throw retryError;
-      }
-      // Stripping contentTokens still wasn't enough (e.g. a large
-      // transcript). MUST NOT propagate on this retry path — the sole
-      // caller is a useEffect, and an uncaught throw there is an
-      // unhandled React error that can tear down the workspace.
-      console.warn("saveConversations: quota exceeded even after stripping contentTokens; conversations not persisted");
-    }
-  }
+      steps: conversation.steps.map(({ contentTokens, ...step }) => step),
+    })),
+  ));
 }
 
 export function loadConversationOrder(): string[] | null {
-  const raw = window.localStorage.getItem(CONVERSATION_ORDER_KEY);
+  const raw = readStorage(CONVERSATION_ORDER_KEY);
   if (!raw) return null;
   try {
     return JSON.parse(raw) as string[];
@@ -205,14 +167,19 @@ export function loadConversationOrder(): string[] | null {
 }
 
 export function saveConversationOrder(order: string[]): void {
-  window.localStorage.setItem(CONVERSATION_ORDER_KEY, JSON.stringify(order));
+  writeStorage(CONVERSATION_ORDER_KEY, JSON.stringify(order));
 }
 
 export function ensureSystemPromptStep(conversation: Conversation): Conversation {
   const systemPrompt = conversation.systemPrompt ?? "";
   const now = new Date().toISOString();
   const existingSystemStep = conversation.steps.find((step) => step.kind === "system");
-  const otherSteps = conversation.steps.filter((step) => step.kind !== "system");
+  const otherSteps = conversation.steps.filter((step) => step.kind !== "system").flatMap((step) => {
+    if (!step.id.startsWith("stream-")) return [step];
+    // A reload cannot resume the in-flight generation. Keep only authored partial prose.
+    if (!["assistant", "reasoning"].includes(step.kind) || !step.content.trim()) return [];
+    return [{ ...step, id: step.id.replace(/^stream-/, "interrupted-"), interrupted: true, toolCall: undefined, toolCalls: undefined }];
+  });
   const systemStep =
     existingSystemStep != null
       ? {
@@ -241,7 +208,7 @@ export function ensureSystemPromptStep(conversation: Conversation): Conversation
 }
 
 export function loadConversations(tools: ToolDefinition[]): Conversation[] {
-  const raw = window.localStorage.getItem(STORAGE_KEY);
+  const raw = readStorage(STORAGE_KEY);
   if (!raw) {
     return [createConversation(fallbackModels[0].name, tools)];
   }
@@ -278,15 +245,15 @@ export function ensureConversationTools(
 
 export function saveSelectedConversationId(id: string): void {
   if (id) {
-    window.localStorage.setItem(SELECTED_KEY, id);
+    writeStorage(SELECTED_KEY, id);
     return;
   }
 
-  window.localStorage.removeItem(SELECTED_KEY);
+  removeStorage(SELECTED_KEY);
 }
 
 export function loadSelectedConversationId(): string | null {
-  return window.localStorage.getItem(SELECTED_KEY);
+  return readStorage(SELECTED_KEY);
 }
 
 import rawExamples from "@/config/system-prompt-examples.yaml";

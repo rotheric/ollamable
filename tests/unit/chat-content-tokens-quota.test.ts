@@ -12,6 +12,7 @@
  */
 
 import { describe, it, expect, beforeEach, vi } from "vitest";
+import { persistenceStatus } from "@/src/lib/persistence";
 import { createConversation, loadConversations, saveConversations, STORAGE_KEY } from "@/src/lib/chat";
 import type { Conversation, ConversationStep } from "@/src/types/chat";
 
@@ -186,16 +187,17 @@ describe("saveConversations quota-failure retry (AC-ERR-4)", () => {
     expect(warnSpy).toHaveBeenCalled();
   });
 
-  it("propagates non-quota errors immediately without retrying", () => {
+  it("surfaces non-quota errors without throwing or retrying", () => {
     const setItemSpy = vi.spyOn(window.localStorage, "setItem").mockImplementation(() => {
       throw new Error("disk full");
     });
 
-    expect(() => saveConversations([makeConversationWithTokens("conv-1")])).toThrow("disk full");
+    expect(() => saveConversations([makeConversationWithTokens("conv-1")])).not.toThrow();
+    expect(persistenceStatus()).toContain(`write:${STORAGE_KEY}`);
     expect(setItemSpy).toHaveBeenCalledTimes(1);
   });
 
-  it("propagates a non-quota error raised on the retry attempt itself", () => {
+  it("surfaces a non-quota error on the retry without throwing", () => {
     let callCount = 0;
     const setItemSpy = vi.spyOn(window.localStorage, "setItem").mockImplementation(() => {
       callCount += 1;
@@ -205,7 +207,8 @@ describe("saveConversations quota-failure retry (AC-ERR-4)", () => {
       throw new Error("disk full on retry");
     });
 
-    expect(() => saveConversations([makeConversationWithTokens("conv-1")])).toThrow("disk full on retry");
+    expect(() => saveConversations([makeConversationWithTokens("conv-1")])).not.toThrow();
+    expect(persistenceStatus()).toContain(`write:${STORAGE_KEY}`);
     expect(setItemSpy).toHaveBeenCalledTimes(2);
   });
 
@@ -260,12 +263,13 @@ describe("isQuotaExceeded's disjuncts, isolated from each other (AC-ERR-4 / Flow
     expect(setItemSpy).toHaveBeenCalledTimes(2);
   });
 
-  it("does NOT treat an unrelated real DOMException (wrong name, non-22 code) as a quota failure -- propagates immediately without retrying", () => {
+  it("does NOT treat an unrelated real DOMException (wrong name, non-22 code) as a quota failure -- surfaces failure without retrying", () => {
     const setItemSpy = vi.spyOn(window.localStorage, "setItem").mockImplementation(() => {
       throw new DOMException("not found", "NotFoundError");
     });
 
-    expect(() => saveConversations([makeConversationWithTokens("conv-1")])).toThrow(DOMException);
+    expect(() => saveConversations([makeConversationWithTokens("conv-1")])).not.toThrow();
+    expect(persistenceStatus()).toContain(`write:${STORAGE_KEY}`);
     expect(setItemSpy).toHaveBeenCalledTimes(1);
   });
 
@@ -275,8 +279,9 @@ describe("isQuotaExceeded's disjuncts, isolated from each other (AC-ERR-4 / Flow
       throw { name: "QuotaExceededError", code: 22 };
     });
 
-    expect(() => saveConversations([makeConversationWithTokens("conv-1")])).toThrow();
-    // Propagated on the first attempt -- no strip-and-retry was attempted
+    expect(() => saveConversations([makeConversationWithTokens("conv-1")])).not.toThrow();
+    expect(persistenceStatus()).toContain(`write:${STORAGE_KEY}`);
+    // Reported on the first attempt -- no strip-and-retry was attempted
     // for a non-DOMException error, even though it mimics the shape.
     expect(setItemSpy).toHaveBeenCalledTimes(1);
   });

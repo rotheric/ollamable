@@ -19,6 +19,7 @@ import {
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { Joyride } from "react-joyride";
+import { usePersistenceStatus } from "@/src/lib/persistence";
 import { useTour } from "@/src/lib/use-tour";
 import Markdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -360,6 +361,7 @@ function SortableConversationCard({
 }
 
 export function ChatWorkspace() {
+  const persistenceFailed = usePersistenceStatus();
   const theme = useTheme();
   const [models, setModels] = useState<OllamaModel[]>(fallbackModels);
   const [tools, setTools] = useState<ToolDefinition[]>([]);
@@ -1773,6 +1775,9 @@ export function ChatWorkspace() {
             transition: "max-width 0.35s ease",
           }}
         >
+          {persistenceFailed ? <Alert severity="warning" role="alert" sx={{ flexShrink: 0 }}>
+            Browser storage is unavailable or full. Some changes are not saved. Keep this tab open and copy unsaved messages before reloading.
+          </Alert> : null}
           {selectedConversation ? (
             <>
               <Box data-tour="transcript" sx={{
@@ -3139,6 +3144,7 @@ function formatStepHeader(step: ConversationStep): string {
 
 function formatStepFooterMeta(step: ConversationStep): string | null {
   const parts: string[] = [];
+  if (step.interrupted) parts.push("interrupted");
 
   if (step.model && (step.kind === "assistant" || step.kind === "reasoning")) {
     parts.push(step.model);

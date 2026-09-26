@@ -1,5 +1,6 @@
 "use client";
 
+import { readStorage, writeStorage, removeStorage } from "@/src/lib/persistence";
 import { useCallback, useEffect, useRef, useState, type Dispatch, type SetStateAction } from "react";
 import { ACTIONS, EVENTS, STATUS, type EventData } from "react-joyride";
 import type { Conversation, OllamaModel, ToolDefinition } from "@/src/types/chat";
@@ -80,20 +81,20 @@ export function useTour(workspace: TourWorkspace) {
     const current = latest.current;
     let restoredSession: TourSession | null = null;
     if (!manual) {
-      try { restoredSession = JSON.parse(localStorage.getItem(TOUR_SESSION_KEY) ?? "null"); } catch { /* start fresh */ }
+      try { restoredSession = JSON.parse(readStorage(TOUR_SESSION_KEY) ?? "null"); } catch { /* start fresh */ }
     }
     session.current = restoredSession?.sidebar && typeof restoredSession.selectedId === "string"
       ? restoredSession : { sidebar: structuredClone(current.sidebarState), selectedId: current.selectedConversationId };
-    localStorage.setItem(TOUR_SESSION_KEY, JSON.stringify(session.current));
-    localStorage.removeItem(TOUR_COMPLETED_KEY);
+    writeStorage(TOUR_SESSION_KEY, JSON.stringify(session.current));
+    removeStorage(TOUR_COMPLETED_KEY);
     const existing = current.conversations.filter((conversation) => conversation._tourExample);
     const selected = current.conversations.find((conversation) => conversation.id === current.selectedConversationId);
     const seeded = existing.length ? existing : createTourConversations(selected?.model ?? current.models[0]?.name ?? fallbackModels[0].name, current.tools);
     if (!existing.length) current.setConversations([...seeded, ...current.conversations]);
     current.setSelectedConversationId(seeded[0].id);
-    const saved = manual ? 0 : Number(localStorage.getItem(TOUR_STEP_KEY) ?? 0);
+    const saved = manual ? 0 : Number(readStorage(TOUR_STEP_KEY) ?? 0);
     const index = Number.isInteger(saved) && saved >= 0 && saved < tourSteps.length ? saved : 0;
-    localStorage.setItem(TOUR_STEP_KEY, String(index));
+    writeStorage(TOUR_STEP_KEY, String(index));
     updateSidebar({ sidebarOpen: true });
     running.current = true;
     prepareStep(index);
@@ -102,7 +103,7 @@ export function useTour(workspace: TourWorkspace) {
   }, [cancelTimers, prepareStep, updateSidebar]);
 
   useEffect(() => {
-    if (!initialized.current && localStorage.getItem(TOUR_COMPLETED_KEY) !== "true") schedule(() => start(false), 500);
+    if (!initialized.current && readStorage(TOUR_COMPLETED_KEY) !== "true") schedule(() => start(false), 500);
     // A cancelled schedule is not initialization. Strict Mode's replay schedules again.
     return cancelTimers;
   }, [cancelTimers, schedule, start]);
@@ -113,9 +114,9 @@ export function useTour(workspace: TourWorkspace) {
     cancelTimers();
     setTourRun(false);
     setTourStepIndex(0);
-    localStorage.setItem(TOUR_COMPLETED_KEY, "true");
-    localStorage.removeItem(TOUR_STEP_KEY);
-    localStorage.removeItem(TOUR_SESSION_KEY);
+    writeStorage(TOUR_COMPLETED_KEY, "true");
+    removeStorage(TOUR_STEP_KEY);
+    removeStorage(TOUR_SESSION_KEY);
     const current = latest.current;
     const remaining = finishTourConversations(current.conversations,
       (conversation) => createTourConversations(conversation.model, conversation.availableTools)[0]);
@@ -140,7 +141,7 @@ export function useTour(workspace: TourWorkspace) {
   const advanceToStep = useCallback((index: number) => {
     if (!running.current) return;
     setTourStepIndex(index);
-    localStorage.setItem(TOUR_STEP_KEY, String(index));
+    writeStorage(TOUR_STEP_KEY, String(index));
   }, []);
   const handleJoyrideEvent = useCallback((data: EventData) => {
     const { action, index, status, type } = data;

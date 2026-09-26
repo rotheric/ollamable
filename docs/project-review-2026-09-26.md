@@ -53,7 +53,7 @@ Repository constraints from [AGENTS.md](../AGENTS.md): package-manager guidance 
 - [ ] **R31 — P3:** Backlog findings and guided-tour status records are inconsistent or stale.
 - [x] **R32 — P3:** Workspace component concentrates too many responsibilities.
 - [ ] **R33 — P3:** Default MCP configuration hardcodes a machine-specific browser path.
-- [ ] **R34 — P3:** Persistence failures are inconsistently handled and not surfaced to users.
+- [x] **R34 — P3:** Persistence failures are inconsistently handled and not surfaced to users.
 - [x] **R35 — P3:** README promises exact Ollama JSON, but the main preview is OpenAI format.
 - [ ] **R36 — P3:** Package-manager instructions disagree with the executable workflow.
 
@@ -556,6 +556,11 @@ The component owns transport callbacks, generation lifecycle, transcript project
 **Implementation context:** Existing `BackendClient`, token-view hooks, and request-preview components provide natural seams. Separate coherent ownership as fixes touch these areas; do not make a wholesale rewrite a prerequisite for security fixes. This is a maintenance finding, not a claim that line count alone is a functional defect.
 
 ### R34 — Persistence failures are inconsistently handled and not surfaced
+
+Owner: Codex
+State: COMPLETE
+
+Resolution: All application storage reads/writes/removals, including tour state, use a shared safe persistence layer. Conversation quota failures retain the one-time token-stripping retry. Unresolved quota/security errors show a persistent workspace warning; success on another key cannot hide a failed save. Failed hydration blocks writes to unread keys so fallback defaults cannot overwrite unknown saved data. Existing saved values are retained. On reload, authored partial prose is marked interrupted and provisional streamed calls are discarded. Five new storage regressions plus existing quota cases and two real-browser failure scenarios pass. The complete release gate passes: 233 unit tests, 313 integration tests (2 live-provider skips), both typechecks, static build and all 50 browser tests.
 
 **Priority:** P3. **Evidence:** Inspection.  
 **Location:** [chat.ts](../src/lib/chat.ts), `saveConversations`, `saveSidebarState`, `saveConversationOrder`, and `saveSelectedConversationId`; [chat-workspace.tsx](../src/components/chat-workspace.tsx), persistence effects.

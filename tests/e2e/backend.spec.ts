@@ -1017,3 +1017,34 @@ test("tool-only responses and legacy saved calls stay outside assistant messages
       c.steps.some((s) => s.kind === "tool_call") && c.steps.every((s) => !s.toolCalls));
   });
 });
+
+for (const failure of ["quota", "unavailable"] as const) {
+  test(`keeps chat usable and warns when persistence is ${failure}`, async ({ page }) => {
+    if (failure === "unavailable") await page.setViewportSize({ width: 700, height: 900 });
+    await page.addInitScript((mode) => {
+      if (mode === "unavailable") {
+        Object.defineProperty(window, "localStorage", { get() { throw new DOMException("Denied", "SecurityError"); } });
+      } else {
+        const original = Storage.prototype.setItem;
+        Storage.prototype.setItem = function(key, value) {
+          if (key.startsWith("ollamable.")) throw new DOMException("Full", "QuotaExceededError");
+          return original.call(this, key, value);
+        };
+      }
+    }, failure);
+    wsHandler = (data, ws) => {
+      if (data.type !== "chat.send") return;
+      send(ws, { type: "chat.done", conversationId: data.conversationId, requestId: data.requestId, steps: [
+        { id: "unsaved-answer", kind: "assistant", title: "Assistant", content: "Still usable despite storage failure", createdAt: new Date().toISOString(), expanded: true },
+      ] });
+    };
+    await page.goto("/");
+    await waitForWsConnection();
+    await expect(page.getByRole("alert").filter({ hasText: "Some changes are not saved" })).toBeVisible();
+    const prompt = page.getByRole("textbox", { name: "User Prompt" });
+    await prompt.fill("Keep working in this tab");
+    await prompt.press("Enter");
+    await expect(page.getByText("Still usable despite storage failure", { exact: true })).toBeVisible();
+    await expect(page.getByRole("alert").filter({ hasText: "Some changes are not saved" })).toBeVisible();
+  });
+}

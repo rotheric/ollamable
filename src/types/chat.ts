@@ -64,6 +64,7 @@ export interface ConversationStep {
   usage?: UsagePayload;
   contentTokens?: string[];
   model?: string;
+  interrupted?: boolean;
 }
 
 export interface Conversation {
