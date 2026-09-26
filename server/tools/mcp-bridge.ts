@@ -22,6 +22,11 @@ export class McpBridge implements ToolExecutor {
   private disposed = false;
   private toolToServer = new Map<string, ConnectedServer>();
   private toolDefs: ToolDefinition[] = [];
+  private reservedNames: Set<string>;
+
+  constructor(reservedNames: Iterable<string> = []) {
+    this.reservedNames = new Set(reservedNames);
+  }
 
   getToolDefinitions(): ToolDefinition[] {
     return this.toolDefs;
@@ -77,13 +82,21 @@ export class McpBridge implements ToolExecutor {
           await this.closeServer(server);
           break;
         }
-        const toolNames = toolsResult.tools.map((t) => t.name);
+        const toolNames: string[] = [];
         server.tools = toolNames;
 
         for (const tool of toolsResult.tools) {
+          const id = `mcp-${name}-${tool.name}`;
+          if (this.reservedNames.has(tool.name) || this.toolToServer.has(tool.name) || discoveredTools.some((existing) => existing.id === id)) {
+            emit({ id: randomUUID(), kind: "mcp_connect", title: "MCP Tool Rejected",
+              detail: `${name}: tool ${tool.name} conflicts with an existing tool name or ID`,
+              data: { server: name, tool: tool.name }, timestamp: new Date().toISOString() });
+            continue;
+          }
+          toolNames.push(tool.name);
           this.toolToServer.set(tool.name, server);
           discoveredTools.push({
-            id: `mcp-${name}-${tool.name}`,
+            id,
             name: tool.name,
             description: tool.description ?? "",
             inputSchema: JSON.stringify(tool.inputSchema ?? {}),

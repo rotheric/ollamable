@@ -26,6 +26,11 @@ export function validateChatRequest(message: Record<string, unknown>): string | 
     if (!isRecord(tool) || !nonempty(tool.id) || !nonempty(tool.name) || typeof tool.description !== "string" || typeof tool.inputSchema !== "string") return false;
     try { return isRecord(JSON.parse(tool.inputSchema)); } catch { return false; }
   }))) return "Invalid tool definitions";
+  if (Array.isArray(message.tools)) {
+    const names = new Set(message.tools.map((tool) => tool.name));
+    const ids = new Set(message.tools.map((tool) => tool.id));
+    if (names.size !== message.tools.length || ids.size !== message.tools.length) return "Duplicate tool names or IDs";
+  }
   if (message.temperature !== undefined && (typeof message.temperature !== "number" || !Number.isFinite(message.temperature))) return "Invalid temperature";
   if (message.maxOutputTokens !== undefined && (typeof message.maxOutputTokens !== "number" || !Number.isInteger(message.maxOutputTokens) || message.maxOutputTokens < 1)) return "Invalid maxOutputTokens";
   if (message.reasoningEffort !== undefined && !["disable", "low", "medium", "high"].includes(message.reasoningEffort as string)) return "Invalid reasoningEffort";

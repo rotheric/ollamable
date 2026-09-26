@@ -41,7 +41,7 @@ Repository constraints from [AGENTS.md](../AGENTS.md): package-manager guidance 
 - [ ] **R19 — P2:** Discovery and tool network requests lack application deadlines.
 - [x] **R20 — P2:** Invalid final tool arguments become an executable empty object.
 - [ ] **R21 — P3:** Tool-only/reasoning-only responses lose usage metadata.
-- [ ] **R22 — P2:** MCP tool names collide across servers and built-ins.
+- [x] **R22 — P2:** MCP tool names collide across servers and built-ins.
 - [ ] **R23 — P2:** Documented development startup and `dev:full` are miswired.
 - [x] **R24 — P2:** Handwritten environment loading preserves quoting syntax.
 - [x] **R25 — P3:** Standalone frontend typechecking fails on test globals.
@@ -349,6 +349,11 @@ Clients are added to `this.servers` only after both `client.connect` and `listTo
 **Implementation context:** Track resources from acquisition, close on failure, and make disposal prevent late initialization from registering resources or discovering more servers. Verify disconnect during a delayed handshake, failure after transport connection, and multiple configured servers. A successful normal disconnect test alone is insufficient.
 
 ### R22 — MCP tool names collide across servers and built-ins
+
+Owner: Codex
+State: COMPLETE
+
+Resolution: MCP discovery rejects names reserved by built-ins, names already registered by another server, and duplicate IDs, emitting an explicit MCP Tool Rejected event instead of overwriting dispatch. Existing non-conflicting names/IDs and history stay stable. Chat input rejects duplicate enabled wire names/IDs; execution also compares the selected ID with the actual server definition, so persisted rejected/stale selections cannot invoke a different implementation. MCP and real-WebSocket regressions: 53 passed, including duplicate servers, curl/web_search collisions, stale persisted IDs, and duplicate request definitions. Both typechecks pass.
 
 **Priority:** P2. **Evidence:** Inspection; conditional on duplicate names.  
 **Location:** [server/tools/mcp-bridge.ts](../server/tools/mcp-bridge.ts), `toolToServer.set(tool.name, server)` around line 76; [server/tool-executor.ts](../server/tool-executor.ts), first matching executor.

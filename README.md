@@ -80,6 +80,11 @@ The backend limits WebSocket messages to 1 MiB and `/models/show` JSON uploads t
 a correlated `chat.error`; malformed or uncorrelatable messages receive
 `protocol.error` without executing provider work.
 
+MCP tool names must be unique across servers and built-ins. Conflicting definitions
+are rejected with an `MCP Tool Rejected` event; the first registered definition keeps
+its identity. Saved selections whose tool ID no longer matches fail explicitly and
+need to be refreshed, rather than invoking another tool with the same name.
+
 ## License
 
 [MIT](LICENSE)

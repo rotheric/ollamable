@@ -47,10 +47,9 @@ export class ConnectionHandler {
     this.ws = ws;
     this.router = router ?? new LlmRouter(loadProviderConfigs());
     this.dispatcher = new ToolDispatcher();
-    this.mcpBridge = new McpBridge();
-
     this.dispatcher.register(new WebSearchExecutor());
     this.dispatcher.register(new CurlExecutor());
+    this.mcpBridge = new McpBridge(this.dispatcher.getToolDefinitions().map((tool) => tool.name));
     this.dispatcher.register(this.mcpBridge);
 
     ws.on("message", (data) => {
@@ -301,6 +300,11 @@ export class ConnectionHandler {
           }
           if (!this.dispatcher.canHandle(name)) {
             throw new Error(`Tool is not available on this server: ${name}`);
+          }
+          const selected = tools.find((tool) => tool.name === name);
+          const actual = this.dispatcher.getToolDefinitions().find((tool) => tool.name === name);
+          if (selected?.id !== actual?.id) {
+            throw new Error(`Selected tool is no longer available: ${name}. Refresh the tool selection.`);
           }
         }
 

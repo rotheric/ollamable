@@ -524,6 +524,31 @@ describe("ConnectionHandler", () => {
     } finally { ws.close(); }
   });
 
+  it("never invokes a built-in through a stale colliding MCP tool selection", async () => {
+    const fetchSpy = vi.spyOn(globalThis, "fetch");
+    mockStreamOllama.mockResolvedValue([makeStep("tool_call", "", {
+      toolCall: { name: "curl", arguments: { url: "https://example.com" } },
+    })]);
+    const ws = await connectClient();
+    try {
+      const error = waitForMessage(ws, (m) => m.type === "chat.error");
+      sendJson(ws, makeChatSend({ tools: [{ ...new CurlExecutor().getToolDefinitions()[0], id: "mcp-other-curl" }] }));
+      expect((await error).message).toContain("Selected tool is no longer available");
+      expect(fetchSpy).not.toHaveBeenCalled();
+    } finally { ws.close(); }
+  });
+
+  it("rejects duplicate selected wire names before asking the model", async () => {
+    const ws = await connectClient();
+    try {
+      const error = waitForMessage(ws, (m) => m.type === "chat.error");
+      const tool = new CurlExecutor().getToolDefinitions()[0];
+      sendJson(ws, makeChatSend({ tools: [tool, { ...tool, id: "mcp-other-curl" }] }));
+      expect((await error).message).toContain("Duplicate tool names or IDs");
+      expect(mockStreamOllama).not.toHaveBeenCalled();
+    } finally { ws.close(); }
+  });
+
   // ── Tool loop ────────────────────────────────────────────────────
 
   it("executes the tool loop when Ollama returns tool calls", async () => {
