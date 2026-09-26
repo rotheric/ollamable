@@ -3,9 +3,18 @@
     {
       "id": "s1-tour-data",
       "name": "Tour data module and dependency",
-      "status": "pending",
+      "status": "in_progress",
       "story_order": 1,
-      "acceptance_criteria": ["AC-1", "AC-2", "AC-3", "AC-4", "AC-5", "AC-6", "AC-7", "AC-8"],
+      "acceptance_criteria": [
+        "AC-1",
+        "AC-2",
+        "AC-3",
+        "AC-4",
+        "AC-5",
+        "AC-6",
+        "AC-7",
+        "AC-8"
+      ],
       "scope": {
         "in_scope": [
           "Install react-joyride v3 dependency",
@@ -29,9 +38,17 @@
     {
       "id": "s2-data-tour-attrs",
       "name": "Data-tour attributes and Take Tour button",
-      "status": "pending",
+      "status": "in_progress",
       "story_order": 2,
-      "acceptance_criteria": ["AC-9", "AC-10", "AC-11", "AC-12", "AC-13", "AC-14", "AC-15"],
+      "acceptance_criteria": [
+        "AC-9",
+        "AC-10",
+        "AC-11",
+        "AC-12",
+        "AC-13",
+        "AC-14",
+        "AC-15"
+      ],
       "scope": {
         "in_scope": [
           "Add data-tour='appbar' to <AppBar>",
@@ -71,9 +88,19 @@
     {
       "id": "s3-joyride-integration",
       "name": "Joyride integration and tour state",
-      "status": "pending",
+      "status": "in_progress",
       "story_order": 3,
-      "acceptance_criteria": ["AC-16", "AC-17", "AC-18", "AC-19", "AC-20", "AC-21", "AC-22", "AC-23", "AC-24"],
+      "acceptance_criteria": [
+        "AC-16",
+        "AC-17",
+        "AC-18",
+        "AC-19",
+        "AC-20",
+        "AC-21",
+        "AC-22",
+        "AC-23",
+        "AC-24"
+      ],
       "scope": {
         "in_scope": [
           "Import and render <Joyride> in ChatWorkspace with all config props from spec",
@@ -96,8 +123,15 @@
           "Modifying tour step content or adding new steps beyond spec's 28"
         ]
       },
-      "dependencies": ["s1-tour-data", "s2-data-tour-attrs"]
+      "dependencies": [
+        "s1-tour-data",
+        "s2-data-tour-attrs"
+      ]
     }
   ],
-  "story_order": ["s1-tour-data", "s2-data-tour-attrs", "s3-joyride-integration"]
+  "story_order": [
+    "s1-tour-data",
+    "s2-data-tour-attrs",
+    "s3-joyride-integration"
+  ]
 }

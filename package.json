@@ -19,7 +19,8 @@
     "test:mutation": "npm run test:mutation:server && npm run test:mutation:client",
     "typecheck": "tsc --noEmit --incremental false && tsc -p tsconfig.server.json --noEmit --incremental false",
     "dev:frontend": "next dev",
-    "check": "node scripts/run-checks.mjs"
+    "check": "node scripts/run-checks.mjs",
+    "check:records": "node scripts/check-project-records.mjs"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",

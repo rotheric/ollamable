@@ -153,7 +153,8 @@ provisional streamed tool calls are discarded.
 ## Verification
 
 With dependencies already installed, `node scripts/run-checks.mjs` is the release
-gate (`check`, `test`, and `make test` use it). It runs unit tests, server integration
+gate (`check`, `test`, and `make test` use it). It checks project-record consistency,
+then runs unit tests, server integration
 tests, frontend/test and backend typechecks, the static production build, then browser
 tests. It stops at the first failed stage. Use `test:unit` or `test:integration` for
 focused checks; they do not establish a release pass by themselves.

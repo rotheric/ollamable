@@ -4,6 +4,7 @@ import { fileURLToPath } from "node:url";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const checks = [
+  ["Project record consistency", ["scripts/check-project-records.mjs"]],
   ["Unit tests", ["node_modules/vitest/vitest.mjs", "run"]],
   ["Server integration tests", ["node_modules/vitest/vitest.mjs", "run", "-c", "vitest.server.config.ts"]],
   ["Frontend and test types", ["node_modules/typescript/bin/tsc", "--noEmit", "--incremental", "false"]],

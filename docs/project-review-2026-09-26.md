@@ -50,7 +50,7 @@ Repository constraints from [AGENTS.md](../AGENTS.md): package-manager guidance 
 - [x] **R28 — P3:** Tour completion does not restore the original sidebar state.
 - [x] **R29 — P3:** Guided-tour lifecycle has no browser coverage.
 - [x] **R30 — P2:** Tour initialization guard conflicts with effect cleanup/replay.
-- [ ] **R31 — P3:** Backlog findings and guided-tour status records are inconsistent or stale.
+- [x] **R31 — P3:** Backlog findings and guided-tour status records are inconsistent or stale.
 - [x] **R32 — P3:** Workspace component concentrates too many responsibilities.
 - [x] **R33 — P3:** Default MCP configuration hardcodes a machine-specific browser path.
 - [x] **R34 — P3:** Persistence failures are inconsistently handled and not surfaced to users.
@@ -470,6 +470,11 @@ Resolution: test/check/make test now run an explicit fail-fast release gate: uni
 
 ### R36 — Package-manager instructions disagree with the executable workflow
 
+Owner: User (tooling contract), Codex (implementation)
+State: AWAITING_CLARIFICATION
+
+Remaining decision: The user-provided AGENTS.md says “the package manager is uv,” while installation and the bundled MCP launcher use npm/npx. The earlier clarification question remains unanswered: permit npm for JavaScript and uv for Python, or retain uv-only policy with JavaScript dependencies provisioned externally. No dependency installation or manager migration was performed. Review work used installed Node entrypoints. The other 35 review items are verified complete; this item remains unchecked until the tooling contract is resolved.
+
 **Priority:** P3. **Evidence:** Maintenance/configuration inspection.  
 **Location:** [AGENTS.md](../AGENTS.md), [package.json](../package.json), [Makefile](../Makefile), [README.md](../README.md), and [scripts/run-dev.mjs](../scripts/run-dev.mjs).
 
@@ -536,6 +541,11 @@ The effect sets `tourInitRef.current = true` before scheduling its 500 ms timer.
 **Implementation context:** Make initialization and cleanup idempotent without treating a cancelled schedule as completed initialization. Verify with a Strict Mode mount and fake timers as well as a normal mount; do not remove cleanup and leave orphan timers. The missing tour coverage in R29 explains why the current suite would not reveal this.
 
 ### R31 — Backlog and tour records are inconsistent or stale
+
+Owner: Codex
+State: COMPLETE
+
+Resolution: Canonical base-records migration/enrich/resolve/add-epic helpers now own BACKLOG.json; BACKLOG.md is its readable view and the original freeform text is preserved as a historical snapshot. All ten historical findings have explicit evidence-based dispositions; four broader planning findings remain open. The original tour epic/stories are consistently IN_PROGRESS because the implemented 11-step/one-example scope does not satisfy the original 28-step/two-example acceptance criteria; current lifecycle verification is recorded without silently amending those requirements. Token-view retains its recorded DONE state. A release-gate record checker passes and rejects a deliberate DONE/pending contradiction. The final release gate passes: 233 unit tests, 314 integration tests (2 live-provider skips), both typechecks, static build and 50 browser tests.
 
 **Priority:** P3. **Evidence:** Rechecked document contents and current test results.  
 **Location:** [BACKLOG.md](../BACKLOG.md), [guided-tour epic state](../specs/epic-guided-tour-with-react-joyride/epic-state.json), [guided-tour stories](../specs/epic-guided-tour-with-react-joyride/stories.json).

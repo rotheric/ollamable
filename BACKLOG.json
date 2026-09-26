@@ -1,0 +1,63 @@
+{
+  "version": 3,
+  "updated_at": "2026-09-26T21:16:55Z",
+  "epics": [
+    {
+      "path": "specs/epic-guided-tour-with-react-joyride/",
+      "status": "IN_PROGRESS",
+      "next_action": "Original 28-step/two-example acceptance remains open; current lifecycle verification is in verification-2026-09-26.md."
+    },
+    {
+      "path": "specs/epic-token-view/",
+      "status": "DONE",
+      "next_action": "Existing completed epic state retained; review regressions and release gate pass."
+    }
+  ],
+  "findings": [
+    {
+      "slug": "epic-guided-tour-follow-through",
+      "scope": "any",
+      "anchor": null,
+      "text": "Epic: guided-tour-follow-through",
+      "created_at": "2026-09-26",
+      "motivation": "Finish the original guided-tour contract without confusing subset verification with epic completion.",
+      "behavior": "The current 11-step/one-example tour has passing lifecycle coverage. Original acceptance still requires 28 steps, two examples and their target/orchestration contract.",
+      "approach": "Implement or explicitly amend the outstanding original ACs; see specs/epic-guided-tour-with-react-joyride/verification-2026-09-26.md.",
+      "success_signal": "Original epic acceptance is evidenced and story/epic/backlog statuses agree."
+    },
+    {
+      "slug": "epic-provider-model-platform",
+      "scope": "any",
+      "anchor": null,
+      "text": "Epic: provider-and-model-platform",
+      "created_at": "2026-09-26",
+      "motivation": "Keep multi-provider behavior and compatibility expectations explicitly owned.",
+      "behavior": "Strict provider identity, saved model preservation, discovery deadlines and token-cache identity are implemented and tested; README describes Ollama and MiniMax setup.",
+      "approach": "Define supported-provider/capability compatibility policy and review provider-specific metadata and reasoning UX beyond the review fixes.",
+      "success_signal": "Supported provider capabilities and limitations are documented with corresponding compatibility tests."
+    },
+    {
+      "slug": "epic-tooling-mcp-productization",
+      "scope": "any",
+      "anchor": null,
+      "text": "Epic: tooling-and-mcp-productization",
+      "created_at": "2026-09-26",
+      "motivation": "Keep tool UX and operator configuration owned as product work.",
+      "behavior": "R03/R10/R19/R20/R22/R33 cover authorization, lifecycle, deadlines, validation, identity collisions and portable pinned configuration. Unconfigured/disabled tool UX remains broader work.",
+      "approach": "Improve unconfigured/disabled tool feedback and define retry/debugging UX; retain operator-owned MCP configuration and reviewed version upgrades.",
+      "success_signal": "Tool availability/failure states have clear UI behavior and user-visible regression coverage."
+    },
+    {
+      "slug": "epic-frontend-architecture-maintainability",
+      "scope": "any",
+      "anchor": null,
+      "text": "Epic: frontend-architecture-and-maintainability",
+      "created_at": "2026-09-26",
+      "motivation": "Prevent new features from adding unrelated ownership to the workspace component.",
+      "behavior": "Tour orchestration and persistence now have dedicated modules and focused tests; sidebar, transcript, composer and generation ownership still share ChatWorkspace.",
+      "approach": "Extract coherent remaining areas incrementally and define ownership boundaries; avoid a line-count-only rewrite.",
+      "success_signal": "Extracted modules own their state/contracts and have focused behavioral tests without regressing the release gate."
+    }
+  ],
+  "archive": []
+}
