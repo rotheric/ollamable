@@ -25,6 +25,7 @@ vi.mock("../../server/ollama-client.js", () => ({
   buildOllamaChatBody: vi.fn(),
 }));
 
+import { WebSearchExecutor } from "../../server/tools/web-search.js";
 import { ConnectionHandler } from "../../server/ws-handler.js";
 import { streamOllamaResponse } from "../../server/ollama-client.js";
 import type { ConversationStep } from "../../server/types.js";
@@ -340,6 +341,40 @@ describe("ConnectionHandler", () => {
     }
   });
 
+  it.each([[], undefined])("rejects disabled calls with tools=%j before dispatch", async (tools) => {
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockRejectedValue(new Error("must not execute"));
+    mockStreamOllama.mockResolvedValue([makeStep("tool_call", "", {
+      toolCall: { id: "blocked", name: "curl", arguments: { url: "https://example.com" } },
+    })]);
+    const ws = await connectClient();
+    try {
+      const error = waitForMessage(ws, (m) => m.type === "chat.error");
+      sendJson(ws, makeChatSend({ tools, steps: [makeStep("assistant", "", {
+        toolCalls: [{ id: "old", name: "curl", arguments: { url: "https://example.com" } }],
+      })] }));
+      expect((await error).message).toContain("Tool is not enabled for this request: curl");
+      expect(fetchSpy).not.toHaveBeenCalled();
+      expect(mockStreamOllama).toHaveBeenCalledTimes(1);
+    } finally {
+      ws.close();
+    }
+  });
+
+  it("reports an enabled but unavailable tool without continuing the provider loop", async () => {
+    mockStreamOllama.mockResolvedValue([makeStep("tool_call", "", {
+      toolCall: { name: "missing_tool", arguments: {} },
+    })]);
+    const ws = await connectClient();
+    try {
+      const error = waitForMessage(ws, (m) => m.type === "chat.error");
+      sendJson(ws, makeChatSend({ tools: [{ name: "missing_tool", description: "", parameters: {} }] }));
+      expect((await error).message).toContain("Tool is not available on this server: missing_tool");
+      expect(mockStreamOllama).toHaveBeenCalledTimes(1);
+    } finally {
+      ws.close();
+    }
+  });
+
   // ── Tool loop ────────────────────────────────────────────────────
 
   it("executes the tool loop when Ollama returns tool calls", async () => {
@@ -377,7 +412,7 @@ describe("ConnectionHandler", () => {
         (msgs) => msgs.some((m) => m.type === "chat.done")
       );
 
-      sendJson(ws, makeChatSend());
+      sendJson(ws, makeChatSend({ tools: new WebSearchExecutor().getToolDefinitions() }));
       const messages = await messagesPromise;
 
       // Ollama should have been called twice (tool loop)
@@ -448,7 +483,7 @@ describe("ConnectionHandler", () => {
     const ws = await connectClient();
     try {
       const donePromise = waitForMessage(ws, (m) => m.type === "chat.done");
-      sendJson(ws, makeChatSend());
+      sendJson(ws, makeChatSend({ tools: new WebSearchExecutor().getToolDefinitions() }));
       await donePromise;
 
       // The second call should include original steps + assistant (with toolCalls) + tool_result

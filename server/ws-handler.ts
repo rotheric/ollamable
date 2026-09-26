@@ -243,6 +243,18 @@ export class ConnectionHandler {
         const toolCallSteps = responseSteps.filter(
           (s) => s.kind === "tool_call" && s.toolCall
         );
+        // Prompt visibility is not authorization: history can contain disabled calls.
+        const enabledNames = new Set((tools ?? []).map((tool) => tool.name));
+        for (const step of toolCallSteps) {
+          const name = step.toolCall!.name;
+          if (!enabledNames.has(name)) {
+            throw new Error(`Tool is not enabled for this request: ${name}`);
+          }
+          if (!this.dispatcher.canHandle(name)) {
+            throw new Error(`Tool is not available on this server: ${name}`);
+          }
+        }
+
         const mergedSteps = responseSteps.filter(
           (s) => s.kind !== "tool_call"
         );

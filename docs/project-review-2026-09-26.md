@@ -22,7 +22,7 @@ Repository constraints from [AGENTS.md](../AGENTS.md): package-manager guidance 
 
 - [x] **R01 — P1:** Static-file path traversal.
 - [ ] **R02 — P1:** Unauthenticated backend and unrestricted WebSocket origins.
-- [ ] **R03 — P1:** Disabled tools remain executable.
+- [x] **R03 — P1:** Disabled tools remain executable.
 - [ ] **R04 — P1:** Stop does not stop subsequent tools.
 - [ ] **R05 — P2:** Disconnect/reconnect leaves chat generation pending.
 - [ ] **R06 — P2:** Initial model loading overwrites saved selections.
@@ -106,6 +106,11 @@ Any client able to reach the listener can submit provider requests and cause too
 **Implementation context:** Default loopback binding, an explicit origin policy, and authentication for remote access address different parts of this exposure. Preserve intentionally supported remote development through explicit configuration. CORS headers do not enforce WebSocket origin checks. MCP initialization happens on connection, before any chat request.
 
 ### R03 — Disabled tools remain executable
+
+Owner: Codex
+State: COMPLETE
+
+Resolution: `server/ws-handler.ts` checks every returned call against the current enabled-tool names and server availability before dispatch. Rejected calls produce a terminal correlated `chat.error` without continuing the provider loop. `tests/integration/ws-handler.test.ts` covers empty/omitted tool selections, historical enabled calls, unavailable tools, and explicitly enabled execution. Full integration suite: 176 passed, 2 live-provider skips; backend TypeScript passed.
 
 **Priority:** P1. **Evidence:** Reproduced with a mock router and mock fetch.  
 **Location:** [server/ws-handler.ts](../server/ws-handler.ts), `executableToolCalls` around line 267; [server/tool-executor.ts](../server/tool-executor.ts).
