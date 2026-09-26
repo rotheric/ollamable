@@ -1,7 +1,8 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   clients: [] as Array<{ connect: ReturnType<typeof vi.fn>; listTools: ReturnType<typeof vi.fn>; close: ReturnType<typeof vi.fn>; callTool: ReturnType<typeof vi.fn> }>,
+  transportOptions: [] as Array<{ command: string; args?: string[]; env?: Record<string, string> }>,
   transports: [] as Array<{ close: ReturnType<typeof vi.fn> }>,
   connect: vi.fn(),
   listTools: vi.fn(),
@@ -18,14 +19,18 @@ vi.mock("@modelcontextprotocol/sdk/client/index.js", () => ({
 vi.mock("@modelcontextprotocol/sdk/client/stdio.js", () => ({
   StdioClientTransport: class {
     close = vi.fn().mockResolvedValue(undefined);
-    constructor() { mocks.transports.push(this); }
+    constructor(options: { command: string; args?: string[]; env?: Record<string, string> }) { mocks.transportOptions.push(options); mocks.transports.push(this); }
   },
 }));
 import { McpBridge } from "../../server/tools/mcp-bridge.js";
+import config from "../../server/mcp-config.json";
+
+afterEach(() => vi.unstubAllEnvs());
 
 beforeEach(() => {
   mocks.clients.length = 0;
   mocks.transports.length = 0;
+  mocks.transportOptions.length = 0;
   mocks.connect.mockReset().mockResolvedValue(undefined);
   mocks.listTools.mockReset().mockResolvedValue({ tools: [{ name: "test", inputSchema: { type: "object" } }] });
 });
@@ -88,4 +93,22 @@ describe("MCP resource ownership", () => {
     await bridge.disconnect();
   });
 
+});
+
+it("launches the pinned portable default with explicit browser overrides and operator precedence", async () => {
+  vi.stubEnv("PLAYWRIGHT_MCP_EXECUTABLE_PATH", "/operator/browser");
+  vi.stubEnv("PLAYWRIGHT_BROWSERS_PATH", "/operator/cache");
+  vi.stubEnv("BACKEND_AUTH_TOKEN", "must-not-be-forwarded");
+  const bridge = new McpBridge();
+  await bridge.connect(config.mcpServers, () => {});
+  expect(mocks.transportOptions[0]).toMatchObject({
+    command: "npx", args: ["@playwright/mcp@0.0.82", "--headless"],
+    env: { PLAYWRIGHT_MCP_EXECUTABLE_PATH: "/operator/browser", PLAYWRIGHT_BROWSERS_PATH: "/operator/cache" },
+  });
+  expect(mocks.transportOptions[0].env).not.toHaveProperty("BACKEND_AUTH_TOKEN");
+  await bridge.disconnect();
+  const custom = new McpBridge();
+  await custom.connect({ playwright: { ...config.mcpServers.playwright, env: { PLAYWRIGHT_MCP_EXECUTABLE_PATH: "/configured/browser" } } }, () => {});
+  expect(mocks.transportOptions[1].env?.PLAYWRIGHT_MCP_EXECUTABLE_PATH).toBe("/configured/browser");
+  await custom.disconnect();
 });

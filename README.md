@@ -116,6 +116,26 @@ are rejected with an `MCP Tool Rejected` event; the first registered definition 
 its identity. Saved selections whose tool ID no longer matches fail explicitly and
 need to be refreshed, rather than invoking another tool with the same name.
 
+## MCP browser configuration
+
+The default MCP configuration pins Playwright MCP to
+[0.0.82](https://github.com/microsoft/playwright-mcp/releases/tag/v0.0.82).
+It uses headless browser discovery rather than a machine-specific executable path.
+Set `PLAYWRIGHT_MCP_EXECUTABLE_PATH` for an installed browser or
+`PLAYWRIGHT_BROWSERS_PATH` for its cache location; these values are forwarded to the
+MCP subprocess, with per-server `env` values taking precedence. Browser selection
+follows [Playwright MCP configuration](https://playwright.dev/mcp/configuration/options).
+This is separate from the test runner's `PLAYWRIGHT_EXECUTABLE_PATH` override.
+
+Set `MCP_CONFIG` to an operator-owned JSON file to replace the server definitions,
+including a command for an already provisioned MCP installation. The bundled command
+retains the existing npx launcher; provision that pinned package/browser before use
+if runtime downloads are unavailable. Package-manager policy is tracked in R36.
+Upgrade the pinned MCP version deliberately in a reviewed configuration change,
+checking tool discovery and a browser invocation on the target host. The automated
+bridge tests verify launch configuration and lifecycle with a mocked MCP client; they do
+not download or certify the external Playwright MCP package.
+
 ## Browser persistence
 
 Conversation history, settings, selection and tour state are stored in this browser.

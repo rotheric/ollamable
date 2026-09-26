@@ -52,7 +52,7 @@ Repository constraints from [AGENTS.md](../AGENTS.md): package-manager guidance 
 - [x] **R30 — P2:** Tour initialization guard conflicts with effect cleanup/replay.
 - [ ] **R31 — P3:** Backlog findings and guided-tour status records are inconsistent or stale.
 - [x] **R32 — P3:** Workspace component concentrates too many responsibilities.
-- [ ] **R33 — P3:** Default MCP configuration hardcodes a machine-specific browser path.
+- [x] **R33 — P3:** Default MCP configuration hardcodes a machine-specific browser path.
 - [x] **R34 — P3:** Persistence failures are inconsistently handled and not surfaced to users.
 - [x] **R35 — P3:** README promises exact Ollama JSON, but the main preview is OpenAI format.
 - [ ] **R36 — P3:** Package-manager instructions disagree with the executable workflow.
@@ -383,6 +383,11 @@ UI IDs include the MCP server name, but wire tool names and dispatch lookup do n
 **Implementation context:** The actual name sent to the model and used for dispatch must disambiguate servers, or collisions must be rejected explicitly. UI IDs alone are insufficient. Account for persisted enabled-tool IDs/history when changing names. Test same-named tools from two MCP servers and a collision with `curl`.
 
 ### R33 — Default MCP configuration hardcodes a browser installation
+
+Owner: Codex
+State: COMPLETE
+
+Resolution: The bundled configuration pins the published Playwright MCP 0.0.82 release and removes the machine-specific executable argument. Browser discovery can be overridden through PLAYWRIGHT_MCP_EXECUTABLE_PATH / PLAYWRIGHT_BROWSERS_PATH, explicitly forwarded through the SDK environment allowlist; operator config env takes precedence. README links the upstream release/options, documents MCP_CONFIG and intentional upgrades, and distinguishes browser provisioning from automated fixture coverage. Seven bridge tests pass, including the real configuration passed to the mocked transport and exclusion of unrelated credentials; backend typecheck passes. No dependency installation or external MCP package execution was performed.
 
 **Priority:** P3. **Evidence:** Inspection.  
 **Location:** [server/mcp-config.json](../server/mcp-config.json).

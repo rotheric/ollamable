@@ -60,7 +60,15 @@ export class McpBridge implements ToolExecutor {
         const transport = new StdioClientTransport({
           command: config.command,
           args: config.args,
-          env: config.env,
+          // The SDK inherits only its portable baseline environment. Pass browser
+          // location overrides explicitly; operator config takes precedence.
+          env: {
+            ...(process.env.PLAYWRIGHT_MCP_EXECUTABLE_PATH !== undefined
+              ? { PLAYWRIGHT_MCP_EXECUTABLE_PATH: process.env.PLAYWRIGHT_MCP_EXECUTABLE_PATH } : {}),
+            ...(process.env.PLAYWRIGHT_BROWSERS_PATH !== undefined
+              ? { PLAYWRIGHT_BROWSERS_PATH: process.env.PLAYWRIGHT_BROWSERS_PATH } : {}),
+            ...config.env,
+          },
         });
 
         const client = new Client(
