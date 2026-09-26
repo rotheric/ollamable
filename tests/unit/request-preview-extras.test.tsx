@@ -43,6 +43,19 @@ describe("RequestPreviewExtras", () => {
     mockFetchModelMeta.mockResolvedValue({ name: "qwen3:latest", template: "{{ .System }}\n{{ .Prompt }}" });
   });
 
+  it.each([false, true])("invalidates same-model preview tokenization on provider change (unsupported=%s)", async (unsupported) => {
+    const steps = [step({ kind: "user", content: "hi" })];
+    const first = vi.fn().mockResolvedValue(["h", "i"]);
+    const second = unsupported ? vi.fn().mockRejectedValue(new Error("unsupported_provider")) : vi.fn().mockResolvedValue(["hi"]);
+    const { rerender } = render(<RequestPreviewExtras open steps={steps} model={MODEL} tokenizeText={first} />);
+    await waitFor(() => expect(screen.getByTestId("outgoing-message").textContent).toBe("user: h│i"));
+    rerender(<RequestPreviewExtras open steps={steps} model={{ ...MODEL, provider: "secondary" }} tokenizeText={second} />);
+    await waitFor(() => expect(second).toHaveBeenCalledWith("hi"));
+    if (unsupported) await screen.findByTestId("outgoing-messages-failed");
+    else await waitFor(() => expect(screen.getByTestId("outgoing-message").textContent).toBe("user: hi"));
+    expect(screen.queryByText("user: h│i")).not.toBeInTheDocument();
+  });
+
   it("AC-UX-5: renders outgoing messages with │ separators via token-view.ts's SEPARATOR/formatTokenViewText, and the template verbatim from /api/show", async () => {
     // Splits on whitespace runs as their own token, so tokens.join("") ===
     // content holds (formatTokenViewText's precondition) while still

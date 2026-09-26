@@ -20,6 +20,7 @@ import { useEffect, useRef, useState } from "react";
 import { Alert, Box, Divider, Stack, Typography } from "@mui/material";
 import type { ConversationStep, OllamaModel } from "@/src/types/chat";
 import { fetchModelMeta } from "@/src/lib/ollama";
+import { modelIdentity } from "@/src/lib/model-identity";
 import {
   OUTGOING_MESSAGES_FAILED_REASON,
   TEMPLATE_OVERHEAD_LABEL,
@@ -104,10 +105,10 @@ export function RequestPreviewExtras({ open, steps, model, tokenizeText }: Reque
     outgoingMessages,
     tokenizeText,
     open,
-    model?.name,
+    modelIdentity(model?.provider, model?.name),
     tokenizeCache
   );
-  const reconciliation = useReconciliation(steps, tokenizeText, open, model?.name, tokenizeCache);
+  const reconciliation = useReconciliation(steps, tokenizeText, open, modelIdentity(model?.provider, model?.name), tokenizeCache);
 
   return (
     <Stack spacing={2} sx={{ mb: 2 }} data-testid="request-preview-extras">

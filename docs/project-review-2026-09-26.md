@@ -37,7 +37,7 @@ Repository constraints from [AGENTS.md](../AGENTS.md): package-manager guidance 
 - [x] **R15 — P2:** Overlapping generations share ownership and message correlation.
 - [x] **R16 — P2:** Malformed chat messages receive no correlated failure.
 - [x] **R17 — P2:** Invalid explicit provider IDs silently fall back to another provider.
-- [ ] **R18 — P2:** Tokenization caches omit provider identity.
+- [x] **R18 — P2:** Tokenization caches omit provider identity.
 - [ ] **R19 — P2:** Discovery and tool network requests lack application deadlines.
 - [x] **R20 — P2:** Invalid final tool arguments become an executable empty object.
 - [ ] **R21 — P3:** Tool-only/reasoning-only responses lose usage metadata.
@@ -287,6 +287,11 @@ An explicit but unknown provider ID falls through to the model-name map or first
 **Implementation context:** Preserve legacy fallback only for an omitted provider if still required. Explicit unknown IDs should fail clearly. Test duplicate model names across provider configs and a removed provider; frontend model repair in R06 should not mask routing errors.
 
 ### R18 — Tokenization caches omit provider identity
+
+Owner: Codex
+State: COMPLETE
+
+Resolution: `src/lib/model-identity.ts` provides a stable composite provider/model cache suffix. The workspace token view and both outgoing-message/reconciliation preview hooks use it; debounce and stale-result protection remain in their existing hooks. Component regressions switch provider while preserving model name, text and step IDs, and verify changed boundaries or unsupported-provider failures replace the previous provider’s result. Preview/transcript component suites: 30 passed.
 
 **Priority:** P2. **Evidence:** Inspection; conditional on providers sharing a model name.  
 **Location:** [chat-workspace.tsx](../src/components/chat-workspace.tsx), `TokenViewStepContent` around line 2271; [request-preview-extras.tsx](../src/components/request-preview-extras.tsx), cache suffixes around lines 103–110; [token-view.ts](../src/lib/token-view.ts), `useTokenBoundaries` and `useTokenizedMessages`.

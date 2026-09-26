@@ -29,7 +29,7 @@ const { mockSend, mockStartStream, mockCancelAll, mockConnectionClosed, mockToke
   mockStartStream: vi.fn(),
   mockCancelAll: vi.fn(),
   mockConnectionClosed: vi.fn(),
-  mockTokenize: vi.fn().mockResolvedValue({ tokens: [], tokenIds: [] }),
+  mockTokenize: vi.fn((_send: unknown, _model: string, _text: string, _provider?: string) => Promise.resolve({ tokens: [] as string[], tokenIds: [] as number[] })),
 }));
 
 vi.mock("@/src/lib/use-websocket", () => ({
@@ -166,6 +166,26 @@ describe("chat-workspace token view", () => {
 
     expect(mockConnectionClosed).toHaveBeenCalledTimes(1);
     expect(mockCancelAll).not.toHaveBeenCalled();
+  });
+
+  it("invalidates token boundaries when only provider changes, including unsupported providers", async () => {
+    seedConversation([]);
+    const saved = JSON.parse(window.localStorage.getItem(STORAGE_KEY)!)[0];
+    window.localStorage.setItem(STORAGE_KEY, JSON.stringify([
+      { ...saved, provider: "ollama" },
+      { ...saved, id: "conversation-2", title: "Other provider chat", provider: "secondary" },
+    ]));
+    window.localStorage.setItem(SIDEBAR_STATE_KEY, JSON.stringify({ sidebarOpen: true, showTokens: true }));
+    mockTokenize.mockImplementation((_send, _model, _text, provider) => provider === "ollama"
+      ? Promise.resolve({ tokens: ["h", "i"], tokenIds: [1, 2] }) : Promise.reject(new Error("unsupported_provider")));
+    const user = userEvent.setup();
+    renderWorkspace();
+    await waitFor(() => expect(screen.getByTestId("token-text").textContent).toBe("h│i"));
+    await user.click(screen.getByText("Other provider chat"));
+    await waitFor(() => expect(mockTokenize).toHaveBeenCalledWith(expect.any(Function), "qwen3:latest", "hi", "secondary"));
+    await waitFor(() => expect(screen.getByTestId("token-text").textContent).toBe("hi"));
+    expect(screen.getByTestId("notice").textContent).toMatch(/unavailable|failed/i);
+    mockTokenize.mockResolvedValue({ tokens: [], tokenIds: [] });
   });
 
   it("AC-UX-1: renders a labelled showTokens switch, persists via updateSidebar, and survives reload", async () => {

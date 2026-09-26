@@ -34,7 +34,7 @@ export interface TokenViewStepContentProps {
   tokenizeText?: (text: string) => Promise<string[]>;
   /**
    * Forwarded to useTokenBoundaries' cache key (S3-F3) — the conversation's
-   * current model, so switching models invalidates any already-resolved
+   * current provider/model identity, so switching either invalidates any already-resolved
    * computed result instead of leaving stale boundaries displayed under
    * COMPUTED_NOTICE's "current model" claim.
    */

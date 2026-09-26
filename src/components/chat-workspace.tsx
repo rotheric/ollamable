@@ -97,6 +97,7 @@ import {
   fetchTools,
 } from "@/src/lib/ollama";
 import { useWebSocket } from "@/src/lib/use-websocket";
+import { modelIdentity } from "@/src/lib/model-identity";
 import { BackendClient, WS_URL } from "@/src/lib/backend-client";
 import { TokenViewStepContent } from "@/src/components/token-view-step-content";
 import { RequestPreviewExtras } from "@/src/components/request-preview-extras";
@@ -2253,7 +2254,7 @@ export function ChatWorkspace() {
                             </Stack>
                           </Stack>
                         ) : (showTokens && (step.kind === "assistant" || step.kind === "user" || step.kind === "reasoning")) ? (
-                          <TokenViewStepContent step={step} tokenizeText={tokenizeStepText} cacheKeySuffix={selectedConversation?.model} />
+                          <TokenViewStepContent step={step} tokenizeText={tokenizeStepText} cacheKeySuffix={modelIdentity(selectedConversation?.provider, selectedConversation?.model)} />
                         ) : ((step.kind === "assistant" || step.kind === "user" || step.kind === "reasoning") && renderMarkdown) ? (
                           <Box sx={{ lineHeight: 1.7, color: "text.primary", "& pre": { fontFamily: "monospace", whiteSpace: "pre-wrap", backgroundColor: "var(--surface-inset)", p: 1.5, borderRadius: 1, overflow: "auto" }, "& code": { fontFamily: "monospace", fontSize: "0.9em" }, "& p:first-of-type": { mt: 0 }, "& p:last-of-type": { mb: 0 }, "& table": { borderCollapse: "collapse", width: "100%", my: 1 }, "& th, & td": { border: "1px solid", borderColor: "divider", px: 1.5, py: 0.75, textAlign: "left" }, "& th": { backgroundColor: "var(--surface-inset)", fontWeight: 600 } }}>
                             <Markdown remarkPlugins={[remarkGfm]}>{step.content.replace(/^\n+|\n+$/g, "")}</Markdown>
