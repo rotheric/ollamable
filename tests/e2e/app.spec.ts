@@ -43,6 +43,7 @@ function makeMockWsHandler(
       JSON.stringify({
         type: "chat.delta",
         conversationId,
+        requestId: message.requestId,
         steps: [reasoningStep],
       })
     );
@@ -50,6 +51,7 @@ function makeMockWsHandler(
       JSON.stringify({
         type: "chat.delta",
         conversationId,
+        requestId: message.requestId,
         steps: [reasoningStep, assistantStep],
       })
     );
@@ -57,6 +59,7 @@ function makeMockWsHandler(
       JSON.stringify({
         type: "chat.done",
         conversationId,
+        requestId: message.requestId,
         steps: [reasoningStep, assistantStep],
       })
     );

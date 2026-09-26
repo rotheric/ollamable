@@ -58,6 +58,7 @@ export const WS_URL = getWsUrl();
 
 interface ServerMessage {
   type: string;
+  requestId?: string;
   conversationId?: string;
   steps?: ConversationStep[];
   message?: string;
@@ -93,6 +94,7 @@ interface StreamRequest {
 }
 
 interface PendingStream {
+  requestId: string;
   request: StreamRequest;
   resolve: (steps: ConversationStep[]) => void;
   reject: (error: Error) => void;
@@ -128,7 +130,7 @@ export class BackendClient {
     if (!msg.type || !msg.conversationId) return;
 
     const stream = this.pending.get(msg.conversationId);
-    if (!stream) return;
+    if (!stream || msg.requestId !== stream.requestId) return;
 
     if (msg.type === "chat.delta" && msg.steps) {
       stream.request.onDelta(msg.steps);
@@ -174,23 +176,25 @@ export class BackendClient {
   ): { promise: Promise<ConversationStep[]>; stop: () => void } {
     const { conversationId, model, provider, steps, tools, temperature, maxOutputTokens, reasoningEffort } = request;
 
+    const requestId = createId();
+    this.pending.get(conversationId)?.reject(new Error("Generation superseded by a newer request."));
     const promise = new Promise<ConversationStep[]>((resolve, reject) => {
-      this.pending.set(conversationId, { request, resolve, reject });
+      this.pending.set(conversationId, { requestId, request, resolve, reject });
       try {
-        if (!send({ type: "chat.send", conversationId, model, provider, steps, tools,
+        if (!send({ type: "chat.send", requestId, conversationId, model, provider, steps, tools,
           temperature, maxOutputTokens, reasoningEffort })) {
           throw new Error("Chat send failed: socket not open");
         }
       } catch (error) {
-        this.pending.delete(conversationId);
+        if (this.pending.get(conversationId)?.requestId === requestId) this.pending.delete(conversationId);
         reject(error instanceof Error ? error : new Error(String(error)));
       }
     });
 
     const stop = () => {
-      try { send({ type: "chat.stop", conversationId }); } catch { /* socket may already be gone */ }
       const stream = this.pending.get(conversationId);
-      if (stream) {
+      if (stream?.requestId === requestId) {
+        try { send({ type: "chat.stop", conversationId, requestId }); } catch { /* socket may already be gone */ }
         this.pending.delete(conversationId);
         stream.reject(new Error("AbortError"));
       }

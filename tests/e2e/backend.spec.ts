@@ -130,6 +130,7 @@ test("streams an assistant response through the WebSocket backend", async ({ pag
         send(ws, {
           type: "chat.delta",
           conversationId,
+          requestId: data.requestId,
           steps: [
             {
               id: "ws-assistant-1",
@@ -145,6 +146,7 @@ test("streams an assistant response through the WebSocket backend", async ({ pag
         send(ws, {
           type: "chat.done",
           conversationId,
+          requestId: data.requestId,
           steps: [
             {
               id: "ws-assistant-1",
@@ -183,6 +185,7 @@ test("renders reasoning and assistant steps from the backend", async ({ page }) 
       send(ws, {
         type: "chat.delta",
         conversationId,
+        requestId: data.requestId,
         steps: [
           {
             id: "ws-reasoning-1",
@@ -206,6 +209,7 @@ test("renders reasoning and assistant steps from the backend", async ({ page }) 
       send(ws, {
         type: "chat.done",
         conversationId,
+        requestId: data.requestId,
         steps: [
           {
             id: "ws-reasoning-1",
@@ -250,6 +254,7 @@ test("renders inline meta event cards from the backend", async ({ page }) => {
       send(ws, {
         type: "meta.event",
         conversationId,
+        requestId: data.requestId,
         event: {
           id: "meta-1",
           kind: "search_start",
@@ -263,6 +268,7 @@ test("renders inline meta event cards from the backend", async ({ page }) => {
       send(ws, {
         type: "meta.event",
         conversationId,
+        requestId: data.requestId,
         event: {
           id: "meta-2",
           kind: "search_result",
@@ -278,6 +284,7 @@ test("renders inline meta event cards from the backend", async ({ page }) => {
       send(ws, {
         type: "chat.delta",
         conversationId,
+        requestId: data.requestId,
         steps: [
           {
             id: "ws-assistant-1",
@@ -293,6 +300,7 @@ test("renders inline meta event cards from the backend", async ({ page }) => {
       send(ws, {
         type: "chat.done",
         conversationId,
+        requestId: data.requestId,
         steps: [
           {
             id: "ws-assistant-1",
@@ -333,6 +341,7 @@ test("renders meta events with duration badges", async ({ page }) => {
       send(ws, {
         type: "meta.event",
         conversationId,
+        requestId: data.requestId,
         event: {
           id: "meta-duration-1",
           kind: "mcp_result",
@@ -347,6 +356,7 @@ test("renders meta events with duration badges", async ({ page }) => {
       send(ws, {
         type: "chat.done",
         conversationId,
+        requestId: data.requestId,
         steps: [
           {
             id: "ws-assistant-1",
@@ -382,6 +392,7 @@ test("handles chat.error from the backend and displays an error message", async 
       send(ws, {
         type: "chat.error",
         conversationId,
+        requestId: data.requestId,
         message: "Ollama request failed: 503",
       });
     }
@@ -408,6 +419,7 @@ test("sends chat.stop when the user clicks stop during streaming", async ({ page
       send(ws, {
         type: "chat.delta",
         conversationId,
+        requestId: data.requestId,
         steps: [
           {
             id: "ws-assistant-partial",
@@ -451,6 +463,7 @@ test("disconnect ends generation, retains authentic partial text, and permits ma
     send(ws, {
       type: requests === 1 ? "chat.delta" : "chat.done",
       conversationId: data.conversationId,
+      requestId: data.requestId,
       steps: [{ id: `response-${requests}`, kind: "assistant", title: "Assistant",
         content: requests === 1 ? "Authentic partial response" : "Manual retry completed",
         createdAt: new Date().toISOString() }],
@@ -486,6 +499,7 @@ test("forwards the correct model and steps in chat.send", async ({ page }) => {
       send(ws, {
         type: "chat.done",
         conversationId,
+        requestId: data.requestId,
         steps: [
           {
             id: "ws-assistant-1",
@@ -539,6 +553,7 @@ test("sends active tool definitions in chat.send when tools are enabled", async 
       send(ws, {
         type: "chat.done",
         conversationId,
+        requestId: data.requestId,
         steps: [
           {
             id: "ws-assistant-1",
@@ -582,6 +597,7 @@ test("renders tool call and tool result steps from the backend tool loop", async
       send(ws, {
         type: "chat.delta",
         conversationId,
+        requestId: data.requestId,
         steps: [
           {
             id: "ws-tool-call-1",
@@ -602,6 +618,7 @@ test("renders tool call and tool result steps from the backend tool loop", async
       send(ws, {
         type: "chat.done",
         conversationId,
+        requestId: data.requestId,
         steps: [
           {
             id: "ws-tool-call-1",
@@ -660,6 +677,7 @@ test("persists backend-routed conversation steps across page reload", async ({ p
       send(ws, {
         type: "chat.done",
         conversationId,
+        requestId: data.requestId,
         steps: [
           {
             id: "ws-persist-assistant",
@@ -707,6 +725,7 @@ test("handles multiple sequential delta messages that build up the response", as
       send(ws, {
         type: "chat.delta",
         conversationId,
+        requestId: data.requestId,
         steps: [
           {
             id: "ws-incremental-1",
@@ -724,6 +743,7 @@ test("handles multiple sequential delta messages that build up the response", as
         send(ws, {
           type: "chat.delta",
           conversationId,
+          requestId: data.requestId,
           steps: [
             {
               id: "ws-incremental-1",
@@ -742,6 +762,7 @@ test("handles multiple sequential delta messages that build up the response", as
         send(ws, {
           type: "chat.done",
           conversationId,
+          requestId: data.requestId,
           steps: [
             {
               id: "ws-incremental-1",
@@ -775,6 +796,7 @@ test("displays input/output tokens and stop reason on assistant steps", async ({
       send(ws, {
         type: "chat.delta",
         conversationId,
+        requestId: data.requestId,
         steps: [
           {
             id: "ws-usage-assistant",
@@ -790,6 +812,7 @@ test("displays input/output tokens and stop reason on assistant steps", async ({
       send(ws, {
         type: "chat.done",
         conversationId,
+        requestId: data.requestId,
         steps: [
           {
             id: "ws-usage-assistant",
@@ -833,6 +856,7 @@ test("displays partial usage data when only some fields are present", async ({ p
       send(ws, {
         type: "chat.done",
         conversationId,
+        requestId: data.requestId,
         steps: [
           {
             id: "ws-partial-usage",
@@ -873,6 +897,7 @@ test("persists usage data across page reload", async ({ page }) => {
       send(ws, {
         type: "chat.done",
         conversationId,
+        requestId: data.requestId,
         steps: [
           {
             id: "ws-persist-usage",

@@ -34,7 +34,7 @@ Repository constraints from [AGENTS.md](../AGENTS.md): package-manager guidance 
 - [ ] **R12 — P2:** Production start script is incompatible with static export.
 - [ ] **R13 — P2:** Tool-only replies become synthetic assistant transcript steps.
 - [x] **R14 — P2:** Failed chat sends leave unresolved promises.
-- [ ] **R15 — P2:** Overlapping generations share ownership and message correlation.
+- [x] **R15 — P2:** Overlapping generations share ownership and message correlation.
 - [ ] **R16 — P2:** Malformed chat messages receive no correlated failure.
 - [ ] **R17 — P2:** Invalid explicit provider IDs silently fall back to another provider.
 - [ ] **R18 — P2:** Tokenization caches omit provider identity.
@@ -235,6 +235,11 @@ Resolution: `BackendClient.startStream()` now catches false and throwing sends, 
 **Implementation context:** The adjacent `tokenize` implementation already cleans up false returns and thrown sends. Apply equivalent chat lifecycle handling with chat-appropriate errors, without introducing an arbitrary short timeout for valid long generations. Verify false and throwing send callbacks independently of R05's midstream disconnect.
 
 ### R15 — Overlapping generations share ownership and message correlation
+
+Owner: Codex
+State: COMPLETE
+
+Resolution: `BackendClient` mints generation request IDs, ignores mismatched responses, rejects replaced promises, and limits Stop to its owning generation. `server/ws-handler.ts` echoes IDs on all generation events, aborts superseded work, and checks ownership before cleanup; the workspace also guards async completion/error cleanup by its active Stop callback. Unit and actual-WebSocket regressions cover both completion orders, stale messages, and cancellation ownership. Full verification: 208 unit tests, 199 integration tests (2 live-provider skips), 39 browser tests, production build, and backend TypeScript passed. Legacy direct callers may omit IDs; the bundled client always uses them. Browser mocks now echo request IDs.
 
 **Priority:** P2. **Evidence:** Inspection.  
 **Location:** [server/ws-handler.ts](../server/ws-handler.ts), `abortControllers.set` around line 204 and unconditional `delete` around line 366; [backend-client.ts](../src/lib/backend-client.ts), pending map keyed by conversation ID.

@@ -85,6 +85,7 @@ export type TokenizeErrorReason = "unsupported_provider" | "vocab_unavailable" |
 export type ClientMessage =
   | {
       type: "chat.send";
+      requestId?: string;
       conversationId: string;
       model: string;
       provider?: string;
@@ -94,17 +95,17 @@ export type ClientMessage =
       maxOutputTokens?: number;
       reasoningEffort?: ReasoningEffort;
     }
-  | { type: "chat.stop"; conversationId: string }
+  | { type: "chat.stop"; requestId?: string; conversationId: string }
   | { type: "tokenize"; requestId: string; model: string; text: string; provider?: string }
   | { type: "ping" };
 
 // Server → Client messages
 export type ServerMessage =
-  | { type: "chat.delta"; conversationId: string; steps: ConversationStep[] }
-  | { type: "chat.steps"; conversationId: string; steps: ConversationStep[] }
-  | { type: "chat.done"; conversationId: string; steps: ConversationStep[] }
-  | { type: "chat.error"; conversationId: string; message: string }
-  | { type: "meta.event"; conversationId: string; event: MetaEvent }
+  | { type: "chat.delta"; requestId?: string; conversationId: string; steps: ConversationStep[] }
+  | { type: "chat.steps"; requestId?: string; conversationId: string; steps: ConversationStep[] }
+  | { type: "chat.done"; requestId?: string; conversationId: string; steps: ConversationStep[] }
+  | { type: "chat.error"; requestId?: string; conversationId: string; message: string }
+  | { type: "meta.event"; requestId?: string; conversationId: string; event: MetaEvent }
   | { type: "tools.update"; tools: ToolDefinition[] }
   | { type: "tokenize.result"; requestId: string; tokens: string[]; tokenIds: number[] }
   | { type: "tokenize.error"; requestId: string; reason: TokenizeErrorReason }

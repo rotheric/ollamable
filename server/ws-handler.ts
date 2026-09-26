@@ -40,7 +40,7 @@ export class ConnectionHandler {
   private router: LlmRouter;
   private dispatcher: ToolDispatcher;
   private mcpBridge: McpBridge;
-  private abortControllers = new Map<string, AbortController>();
+  private generations = new Map<string, { controller: AbortController; requestId?: string }>();
 
   constructor(ws: WebSocket, router?: LlmRouter) {
     this.ws = ws;
@@ -62,10 +62,10 @@ export class ConnectionHandler {
     });
 
     ws.on("close", () => {
-      for (const controller of this.abortControllers.values()) {
+      for (const { controller } of this.generations.values()) {
         controller.abort();
       }
-      this.abortControllers.clear();
+      this.generations.clear();
       void this.mcpBridge.disconnect();
     });
   }
@@ -108,10 +108,9 @@ export class ConnectionHandler {
 
     if (msg.type === "chat.stop") {
       console.log(`[ws] <- chat.stop  conversation=${msg.conversationId}`);
-      const controller = this.abortControllers.get(msg.conversationId);
-      if (controller) {
-        controller.abort();
-        this.abortControllers.delete(msg.conversationId);
+      const generation = this.generations.get(msg.conversationId);
+      if (generation && generation.requestId === msg.requestId) {
+        generation.controller.abort();
       }
       return;
     }
@@ -203,8 +202,15 @@ export class ConnectionHandler {
     msg: Extract<ClientMessage, { type: "chat.send" }>
   ): Promise<void> {
     const { conversationId, model, provider, tools, temperature, maxOutputTokens, reasoningEffort } = msg;
+    const { requestId } = msg;
+    const previous = this.generations.get(conversationId);
+    if (previous) {
+      previous.controller.abort();
+      this.send({ type: "chat.error", conversationId, requestId: previous.requestId, message: "Generation superseded by a newer request." });
+    }
     const controller = new AbortController();
-    this.abortControllers.set(conversationId, controller);
+    const generation = { controller, requestId };
+    this.generations.set(conversationId, generation);
 
     // Mutable copy of steps that we extend through the tool loop.
     // `originalCount` marks the boundary so chat.done sends only new steps.
@@ -239,6 +245,7 @@ export class ConnectionHandler {
             this.send({
               type: "chat.delta",
               conversationId,
+              requestId,
               steps: partialSteps,
             });
           },
@@ -306,6 +313,7 @@ export class ConnectionHandler {
           this.send({
             type: "chat.done",
             conversationId,
+            requestId,
             steps: allNewSteps,
           });
           break;
@@ -315,6 +323,7 @@ export class ConnectionHandler {
         this.send({
           type: "chat.steps",
           conversationId,
+          requestId,
           steps: mergedSteps,
         });
 
@@ -337,6 +346,7 @@ export class ConnectionHandler {
           this.send({
             type: "chat.steps",
             conversationId,
+            requestId,
             steps: [{
               id: stepId,
               kind: "tool_result",
@@ -353,7 +363,7 @@ export class ConnectionHandler {
             name,
             toolArgs,
             (event) => {
-              if (!controller.signal.aborted) this.sendMeta(conversationId, event);
+              if (!controller.signal.aborted) this.sendMeta(conversationId, event, requestId);
             },
             controller.signal
           );
@@ -379,6 +389,7 @@ export class ConnectionHandler {
         this.send({
           type: "chat.steps",
           conversationId,
+          requestId,
           steps: toolResultSteps,
         });
 
@@ -393,9 +404,9 @@ export class ConnectionHandler {
       const message =
         error instanceof Error ? error.message : "Unknown server error";
       console.error(`[ws] conversation=${conversationId} error: ${message}`);
-      this.send({ type: "chat.error", conversationId, message });
+      this.send({ type: "chat.error", conversationId, requestId, message });
     } finally {
-      this.abortControllers.delete(conversationId);
+      if (this.generations.get(conversationId) === generation) this.generations.delete(conversationId);
     }
   }
 
@@ -405,7 +416,7 @@ export class ConnectionHandler {
     }
   }
 
-  private sendMeta(conversationId: string, event: MetaEvent): void {
-    this.send({ type: "meta.event", conversationId, event });
+  private sendMeta(conversationId: string, event: MetaEvent, requestId?: string): void {
+    this.send({ type: "meta.event", conversationId, requestId, event });
   }
 }

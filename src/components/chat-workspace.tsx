@@ -1380,6 +1380,7 @@ export function ChatWorkspace() {
 
     try {
       const responseSteps = await promise;
+      if (stopStreamRef.current !== stop) return;
       updateConversation(nextConversation.id, (conversation) => {
         const stableSteps = conversation.steps.filter((step) => !step.id.startsWith("stream-"));
         const existingIds = new Set(stableSteps.map((s) => s.id));
@@ -1393,6 +1394,7 @@ export function ChatWorkspace() {
         };
       });
     } catch (streamError) {
+      if (stopStreamRef.current !== stop) return;
       const isAbort =
         streamError instanceof Error && streamError.message === "AbortError";
       const connectionLost = streamError instanceof Error && streamError.name === "ConnectionLostError";
@@ -1417,8 +1419,10 @@ export function ChatWorkspace() {
         setStoppedConversationId(nextConversation.id);
       }
     } finally {
-      stopStreamRef.current = null;
-      setStreaming(false);
+      if (stopStreamRef.current === stop) {
+        stopStreamRef.current = null;
+        setStreaming(false);
+      }
     }
   }
 

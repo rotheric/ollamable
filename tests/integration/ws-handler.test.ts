@@ -437,6 +437,48 @@ describe("ConnectionHandler", () => {
     } finally { ws.close(); }
   });
 
+  it.each(["old-first", "new-first"])("keeps generation ownership when completion order is %s", async (order) => {
+    const calls: Array<{ signal: AbortSignal; release: () => void }> = [];
+    mockStreamOllama.mockImplementation(async (args) => {
+      await new Promise<void>((resolve) => {
+        calls.push({ signal: args.signal!, release: resolve });
+      });
+      const step = makeStep("assistant", "completed");
+      args.onDelta([step]); // simulate a provider ignoring abort and returning late
+      return [step];
+    });
+    const ws = await connectClient();
+    const messages: ParsedMessage[] = [];
+    ws.on("message", (raw) => messages.push(JSON.parse(raw.toString())));
+    try {
+      sendJson(ws, makeChatSend({ conversationId: "same", requestId: "older" }));
+      await vi.waitFor(() => expect(calls).toHaveLength(1));
+      sendJson(ws, makeChatSend({ conversationId: "same", requestId: "newer" }));
+      await vi.waitFor(() => expect(calls).toHaveLength(2));
+      expect(calls[0].signal.aborted).toBe(true);
+      if (order === "old-first") {
+        calls[0].release();
+        await new Promise((resolve) => setTimeout(resolve, 20));
+        // Old finally must not delete newer ownership; an old Stop cannot abort it.
+        sendJson(ws, { type: "chat.stop", conversationId: "same", requestId: "older" });
+        const pong = waitForMessage(ws, (message) => message.type === "pong");
+        sendJson(ws, { type: "ping" });
+        await pong;
+        expect(calls[1].signal.aborted).toBe(false);
+        sendJson(ws, { type: "chat.stop", conversationId: "same", requestId: "newer" });
+        await vi.waitFor(() => expect(calls[1].signal.aborted).toBe(true));
+        calls[1].release();
+      } else {
+        const done = waitForMessage(ws, (message) => message.type === "chat.done");
+        calls[1].release();
+        expect((await done).requestId).toBe("newer");
+        calls[0].release();
+      }
+      await new Promise((resolve) => setTimeout(resolve, 20));
+      expect(messages.filter((message) => message.requestId === "older").map((message) => message.type)).toEqual(["chat.error"]);
+    } finally { for (const call of calls) call.release(); ws.close(); }
+  });
+
   // ── Tool loop ────────────────────────────────────────────────────
 
   it("executes the tool loop when Ollama returns tool calls", async () => {

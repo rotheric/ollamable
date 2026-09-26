@@ -117,7 +117,7 @@ describe("BackendClient.tokenize()", () => {
     client.handleServerMessage({ type: "tokenize.result", requestId, tokens: ["hi"], tokenIds: [3] });
     await expect(tokenizePromise).resolves.toEqual({ tokens: ["hi"], tokenIds: [3] });
 
-    client.handleServerMessage({ type: "chat.done", conversationId: "conv-1", steps: [] });
+    client.handleServerMessage({ type: "chat.done", conversationId: "conv-1", requestId: (send.mock.calls[0][0] as { requestId: string }).requestId, steps: [] });
     await expect(chatPromise).resolves.toEqual([]);
   });
 
