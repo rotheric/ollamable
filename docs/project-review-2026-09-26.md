@@ -25,7 +25,7 @@ Repository constraints from [AGENTS.md](../AGENTS.md): package-manager guidance 
 - [x] **R03 — P1:** Disabled tools remain executable.
 - [x] **R04 — P1:** Stop does not stop subsequent tools.
 - [x] **R05 — P2:** Disconnect/reconnect leaves chat generation pending.
-- [ ] **R06 — P2:** Initial model loading overwrites saved selections.
+- [x] **R06 — P2:** Initial model loading overwrites saved selections.
 - [ ] **R07 — P2:** Assistant text disappears when the step also contains tool calls.
 - [x] **R08 — P2:** Split reasoning tags corrupt assistant/reasoning separation.
 - [x] **R09 — P2:** Curl byte limit does not bound downloads or allocations.
@@ -183,6 +183,11 @@ The close callback cancels only tokenization. The server aborts chat work on tha
 **Implementation context:** Interrupted chats need a terminal connection-error outcome; reconnect alone cannot resume them because there is no server replay/resumption protocol. Existing comments and a unit test deliberately assert the tokenize-only cancellation path to avoid mislabeling a drop as `Generation stopped.` Update that contract with a distinct error rather than blindly calling `cancelAll()` and conflating user cancellation with connection failure. Decide how genuine partial content is retained and whether retry is manual.
 
 ### R06 — Initial model loading overwrites saved selections
+
+Owner: Codex
+State: COMPLETE
+
+Resolution: model discovery now tracks loading/ready/failed explicitly. Saved explicit model/provider selections are never rewritten from fallback, failed, partial, or duplicate-name discovery. Legacy name-only selections gain a provider only when successful discovery finds exactly one match; no automatic cross-provider fallback occurs. Six component regressions inspect persisted selections through pending/delayed discovery, failures, partial lists and ambiguous migration. Full workspace suite: 22 passed; restoring the old repair effect fails five of the six regressions.
 
 **Priority:** P2. **Evidence:** Browser reproduction.  
 **Location:** [chat-workspace.tsx](../src/components/chat-workspace.tsx), initial `models` state around line 365, `availableModels`, and selection-repair effect around lines 1003–1038.

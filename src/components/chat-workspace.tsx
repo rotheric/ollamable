@@ -488,7 +488,7 @@ export function ChatWorkspace() {
     []
   );
 
-  const [loadingModels, setLoadingModels] = useState(true);
+  const [modelDiscoveryState, setModelDiscoveryState] = useState<"loading" | "ready" | "failed">("loading");
   const [streaming, setStreaming] = useState(false);
   const [error, setError] = useState<string>("");
   const [modelMetaOpen, setModelMetaOpen] = useState(false);
@@ -837,16 +837,14 @@ export function ChatWorkspace() {
     async function loadModels() {
       try {
         const models = await fetchAllModels();
-        if (!cancelled && models.length > 0) {
+        if (!cancelled) {
           setModels(models);
+          setModelDiscoveryState("ready");
         }
       } catch {
         if (!cancelled) {
-          setError("Could not reach the backend. Using fallback model list.");
-        }
-      } finally {
-        if (!cancelled) {
-          setLoadingModels(false);
+          setModelDiscoveryState("failed");
+          setError("Could not reach the backend. Using fallback model list; saved selections are unchanged.");
         }
       }
     }
@@ -1001,41 +999,17 @@ export function ChatWorkspace() {
   }, [selectedConversationId, selectedConversation?.steps.length]);
 
   useEffect(() => {
-    if (!selectedConversation || availableModels.length === 0) {
-      return;
-    }
-
-    // Try to find an exact (provider, model) match first, then fall back to name-only
-    const exactMatch = availableModels.find(
-      (m) =>
-        m.name === selectedConversation.model &&
-        m.provider === selectedConversation.provider
-    );
-    const nameMatch = availableModels.find(
-      (m) => m.name === selectedConversation.model
-    );
-    const match = exactMatch ?? nameMatch;
-
-    if (!match) {
-      // Model not found at all — reset to first available
+    // Discovery can be delayed or partial. Absence never proves a saved selection invalid.
+    if (modelDiscoveryState !== "ready" || !selectedConversation || selectedConversation.provider !== undefined) return;
+    const matches = models.filter((model) => model.name === selectedConversation.model);
+    // Migrate legacy name-only selections only when provider identity is unambiguous.
+    if (matches.length === 1 && matches[0].provider !== undefined) {
       updateConversation(selectedConversation.id, (conversation) => ({
         ...conversation,
-        model: availableModels[0].name,
-        provider: availableModels[0].provider,
-        updatedAt: new Date().toISOString(),
-      }));
-      return;
-    }
-
-    // Repair missing or stale provider on migrated conversations
-    if (selectedConversation.provider !== match.provider) {
-      updateConversation(selectedConversation.id, (conversation) => ({
-        ...conversation,
-        provider: match.provider,
-        updatedAt: new Date().toISOString(),
+        provider: matches[0].provider,
       }));
     }
-  }, [availableModels, selectedConversation]);
+  }, [models, modelDiscoveryState, selectedConversation]);
 
   function updateConversation(
     id: string,

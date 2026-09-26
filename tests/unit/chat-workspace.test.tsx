@@ -2,8 +2,8 @@ import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { ThemeRegistry } from "@/src/components/theme-registry";
 import { ChatWorkspace } from "@/src/components/chat-workspace";
-import { fetchModelMeta } from "@/src/lib/ollama";
-import { SELECTED_KEY, STORAGE_KEY } from "@/src/lib/chat";
+import { fetchAllModels, fetchModelMeta } from "@/src/lib/ollama";
+import { createConversation, SELECTED_KEY, STORAGE_KEY } from "@/src/lib/chat";
 
 const { mockSend, mockStartStream, mockCancelAll } = vi.hoisted(() => ({
   mockSend: vi.fn(() => true),
@@ -151,6 +151,49 @@ describe("ChatWorkspace", () => {
       </ThemeRegistry>
     );
   }
+
+  it("preserves saved provider/model while discovery is pending and after delayed discovery", async () => {
+    const saved = createConversation("saved-model", [], "secondary");
+    window.localStorage.setItem(STORAGE_KEY, JSON.stringify([saved]));
+    window.localStorage.setItem(SELECTED_KEY, saved.id);
+    let resolve!: (models: Awaited<ReturnType<typeof fetchAllModels>>) => void;
+    vi.mocked(fetchAllModels).mockReturnValueOnce(new Promise((done) => { resolve = done; }));
+    renderWorkspace();
+    await screen.findByRole("button", { name: "Open model settings for saved-model" });
+    const persisted = () => JSON.parse(window.localStorage.getItem(STORAGE_KEY)!)[0];
+    expect(persisted()).toMatchObject({ model: "saved-model", provider: "secondary" });
+    await act(async () => resolve([
+      { name: "qwen3:latest", provider: "ollama", providerName: "Ollama" },
+      { name: "saved-model", provider: "secondary", providerName: "Secondary" },
+    ]));
+    expect(persisted()).toMatchObject({ model: "saved-model", provider: "secondary" });
+  });
+
+  it.each(["failure", "partial", "duplicate"])("does not rewrite saved provider identity after %s discovery", async (mode) => {
+    const saved = createConversation("saved-model", [], "secondary");
+    window.localStorage.setItem(STORAGE_KEY, JSON.stringify([saved]));
+    window.localStorage.setItem(SELECTED_KEY, saved.id);
+    if (mode === "failure") vi.mocked(fetchAllModels).mockRejectedValueOnce(new Error("unreachable"));
+    else vi.mocked(fetchAllModels).mockResolvedValueOnce([
+      { name: "saved-model", provider: "other", providerName: "Other" },
+      ...(mode === "duplicate" ? [{ name: "saved-model", provider: "secondary", providerName: "Secondary" }] : []),
+    ]);
+    renderWorkspace();
+    await screen.findByRole("button", { name: "Open model settings for saved-model" });
+    await act(async () => {});
+    expect(JSON.parse(window.localStorage.getItem(STORAGE_KEY)!)[0]).toMatchObject({ model: "saved-model", provider: "secondary" });
+  });
+
+  it.each([1, 2])("migrates name-only model identity only for one discovered provider (matches=%i)", async (count) => {
+    const saved = createConversation("saved-model", []);
+    window.localStorage.setItem(STORAGE_KEY, JSON.stringify([saved]));
+    window.localStorage.setItem(SELECTED_KEY, saved.id);
+    vi.mocked(fetchAllModels).mockResolvedValueOnce(Array.from({ length: count }, (_, i) => ({ name: "saved-model", provider: `provider-${i}`, providerName: `Provider ${i}` })));
+    renderWorkspace();
+    await screen.findByRole("button", { name: "Open model settings for saved-model" });
+    await act(async () => {});
+    expect(JSON.parse(window.localStorage.getItem(STORAGE_KEY)!)[0].provider).toBe(count === 1 ? "provider-0" : undefined);
+  });
 
   it("renders the seeded conversation with the tools sidebar collapsed by default", async () => {
     renderWorkspace();
