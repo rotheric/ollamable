@@ -443,6 +443,38 @@ test("sends chat.stop when the user clicks stop during streaming", async ({ page
   await expect(page.getByText("Generation stopped.")).toBeVisible();
 });
 
+test("disconnect ends generation, retains authentic partial text, and permits manual retry after reconnect", async ({ page }) => {
+  let requests = 0;
+  wsHandler = (data, ws) => {
+    if (data.type !== "chat.send") return;
+    requests++;
+    send(ws, {
+      type: requests === 1 ? "chat.delta" : "chat.done",
+      conversationId: data.conversationId,
+      steps: [{ id: `response-${requests}`, kind: "assistant", title: "Assistant",
+        content: requests === 1 ? "Authentic partial response" : "Manual retry completed",
+        createdAt: new Date().toISOString() }],
+    });
+  };
+  await page.goto("/");
+  await waitForWsConnection();
+  await page.getByRole("textbox", { name: "User Prompt" }).fill("Interrupt this request");
+  await page.getByRole("textbox", { name: "User Prompt" }).press("Enter");
+  await expect(page.getByText("Authentic partial response", { exact: true })).toBeVisible();
+  const oldSocket = wsServer!;
+  oldSocket.close({ code: 1011, reason: "test disconnect" });
+  await expect(page.getByText(/Backend connection lost/)).toBeVisible();
+  await expect(page.getByRole("button", { name: "Stop", exact: true })).toHaveCount(0);
+  await expect(page.getByText("Authentic partial response", { exact: true })).toBeVisible();
+  await expect.poll(() => wsServer !== oldSocket).toBe(true);
+  expect(requests).toBe(1); // reconnect cannot replay an interrupted generation
+  await page.getByRole("textbox", { name: "User Prompt" }).fill("Retry manually");
+  await page.getByRole("textbox", { name: "User Prompt" }).press("Enter");
+  await expect(page.getByText("Manual retry completed", { exact: true })).toBeVisible();
+  await page.reload();
+  await expect(page.getByText("Authentic partial response", { exact: true })).toBeVisible();
+});
+
 test("forwards the correct model and steps in chat.send", async ({ page }) => {
   let receivedPayload: Record<string, unknown> | null = null;
 

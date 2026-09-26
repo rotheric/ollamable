@@ -176,22 +176,19 @@ export class BackendClient {
 
     const promise = new Promise<ConversationStep[]>((resolve, reject) => {
       this.pending.set(conversationId, { request, resolve, reject });
-    });
-
-    send({
-      type: "chat.send",
-      conversationId,
-      model,
-      provider,
-      steps,
-      tools,
-      temperature,
-      maxOutputTokens,
-      reasoningEffort,
+      try {
+        if (!send({ type: "chat.send", conversationId, model, provider, steps, tools,
+          temperature, maxOutputTokens, reasoningEffort })) {
+          throw new Error("Chat send failed: socket not open");
+        }
+      } catch (error) {
+        this.pending.delete(conversationId);
+        reject(error instanceof Error ? error : new Error(String(error)));
+      }
     });
 
     const stop = () => {
-      send({ type: "chat.stop", conversationId });
+      try { send({ type: "chat.stop", conversationId }); } catch { /* socket may already be gone */ }
       const stream = this.pending.get(conversationId);
       if (stream) {
         this.pending.delete(conversationId);
@@ -252,17 +249,18 @@ export class BackendClient {
     });
   }
 
-  /**
-   * Drains only the `pendingTokenize` map, rejecting every in-flight
-   * tokenize call with `AbortError` (the server aborts its own tokenize
-   * handling on a closed socket, so these calls are genuinely dead).
-   * Deliberately narrower than `cancelAll()` (S3-R1): a WS close/reconnect
-   * should not also reject in-flight CHAT streams — that rejection is
-   * what makes `chat-workspace.tsx`'s `isAbort` check fire and show
-   * "Generation stopped." on a routine reconnect, which is wrong for a
-   * transient network drop. `cancelAll()` remains for intentional full
-   * teardown of both maps.
-   */
+  /** A reconnected socket cannot resume requests owned by the previous connection. */
+  connectionClosed(): void {
+    for (const [id, stream] of this.pending) {
+      const error = new Error("Backend connection lost. Partial response kept; reconnect and retry manually.");
+      error.name = "ConnectionLostError";
+      stream.reject(error);
+      this.pending.delete(id);
+    }
+    this.cancelPendingTokenize();
+  }
+
+  /** Release tokenization timers on disconnect or intentional teardown. */
   cancelPendingTokenize(): void {
     for (const [id, tokenizeCall] of this.pendingTokenize) {
       clearTimeout(tokenizeCall.timer);

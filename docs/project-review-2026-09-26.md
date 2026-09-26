@@ -24,7 +24,7 @@ Repository constraints from [AGENTS.md](../AGENTS.md): package-manager guidance 
 - [x] **R02 — P1:** Unauthenticated backend and unrestricted WebSocket origins.
 - [x] **R03 — P1:** Disabled tools remain executable.
 - [x] **R04 — P1:** Stop does not stop subsequent tools.
-- [ ] **R05 — P2:** Disconnect/reconnect leaves chat generation pending.
+- [x] **R05 — P2:** Disconnect/reconnect leaves chat generation pending.
 - [ ] **R06 — P2:** Initial model loading overwrites saved selections.
 - [ ] **R07 — P2:** Assistant text disappears when the step also contains tool calls.
 - [ ] **R08 — P2:** Split reasoning tags corrupt assistant/reasoning separation.
@@ -33,7 +33,7 @@ Repository constraints from [AGENTS.md](../AGENTS.md): package-manager guidance 
 - [x] **R11 — P2:** Tool loop has no execution budget.
 - [ ] **R12 — P2:** Production start script is incompatible with static export.
 - [ ] **R13 — P2:** Tool-only replies become synthetic assistant transcript steps.
-- [ ] **R14 — P2:** Failed chat sends leave unresolved promises.
+- [x] **R14 — P2:** Failed chat sends leave unresolved promises.
 - [ ] **R15 — P2:** Overlapping generations share ownership and message correlation.
 - [ ] **R16 — P2:** Malformed chat messages receive no correlated failure.
 - [ ] **R17 — P2:** Invalid explicit provider IDs silently fall back to another provider.
@@ -170,6 +170,11 @@ Resolution: `server/ws-handler.ts` enforces server-owned limits of eight model i
 
 ### R05 — Disconnect/reconnect leaves chat generation pending
 
+Owner: Codex
+State: COMPLETE
+
+Resolution: `BackendClient.connectionClosed()` now rejects pending chats with a distinct connection-loss error and clears tokenize timers. The workspace keeps genuine partial assistant/reasoning text as stable interrupted content and requires manual retry. Browser regression proves Stop clears, reconnect does not replay, retry succeeds, and partial text survives reload; the existing Stop test also passes. Full unit suite: 207 passed; production build passed. Browser execution used the available Chromium executable via a temporary config, removed afterward.
+
 **Priority:** P2. **Evidence:** Browser reproduction.  
 **Location:** [chat-workspace.tsx](../src/components/chat-workspace.tsx), WebSocket wiring around line 779; [backend-client.ts](../src/lib/backend-client.ts), pending streams and `cancelPendingTokenize`; [ws-handler.ts](../server/ws-handler.ts), socket-close handler.
 
@@ -216,6 +221,11 @@ The record also participates in logic that counts or locates assistant messages.
 **Implementation context:** Provider wire protocols may legitimately require an assistant-role envelope for tool calls. Preserve that envelope in protocol conversion without inventing agent-authored chat content. Shared formatters already handle standalone `tool_call` records; inspect both formats and migration of persisted merged records before changing representation. Keep tool inspection available separately from authentic chat content.
 
 ### R14 — Failed chat sends leave unresolved promises
+
+Owner: Codex
+State: COMPLETE
+
+Resolution: `BackendClient.startStream()` now catches false and throwing sends, deletes pending state, and returns a rejected promise through the normal caller path. Stop also releases local state if its send throws. New chat-client unit tests cover both send failures and ensure late deltas are ignored. Full unit suite: 207 passed; production build passed. Implemented together with R05 because both own the same pending-request lifecycle.
 
 **Priority:** P2. **Evidence:** Inspection.  
 **Location:** [backend-client.ts](../src/lib/backend-client.ts), `startStream` around lines 171–191; [use-websocket.ts](../src/lib/use-websocket.ts), `send`.

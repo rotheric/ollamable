@@ -19,11 +19,11 @@ import { ChatWorkspace } from "@/src/components/chat-workspace";
 import { SELECTED_KEY, STORAGE_KEY, SIDEBAR_STATE_KEY } from "@/src/lib/chat";
 import { SEPARATOR } from "@/src/lib/token-view";
 
-const { mockSend, mockStartStream, mockCancelAll, mockCancelPendingTokenize, mockTokenize } = vi.hoisted(() => ({
+const { mockSend, mockStartStream, mockCancelAll, mockConnectionClosed, mockTokenize } = vi.hoisted(() => ({
   mockSend: vi.fn(() => true),
   mockStartStream: vi.fn(),
   mockCancelAll: vi.fn(),
-  mockCancelPendingTokenize: vi.fn(),
+  mockConnectionClosed: vi.fn(),
   mockTokenize: vi.fn((_send: unknown, _model: string, text: string) =>
     Promise.resolve({ tokens: text.match(/\S+|\s+/g) ?? [text], tokenIds: [] })
   ),
@@ -42,7 +42,7 @@ vi.mock("@/src/lib/backend-client", () => ({
     handleServerMessage: vi.fn(),
     startStream: mockStartStream,
     cancelAll: mockCancelAll,
-    cancelPendingTokenize: mockCancelPendingTokenize,
+    connectionClosed: mockConnectionClosed,
     tokenize: mockTokenize,
   })),
   WS_URL: "ws://localhost:3001",
@@ -120,7 +120,7 @@ describe("chat-workspace request-preview panel (S4)", () => {
     mockStartStream.mockClear();
     mockSend.mockClear();
     mockCancelAll.mockClear();
-    mockCancelPendingTokenize.mockClear();
+    mockConnectionClosed.mockClear();
     mockTokenize.mockClear();
     Element.prototype.scrollIntoView = vi.fn();
   });

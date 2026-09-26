@@ -776,7 +776,7 @@ export function ChatWorkspace() {
     []
   );
 
-  const { send: wsSend, connected: wsConnected } = useWebSocket(WS_URL, handleWsMessage, () => backendClientRef.current.cancelPendingTokenize());
+  const { send: wsSend, connected: wsConnected } = useWebSocket(WS_URL, handleWsMessage, () => backendClientRef.current.connectionClosed());
 
   useEffect(() => {
     const initialConversations = loadConversations([]);
@@ -1395,12 +1395,18 @@ export function ChatWorkspace() {
     } catch (streamError) {
       const isAbort =
         streamError instanceof Error && streamError.message === "AbortError";
+      const connectionLost = streamError instanceof Error && streamError.name === "ConnectionLostError";
       const message = isAbort
         ? "Generation stopped."
-        : "Failed to stream from backend.";
+        : connectionLost ? streamError.message : "Failed to stream from backend.";
       setError(message);
       updateConversation(nextConversation.id, (conversation) => {
-        const cleanedSteps = conversation.steps.filter((step) => !step.id.startsWith("stream-"));
+        const cleanedSteps = conversation.steps.flatMap((step) => {
+          if (!step.id.startsWith("stream-")) return [step];
+          if (!connectionLost || !step.content.trim() || !["assistant", "reasoning"].includes(step.kind)) return [];
+          // Preserve genuine partial prose, without an unfinished protocol tool call.
+          return [{ ...step, id: step.id.replace(/^stream-/, "interrupted-"), toolCall: undefined, toolCalls: undefined }];
+        });
         return {
           ...conversation,
           steps: cleanedSteps,
