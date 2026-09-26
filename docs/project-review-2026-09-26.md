@@ -43,7 +43,7 @@ Repository constraints from [AGENTS.md](../AGENTS.md): package-manager guidance 
 - [ ] **R21 — P3:** Tool-only/reasoning-only responses lose usage metadata.
 - [ ] **R22 — P2:** MCP tool names collide across servers and built-ins.
 - [ ] **R23 — P2:** Documented development startup and `dev:full` are miswired.
-- [ ] **R24 — P2:** Handwritten environment loading preserves quoting syntax.
+- [x] **R24 — P2:** Handwritten environment loading preserves quoting syntax.
 - [x] **R25 — P3:** Standalone frontend typechecking fails on test globals.
 - [ ] **R26 — P3:** Broadly named test commands omit integration checks; E2E mocks the backend.
 - [ ] **R27 — P2:** Finishing the tour deletes modified example conversations.
@@ -387,6 +387,11 @@ The README starts only `next dev`, but chat and model/tool HTTP requests require
 **Implementation context:** Reuse the existing working URL/port wiring as evidence. Document backend/provider configuration as well as frontend startup. Environment-supplied ports can change the exact collision, so the finding concerns default behavior. The unused `getFreePort` helper in `run-dev.mjs` does not make the current fixed-port strategy automatic.
 
 ### R24 — Handwritten environment loading preserves quoting syntax
+
+Owner: Codex
+State: COMPLETE
+
+Resolution: `server/environment.ts` uses Node’s defined dotenv parser and is wired before backend configuration. Quoting/comments/export prefixes are parsed; existing process values (including empty strings) win, then .env, then .envrc. No shell evaluation or interpolation occurs; README documents the format and Node >=22 runtime requirement, mirrored in package/lockfile engines. Four environment regressions and the real-server access/static suites pass (35 tests); frontend/test and backend standalone typechecks pass. Combined-state verification: 293 integration tests passed with 2 live-provider skips, 217 unit tests passed, and production static build passed.
 
 **Priority:** P2. **Evidence:** Inspection.  
 **Location:** [server/index.ts](../server/index.ts), `.env`/`.envrc` parsing around lines 16–28.

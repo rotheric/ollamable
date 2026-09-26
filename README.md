@@ -27,7 +27,7 @@ This project is a **demo for educational purposes** — it exposes the internals
 
 ## Prerequisites
 
-- [Node.js](https://nodejs.org/) (v18+)
+- [Node.js](https://nodejs.org/) (v22+)
 - [Ollama](https://ollama.com) running locally on the default port (11434)
 
 ## Getting Started
@@ -38,6 +38,12 @@ npm run dev
 ```
 
 Then open [http://localhost:3000](http://localhost:3000).
+
+The backend reads `.env`, then `.envrc`, using Node’s dotenv syntax (quoted values,
+comments and optional `export` prefixes). Existing process variables, including empty
+strings, take precedence; `.env` takes precedence over `.envrc`. `.envrc` is read as
+assignments only: shell commands, substitutions, and variable interpolation are not
+executed. Node 22 or newer is required for the supported runtime/tooling contract.
 
 ## Backend access
 

@@ -12,29 +12,12 @@ import { CurlExecutor } from "./tools/curl.js";
 import { loadProviderConfigs } from "./provider-config.js";
 import { AccessPolicy } from "./access-policy.js";
 import { HttpInputError, isRecord, readJsonBody } from "./request-validation.js";
+import { loadEnvironment } from "./environment.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const PROJECT_ROOT = resolve(__dirname, "..");
 
-// Load .env / .envrc so the backend picks up the same env vars as Next.js.
-for (const envFile of [".env", ".envrc"]) {
-  try {
-    const raw = readFileSync(resolve(PROJECT_ROOT, envFile), "utf-8");
-    for (const line of raw.split("\n")) {
-      const trimmed = line.replace(/^export\s+/, "").trim();
-      if (!trimmed || trimmed.startsWith("#")) continue;
-      const eqIdx = trimmed.indexOf("=");
-      if (eqIdx < 1) continue;
-      const key = trimmed.slice(0, eqIdx).trim();
-      const value = trimmed.slice(eqIdx + 1).trim();
-      if (!process.env[key]) {
-        process.env[key] = value;
-      }
-    }
-  } catch {
-    // File not found — skip
-  }
-}
+loadEnvironment(PROJECT_ROOT);
 const PORT = parseInt(process.env.PORT ?? process.env.WS_PORT ?? "3000", 10);
 const STATIC_DIR = resolve(process.env.STATIC_DIR ?? resolve(PROJECT_ROOT, "out"));
 const MCP_CONFIG = process.env.MCP_CONFIG ?? resolve(__dirname, "mcp-config.json");
