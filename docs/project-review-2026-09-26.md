@@ -28,7 +28,7 @@ Repository constraints from [AGENTS.md](../AGENTS.md): package-manager guidance 
 - [ ] **R06 — P2:** Initial model loading overwrites saved selections.
 - [ ] **R07 — P2:** Assistant text disappears when the step also contains tool calls.
 - [ ] **R08 — P2:** Split reasoning tags corrupt assistant/reasoning separation.
-- [ ] **R09 — P2:** Curl byte limit does not bound downloads or allocations.
+- [x] **R09 — P2:** Curl byte limit does not bound downloads or allocations.
 - [ ] **R10 — P2:** MCP initialization/disconnection leaks clients or subprocesses.
 - [ ] **R11 — P2:** Tool loop has no execution budget.
 - [ ] **R12 — P2:** Production start script is incompatible with static export.
@@ -134,6 +134,11 @@ Cancellation is checked at the top of the outer model loop, not between individu
 **Implementation context:** Pass cancellation through the dispatcher/executor boundary and check it before each subsequent action and after awaits. Curl currently owns a separate 20-second timeout controller; combine timeout and caller cancellation. Already completed external actions cannot be undone. Reuse delayed-tool probes to verify that no new action starts after cancellation. See R15 for generation ownership during immediate resume.
 
 ### R09 — Curl byte limit does not bound downloads or allocations
+
+Owner: Codex
+State: COMPLETE
+
+Resolution: `server/tools/curl.ts` now reads incrementally into a capped buffer and cancels at the byte limit for text and binary bodies. `bytes` means retained bytes; `observedBytes` includes final-chunk excess; exact total size is not claimed. Reaching the cap conservatively reports truncation without another read. Four `tests/integration/curl.test.ts` checks verify cancellation of a much larger generated stream, binary handling, intact short UTF-8 content, and the 2 MiB hard cap. Combined curl/handler suite: 22 passed; backend TypeScript passed.
 
 **Priority:** P2. **Evidence:** Inspection.  
 **Location:** [server/tools/curl.ts](../server/tools/curl.ts), `response.arrayBuffer()` around line 117.

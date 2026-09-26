@@ -60,10 +60,10 @@ export class CurlExecutor implements ToolExecutor {
       ? (args.headers as Record<string, string>)
       : {});
     const body = typeof args.body === "string" ? args.body : undefined;
-    const maxBytes = Math.min(
+    const maxBytes = Math.floor(Math.min(
       Math.max(1, Number(args.max_bytes) || DEFAULT_MAX_BYTES),
       HARD_MAX_BYTES
-    );
+    ));
     const startTime = Date.now();
 
     emit({
@@ -116,10 +116,36 @@ export class CurlExecutor implements ToolExecutor {
         responseHeaders[key] = value;
       });
 
-      const buffer = await response.arrayBuffer();
-      const totalBytes = buffer.byteLength;
-      const truncated = totalBytes > maxBytes;
-      const bodyBytes = truncated ? buffer.slice(0, maxBytes) : buffer;
+      // Bound retained memory and stop consuming as soon as the cap is reached.
+      // The transport can deliver a final chunk larger than the remaining space;
+      // never copy or retain that excess, and never claim a total response size.
+      const buffer = new Uint8Array(maxBytes);
+      let totalBytes = 0;
+      let observedBytes = 0;
+      let truncated = false;
+      const reader = response.body?.getReader();
+      if (reader) {
+        try {
+          while (totalBytes < maxBytes) {
+            signal?.throwIfAborted();
+            const { done, value } = await reader.read();
+            if (done) break;
+            observedBytes += value.byteLength;
+            const retained = Math.min(value.byteLength, maxBytes - totalBytes);
+            buffer.set(value.subarray(0, retained), totalBytes);
+            totalBytes += retained;
+            if (totalBytes === maxBytes) {
+              // Conservatively report truncation at the limit without an extra read.
+              truncated = true;
+              await reader.cancel();
+              break;
+            }
+          }
+        } finally {
+          reader.releaseLock();
+        }
+      }
+      const bodyBytes = buffer.subarray(0, totalBytes);
 
       const contentType = responseHeaders["content-type"] ?? "";
       const isBinary =
@@ -128,7 +154,7 @@ export class CurlExecutor implements ToolExecutor {
         !/\+json|\+xml/.test(contentType);
 
       const decodedBody = isBinary
-        ? `<binary content: ${totalBytes} bytes, content-type=${contentType || "unknown"}>`
+        ? `<binary content: ${totalBytes} retained bytes, content-type=${contentType || "unknown"}>`
         : new TextDecoder("utf-8", { fatal: false }).decode(bodyBytes);
 
       const durationMs = Date.now() - startTime;
@@ -144,6 +170,7 @@ export class CurlExecutor implements ToolExecutor {
           status: response.status,
           statusText: response.statusText,
           bytes: totalBytes,
+          observedBytes,
           truncated,
           durationMs,
         },
@@ -159,6 +186,8 @@ export class CurlExecutor implements ToolExecutor {
         headers: responseHeaders,
         body: decodedBody,
         bytes: totalBytes,
+        observedBytes,
+        byteCountMeaning: "bytes retained; observedBytes includes any final-chunk excess; total response size unknown when truncated",
         truncated,
       });
     } catch (error) {
