@@ -36,7 +36,7 @@ Repository constraints from [AGENTS.md](../AGENTS.md): package-manager guidance 
 - [x] **R14 — P2:** Failed chat sends leave unresolved promises.
 - [x] **R15 — P2:** Overlapping generations share ownership and message correlation.
 - [x] **R16 — P2:** Malformed chat messages receive no correlated failure.
-- [ ] **R17 — P2:** Invalid explicit provider IDs silently fall back to another provider.
+- [x] **R17 — P2:** Invalid explicit provider IDs silently fall back to another provider.
 - [ ] **R18 — P2:** Tokenization caches omit provider identity.
 - [ ] **R19 — P2:** Discovery and tool network requests lack application deadlines.
 - [ ] **R20 — P2:** Invalid final tool arguments become an executable empty object.
@@ -263,6 +263,11 @@ Parsed JSON is cast to `ClientMessage` without runtime validation. Accesses such
 **Implementation context:** Validate the discriminated message shape and required field types before logging or allocating controllers. Reply with a correlated error when an identifiable chat request is invalid. Define behavior for malformed JSON and uncorrelatable messages. HTTP `/models/show` also collects an unbounded request body and needs an explicit input-size boundary if exposed beyond trusted clients.
 
 ### R17 — Invalid explicit provider IDs silently fall back
+
+Owner: Codex
+State: COMPLETE
+
+Resolution: `server/llm-router.ts` throws `UnknownProviderError` for every explicit unconfigured ID (including empty strings) instead of using the model map/default. Omitted IDs retain legacy routing; empty configurations fail clearly. The error inherits the existing unsupported-provider classification for tokenization. Six router tests cover chat/metadata/tokenization rejection, duplicate model names on two providers, populated-map behavior, and omitted-provider fallback. Tokenize protocol suite: 10 passed; final full integration suite: 229 passed, 2 live-provider skips; backend TypeScript passed.
 
 **Priority:** P2. **Evidence:** Inspection.  
 **Location:** [server/llm-router.ts](../server/llm-router.ts), `resolveProvider` around lines 175–185.

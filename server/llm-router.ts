@@ -21,6 +21,13 @@ export class UnsupportedProviderError extends Error {
   }
 }
 
+export class UnknownProviderError extends UnsupportedProviderError {
+  constructor(providerId: string) {
+    super(`Unknown provider: ${providerId || "(empty)"}`);
+    this.name = "UnknownProviderError";
+  }
+}
+
 // ── Public model type returned by the router ─────────────────────────
 
 export interface ModelInfo {
@@ -164,24 +171,26 @@ export class LlmRouter {
   }
 
   /**
-   * Resolves the provider config for a model, by explicit provider id
-   * first, then the map populated by listAllModels(), then defaulting to
-   * the first configured provider.
+   * Explicit IDs must resolve exactly. Only omitted IDs use the legacy
+   * model map and then the first configured provider.
    */
   private resolveProvider(
     providerId: string | undefined,
     modelName: string
   ): ProviderConfig {
-    if (providerId) {
+    if (providerId !== undefined) {
       const config = this.configs.find((c) => c.id === providerId);
       if (config) return config;
+      throw new UnknownProviderError(providerId);
     }
 
     const mapped = this.modelProviderMap.get(modelName);
     if (mapped) return mapped;
 
     // Default to first provider (Ollama)
-    return this.configs[0];
+    const fallback = this.configs[0];
+    if (!fallback) throw new Error("No providers are configured");
+    return fallback;
   }
 
   private async fetchOllamaModels(
