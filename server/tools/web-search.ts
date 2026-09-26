@@ -1,3 +1,4 @@
+import { withNetworkDeadline, TOOL_REQUEST_TIMEOUT_MS } from "../network-deadline.js";
 import { randomUUID } from "node:crypto";
 import type { ToolExecutor } from "../tool-executor.js";
 import type { MetaEvent, ToolDefinition } from "../types.js";
@@ -75,26 +76,28 @@ export class WebSearchExecutor implements ToolExecutor {
 
     try {
       const params = new URLSearchParams({ q: query, count: String(count) });
-      const response = await fetch(
-        `https://api.search.brave.com/res/v1/web/search?${params}`,
-        {
-          signal,
-          headers: {
-            Accept: "application/json",
-            "Accept-Encoding": "gzip",
-            "X-Subscription-Token": this.apiKey,
-          },
-        }
-      );
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(
-          `Brave Search API error ${response.status}: ${errorText}`
+      const data = await withNetworkDeadline(async (requestSignal) => {
+        const response = await fetch(
+          `https://api.search.brave.com/res/v1/web/search?${params}`,
+          {
+            signal: requestSignal,
+            headers: {
+              Accept: "application/json",
+              "Accept-Encoding": "gzip",
+              "X-Subscription-Token": this.apiKey,
+            },
+          }
         );
-      }
 
-      const data = (await response.json()) as BraveSearchResponse;
+        if (!response.ok) {
+          const errorText = await response.text();
+          throw new Error(
+            `Brave Search API error ${response.status}: ${errorText}`
+          );
+        }
+
+        return (await response.json()) as BraveSearchResponse;
+      }, signal, TOOL_REQUEST_TIMEOUT_MS);
       const results: SearchResult[] = (data.web?.results ?? [])
         .slice(0, count)
         .map((r) => ({

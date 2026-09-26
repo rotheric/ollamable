@@ -1,3 +1,4 @@
+import { withNetworkDeadline } from "./network-deadline.js";
 import type { ConversationStep, ReasoningEffort, ToolDefinition } from "./types.js";
 import { randomUUID } from "node:crypto";
 import { toOllamaMessages } from "../shared/ollama-format.js";
@@ -59,19 +60,23 @@ interface ShowResponse {
 
 export async function fetchOllamaModelMeta(
   baseUrl: string,
-  modelName: string
+  modelName: string,
+  callerSignal?: AbortSignal
 ): Promise<ShowResponse> {
-  const response = await fetch(`${baseUrl}/show`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ model: modelName }),
-  });
+  return withNetworkDeadline(async (signal) => {
+    const response = await fetch(`${baseUrl}/show`, {
+        signal,
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ model: modelName }),
+    });
 
-  if (!response.ok) {
-    throw new Error(`Ollama /show failed: ${response.status}`);
-  }
+    if (!response.ok) {
+      throw new Error(`Ollama /show failed: ${response.status}`);
+    }
 
-  return (await response.json()) as ShowResponse;
+    return (await response.json()) as ShowResponse;
+  }, callerSignal);
 }
 
 export function buildOllamaChatBody(args: {

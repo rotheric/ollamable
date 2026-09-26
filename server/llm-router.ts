@@ -1,3 +1,4 @@
+import { withNetworkDeadline } from "./network-deadline.js";
 /**
  * LLM Router — aggregates models from all configured providers and routes
  * chat requests to the appropriate backend (Ollama or OpenAI-compatible).
@@ -196,49 +197,51 @@ export class LlmRouter {
   private async fetchOllamaModels(
     config: ProviderConfig
   ): Promise<ModelInfo[]> {
-    const response = await fetch(`${config.baseUrl}/tags`);
-    if (!response.ok) {
-      throw new Error(`Ollama /tags failed: ${response.status}`);
-    }
+    return withNetworkDeadline(async (signal) => {
+      const response = await fetch(`${config.baseUrl}/tags`, { signal });
+      if (!response.ok) {
+        throw new Error(`Ollama /tags failed: ${response.status}`);
+      }
 
-    const data = (await response.json()) as {
-      models?: Array<{
-        name: string;
-        modified_at?: string;
-        details?: {
-          family?: string;
-          families?: string[];
-          parameter_size?: string;
-          format?: string;
-          quantization_level?: string;
-        };
-      }>;
-    };
-
-    const models = data.models ?? [];
-
-    // Fetch capabilities from /show for each model in parallel
-    const metaResults = await Promise.allSettled(
-      models.map((m) => fetchOllamaModelMeta(config.baseUrl, m.name))
-    );
-
-    return models.map((m, i) => {
-      this.modelProviderMap.set(m.name, config);
-      const meta =
-        metaResults[i].status === "fulfilled"
-          ? metaResults[i].value
-          : undefined;
-      return {
-        name: m.name,
-        provider: config.id,
-        providerName: config.name,
-        family: m.details?.family,
-        families: m.details?.families,
-        parameterSize: m.details?.parameter_size,
-        format: m.details?.format,
-        quantizationLevel: m.details?.quantization_level,
-        capabilities: meta?.capabilities,
+      const data = (await response.json()) as {
+        models?: Array<{
+          name: string;
+          modified_at?: string;
+          details?: {
+            family?: string;
+            families?: string[];
+            parameter_size?: string;
+            format?: string;
+            quantization_level?: string;
+          };
+        }>;
       };
+
+      const models = data.models ?? [];
+
+      // Fetch capabilities from /show for each model in parallel
+      const metaResults = await Promise.allSettled(
+        models.map((m) => fetchOllamaModelMeta(config.baseUrl, m.name, signal))
+      );
+
+      return models.map((m, i) => {
+        this.modelProviderMap.set(m.name, config);
+        const meta =
+          metaResults[i].status === "fulfilled"
+            ? metaResults[i].value
+            : undefined;
+        return {
+          name: m.name,
+          provider: config.id,
+          providerName: config.name,
+          family: m.details?.family,
+          families: m.details?.families,
+          parameterSize: m.details?.parameter_size,
+          format: m.details?.format,
+          quantizationLevel: m.details?.quantization_level,
+          capabilities: meta?.capabilities,
+        };
+      });
     });
   }
 

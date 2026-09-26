@@ -38,7 +38,7 @@ Repository constraints from [AGENTS.md](../AGENTS.md): package-manager guidance 
 - [x] **R16 — P2:** Malformed chat messages receive no correlated failure.
 - [x] **R17 — P2:** Invalid explicit provider IDs silently fall back to another provider.
 - [x] **R18 — P2:** Tokenization caches omit provider identity.
-- [ ] **R19 — P2:** Discovery and tool network requests lack application deadlines.
+- [x] **R19 — P2:** Discovery and tool network requests lack application deadlines.
 - [x] **R20 — P2:** Invalid final tool arguments become an executable empty object.
 - [ ] **R21 — P3:** Tool-only/reasoning-only responses lose usage metadata.
 - [x] **R22 — P2:** MCP tool names collide across servers and built-ins.
@@ -301,6 +301,11 @@ Requests correctly pass the selected provider, but cache suffixes contain only t
 **Implementation context:** Use a stable composite provider/model identity for cache invalidation. Test identical text/model names with different provider identities, including a switch from supported to unsupported tokenization. Keep the existing debounce and stale-result protections.
 
 ### R19 — Discovery and tool requests lack application deadlines
+
+Owner: Codex
+State: COMPLETE
+
+Resolution: `server/network-deadline.ts` supplies aborting deadlines that remain active through body consumption. Discovery and metadata/vocabulary requests use 10 seconds; Brave uses 20 seconds combined with caller cancellation. Ollama capability requests share the provider deadline and preserve discovered models when optional metadata stalls; healthy providers survive a stalled peer. Shared vocabulary loads own their deadline, coalesce callers, and clear failed entries for retry. Eight deadline regressions pass; full integration suite: 305 passed, 2 live-provider skips; both standalone typechecks pass.
 
 **Priority:** P2. **Evidence:** Inspection.  
 **Location:** [server/llm-router.ts](../server/llm-router.ts), `listAllModels` and model fetches; [server/ollama-client.ts](../server/ollama-client.ts), `fetchOllamaModelMeta`; [server/tokenizer.ts](../server/tokenizer.ts), `fetchVocab`; [server/tools/web-search.ts](../server/tools/web-search.ts), Brave fetch.

@@ -1,3 +1,4 @@
+import { withNetworkDeadline } from "./network-deadline.js";
 /**
  * OpenAI-compatible API client for providers like MiniMax.
  *
@@ -66,22 +67,26 @@ interface ModelsResponse {
 }
 
 export async function fetchOpenAIModels(
-  config: ProviderConfig
+  config: ProviderConfig,
+  callerSignal?: AbortSignal
 ): Promise<Array<{ id: string; ownedBy?: string }>> {
-  const response = await fetch(`${config.baseUrl}/models`, {
-    headers: {
-      ...(config.apiKey ? { Authorization: `Bearer ${config.apiKey}` } : {}),
-    },
-  });
+  return withNetworkDeadline(async (signal) => {
+    const response = await fetch(`${config.baseUrl}/models`, {
+      signal,
+      headers: {
+        ...(config.apiKey ? { Authorization: `Bearer ${config.apiKey}` } : {}),
+      },
+    });
 
-  if (!response.ok) {
-    throw new Error(
-      `Failed to fetch models from ${config.name}: ${response.status}`
-    );
-  }
+    if (!response.ok) {
+      throw new Error(
+        `Failed to fetch models from ${config.name}: ${response.status}`
+      );
+    }
 
-  const data = (await response.json()) as ModelsResponse;
-  return data.data.map((m) => ({ id: m.id, ownedBy: m.owned_by }));
+    const data = (await response.json()) as ModelsResponse;
+    return data.data.map((m) => ({ id: m.id, ownedBy: m.owned_by }));
+  }, callerSignal);
 }
 
 // ── Streaming chat completions ───────────────────────────────────────

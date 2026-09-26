@@ -1,3 +1,4 @@
+import { withNetworkDeadline } from "./network-deadline.js";
 /**
  * server/tokenizer.ts — byte-level BPE tokenizer sourced from Ollama's
  * `POST /show` (verbose) response (epic-token-view, story S3).
@@ -330,55 +331,58 @@ function cacheKey(baseUrl: string, model: string): string {
 }
 
 async function fetchVocab(baseUrl: string, model: string): Promise<VocabTable> {
-  let response: Response;
-  try {
-    response = await fetch(`${baseUrl}/show`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ model, verbose: true }),
-    });
-  } catch (err) {
-    throw new VocabUnavailableError(
-      `Ollama /show request failed for model "${model}": ${err instanceof Error ? err.message : String(err)}`
+  return withNetworkDeadline(async (signal) => {
+    let response: Response;
+    try {
+      response = await fetch(`${baseUrl}/show`, {
+        signal,
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ model, verbose: true }),
+      });
+    } catch (err) {
+      throw new VocabUnavailableError(
+        `Ollama /show request failed for model "${model}": ${err instanceof Error ? err.message : String(err)}`
+      );
+    }
+
+    if (!response.ok) {
+      throw new VocabUnavailableError(`Ollama /show failed for model "${model}": ${response.status}`);
+    }
+
+    const body = (await response.json()) as ShowVerboseResponse;
+    const modelInfo = body.model_info;
+    const tokens = modelInfo?.["tokenizer.ggml.tokens"];
+    const merges = modelInfo?.["tokenizer.ggml.merges"];
+    const pre = modelInfo?.["tokenizer.ggml.pre"];
+    // Optional (S3-C2): when present, authoritative for special-token
+    // detection (see buildVocabTable). Not required — a response lacking it
+    // falls back to shape-based detection rather than failing closed, since
+    // its absence doesn't make the vocab itself unusable.
+    const tokenType = modelInfo?.["tokenizer.ggml.token_type"];
+
+    if (!Array.isArray(tokens) || !Array.isArray(merges) || typeof pre !== "string") {
+      throw new VocabUnavailableError(
+        `Ollama /show response for model "${model}" is missing tokenizer.ggml.tokens/merges/pre in model_info`
+      );
+    }
+
+    if (pre !== SUPPORTED_PRE) {
+      // Fail closed (AC-ERR-2 / story scope): an unsupported pre-tokenizer
+      // must never silently fall back to a different split algorithm, which
+      // would produce boundaries for the wrong vocabulary.
+      throw new VocabUnavailableError(
+        `Unsupported tokenizer.ggml.pre "${pre}" for model "${model}" — only "${SUPPORTED_PRE}" is implemented`
+      );
+    }
+
+    return buildVocabTable(
+      tokens as string[],
+      merges as string[],
+      pre,
+      Array.isArray(tokenType) ? (tokenType as number[]) : undefined
     );
-  }
-
-  if (!response.ok) {
-    throw new VocabUnavailableError(`Ollama /show failed for model "${model}": ${response.status}`);
-  }
-
-  const body = (await response.json()) as ShowVerboseResponse;
-  const modelInfo = body.model_info;
-  const tokens = modelInfo?.["tokenizer.ggml.tokens"];
-  const merges = modelInfo?.["tokenizer.ggml.merges"];
-  const pre = modelInfo?.["tokenizer.ggml.pre"];
-  // Optional (S3-C2): when present, authoritative for special-token
-  // detection (see buildVocabTable). Not required — a response lacking it
-  // falls back to shape-based detection rather than failing closed, since
-  // its absence doesn't make the vocab itself unusable.
-  const tokenType = modelInfo?.["tokenizer.ggml.token_type"];
-
-  if (!Array.isArray(tokens) || !Array.isArray(merges) || typeof pre !== "string") {
-    throw new VocabUnavailableError(
-      `Ollama /show response for model "${model}" is missing tokenizer.ggml.tokens/merges/pre in model_info`
-    );
-  }
-
-  if (pre !== SUPPORTED_PRE) {
-    // Fail closed (AC-ERR-2 / story scope): an unsupported pre-tokenizer
-    // must never silently fall back to a different split algorithm, which
-    // would produce boundaries for the wrong vocabulary.
-    throw new VocabUnavailableError(
-      `Unsupported tokenizer.ggml.pre "${pre}" for model "${model}" — only "${SUPPORTED_PRE}" is implemented`
-    );
-  }
-
-  return buildVocabTable(
-    tokens as string[],
-    merges as string[],
-    pre,
-    Array.isArray(tokenType) ? (tokenType as number[]) : undefined
-  );
+  }, undefined);
 }
 
 /**
