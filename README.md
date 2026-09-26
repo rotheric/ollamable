@@ -36,6 +36,11 @@ edited content or added messages remain as regular conversations.
 
 ## Getting Started
 
+Use npm for JavaScript/TypeScript dependencies and scripts, and uv for Python
+dependencies and environments. Commit JavaScript dependency changes with
+`package-lock.json`; use `npm ci` to install the locked dependencies reproducibly.
+The documented direct Node entrypoints are also supported.
+
 ```bash
 npm install
 npm run dev
@@ -130,7 +135,7 @@ This is separate from the test runner's `PLAYWRIGHT_EXECUTABLE_PATH` override.
 Set `MCP_CONFIG` to an operator-owned JSON file to replace the server definitions,
 including a command for an already provisioned MCP installation. The bundled command
 retains the existing npx launcher; provision that pinned package/browser before use
-if runtime downloads are unavailable. Package-manager policy is tracked in R36.
+if runtime downloads are unavailable.
 Upgrade the pinned MCP version deliberately in a reviewed configuration change,
 checking tool discovery and a browser invocation on the target host. The automated
 bridge tests verify launch configuration and lifecycle with a mocked MCP client; they do

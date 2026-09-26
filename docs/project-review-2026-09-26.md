@@ -16,7 +16,7 @@ This document records findings and implementation context, not an implementation
 - P1: security/execution-control defect requiring prompt attention. P2: functional or reliability defect. P3: lower-priority UX, portability, documentation, or maintenance issue. Priorities are review judgments, not delivery ordering.
 - File links are repository-relative. Line numbers are review-time hints and will drift; use the named function or code expression to locate the current implementation.
 
-Repository constraints from [AGENTS.md](../AGENTS.md): package-manager guidance says `uv`; the frontend is a Next.js static site; transcript chat messages must contain authentic agent-authored assistant content rather than synthetic assistant placeholders or derived tool messages. Existing JavaScript scripts use npm; that inconsistency is recorded in R36 rather than silently resolved here.
+Repository constraints from [AGENTS.md](../AGENTS.md): the frontend is a Next.js static site; transcript chat messages must contain authentic agent-authored assistant content rather than synthetic assistant placeholders or derived tool messages. At review time, package-manager guidance said `uv` while JavaScript scripts used npm. R36 resolves that inconsistency with the user's explicit approval of npm for JavaScript and uv for Python.
 
 ## Issue checklist
 
@@ -55,7 +55,7 @@ Repository constraints from [AGENTS.md](../AGENTS.md): package-manager guidance 
 - [x] **R33 — P3:** Default MCP configuration hardcodes a machine-specific browser path.
 - [x] **R34 — P3:** Persistence failures are inconsistently handled and not surfaced to users.
 - [x] **R35 — P3:** README promises exact Ollama JSON, but the main preview is OpenAI format.
-- [ ] **R36 — P3:** Package-manager instructions disagree with the executable workflow.
+- [x] **R36 — P3:** Package-manager instructions disagree with the executable workflow.
 
 ## Verification already performed
 
@@ -470,17 +470,17 @@ Resolution: test/check/make test now run an explicit fail-fast release gate: uni
 
 ### R36 — Package-manager instructions disagree with the executable workflow
 
-Owner: User (tooling contract), Codex (implementation)
-State: AWAITING_CLARIFICATION
+Owner: Codex
+State: COMPLETE
 
-Remaining decision: The user-provided AGENTS.md says “the package manager is uv,” while installation and the bundled MCP launcher use npm/npx. The earlier clarification question remains unanswered: permit npm for JavaScript and uv for Python, or retain uv-only policy with JavaScript dependencies provisioned externally. No dependency installation or manager migration was performed. Review work used installed Node entrypoints. The other 35 review items are verified complete; this item remains unchecked until the tooling contract is resolved.
+Resolution: The user explicitly approved npm for JavaScript and uv for Python. AGENTS.md and README now state that contract, retaining the existing npm scripts, package-lock.json and npx MCP launcher. README documents reproducible installation with npm ci. No dependency migration is needed. Verification: npm run check:records and npm run typecheck pass; the preceding full release gate passed 233 unit tests, 314 integration tests (2 live-provider checks skipped), the static build and 50 browser tests.
 
 **Priority:** P3. **Evidence:** Maintenance/configuration inspection.  
 **Location:** [AGENTS.md](../AGENTS.md), [package.json](../package.json), [Makefile](../Makefile), [README.md](../README.md), and [scripts/run-dev.mjs](../scripts/run-dev.mjs).
 
-The repository instruction says the package manager is `uv`, while this JavaScript application and its launch/test scripts invoke npm/npx. The inspected project has no Python package manifest establishing a uv-based installation workflow. Agents following the prose literally and contributors following the README receive incompatible guidance.
+**Original finding:** The repository instruction said the package manager was `uv`, while this JavaScript application and its launch/test scripts invoked npm/npx. The inspected project had no Python package manifest establishing a uv-based installation workflow. Agents following the prose literally and contributors following the README received incompatible guidance.
 
-**Implementation context:** Clarify the intended tooling contract rather than mechanically replacing npm with uv commands: uv is not a JavaScript dependency-manager substitute. Until the instruction is clarified, preserve its authority and avoid inventing a migration. Review commands used installed Node entrypoints directly; no dependency migration was attempted.
+**Implementation context:** The clarified tooling contract matches the executable workflow. Python tooling remains governed by uv; no Python manifest was introduced for this JavaScript application.
 
 ## Guided tour and project records
 
