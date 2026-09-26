@@ -1,3 +1,4 @@
+import { describe, it, expect } from "vitest";
 import { tourSteps, createTourConversations } from "@/src/lib/tour-data";
 import type { ToolDefinition } from "@/src/types/chat";
 

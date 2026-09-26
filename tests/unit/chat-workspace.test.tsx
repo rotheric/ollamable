@@ -1,3 +1,4 @@
+import { describe, it, expect, beforeEach, vi } from "vitest";
 import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { ThemeRegistry } from "@/src/components/theme-registry";
@@ -10,13 +11,7 @@ const { mockSend, mockStartStream, mockCancelAll } = vi.hoisted(() => ({
   mockStartStream: vi.fn(),
   mockCancelAll: vi.fn(),
 }));
-// Plain functions, not vi.fn() (unlike chat-workspace-token-view.test.tsx,
-// which does assert on these): this file never asserts on
-// connectionClosed/tokenize, they only need to exist so the mock
-// satisfies the real BackendClient shape (S3-R4) without throwing. Kept as
-// non-vi.fn() to avoid adding new `vi` reference sites in a file that
-// (pre-existing, unrelated to this fix) has no explicit `import { vi } from
-// "vitest"` and so has no static type for the global.
+// These collaborators only need to satisfy the mocked BackendClient shape.
 const mockConnectionClosed = () => {};
 const mockTokenize = () => Promise.resolve({ tokens: [] as string[], tokenIds: [] as number[] });
 
@@ -413,7 +408,7 @@ describe("ChatWorkspace", () => {
     await user.click(editButtons[0]);
 
     const editInput = screen.getByRole("textbox", { name: "Edit message" });
-    const editStep = editInput.closest('[data-step-kind="user"]');
+    const editStep = editInput.closest<HTMLElement>('[data-step-kind="user"]');
     await user.clear(editInput);
     await user.type(editInput, "Edited prompt");
     expect(editStep).not.toBeNull();
@@ -547,7 +542,7 @@ describe("ChatWorkspace", () => {
 
   it("shows a spinner and stop button while waiting for a response", async () => {
     const user = userEvent.setup();
-    let resolveStream: ((value: unknown[]) => void) | null = null;
+    let resolveStream!: (value: unknown[]) => void;
 
     mockStartStream.mockReturnValueOnce({
       promise: new Promise((resolve) => {
@@ -566,7 +561,7 @@ describe("ChatWorkspace", () => {
     expect(screen.getByRole("progressbar")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Stop" })).toBeInTheDocument();
 
-    resolveStream?.([
+    resolveStream([
       {
         id: "assistant-2",
         kind: "assistant",
@@ -587,7 +582,7 @@ describe("ChatWorkspace", () => {
     const scrollIntoView = vi.fn();
     Element.prototype.scrollIntoView = scrollIntoView;
 
-    let resolveStream: ((steps: unknown[]) => void) | null = null;
+    let resolveStream!: (steps: unknown[]) => void;
 
     mockStartStream.mockImplementationOnce((_send: unknown, request: { onDelta: (steps: unknown[]) => void }) => {
       // Fire deltas immediately so the component renders streaming steps
@@ -634,7 +629,7 @@ describe("ChatWorkspace", () => {
 
     // Resolve stream so the test completes cleanly
     await act(async () => {
-      resolveStream?.([
+      resolveStream([
         {
           id: "assistant-1",
           kind: "assistant",

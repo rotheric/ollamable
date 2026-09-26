@@ -44,7 +44,7 @@ Repository constraints from [AGENTS.md](../AGENTS.md): package-manager guidance 
 - [ ] **R22 — P2:** MCP tool names collide across servers and built-ins.
 - [ ] **R23 — P2:** Documented development startup and `dev:full` are miswired.
 - [ ] **R24 — P2:** Handwritten environment loading preserves quoting syntax.
-- [ ] **R25 — P3:** Standalone frontend typechecking fails on test globals.
+- [x] **R25 — P3:** Standalone frontend typechecking fails on test globals.
 - [ ] **R26 — P3:** Broadly named test commands omit integration checks; E2E mocks the backend.
 - [ ] **R27 — P2:** Finishing the tour deletes modified example conversations.
 - [ ] **R28 — P3:** Tour completion does not restore the original sidebar state.
@@ -396,6 +396,11 @@ The parser strips a leading `export`, splits at the first `=`, and assigns the r
 **Implementation context:** Use a defined environment-file format/parser. Do not shell-evaluate arbitrary `.envrc` content merely to support shell syntax. Preserve environment precedence intentionally and test quoted values, comments, equals signs inside values, and an already-set variable. No real credentials need to appear in fixtures or output.
 
 ### R25 — Standalone frontend typechecking fails on test globals
+
+Owner: Codex
+State: COMPLETE
+
+Resolution: explicit Vitest imports now type the three affected test files; DOM queries and deferred promise callbacks have accurate types. The access-policy environment input uses the actual string-map contract rather than inheriting Next’s required NODE_ENV augmentation. Added the package `typecheck` command covering frontend/tests and backend without incremental artifacts; no test files were excluded. Both original standalone TypeScript commands pass, and the full unit suite passes all 217 tests.
 
 **Priority:** P3. **Evidence:** Reproduced.  
 **Location:** [tsconfig.json](../tsconfig.json), broad `include`; [vitest.config.ts](../vitest.config.ts), `globals: true`; [tests/unit/chat-workspace.test.tsx](../tests/unit/chat-workspace.test.tsx); [tests/unit/tour-data.test.ts](../tests/unit/tour-data.test.ts).

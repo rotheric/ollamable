@@ -9,7 +9,7 @@ export class AccessPolicy {
   private readonly token: string | undefined;
   private readonly origins: Set<string>;
 
-  constructor(env: NodeJS.ProcessEnv = process.env) {
+  constructor(env: Record<string, string | undefined> = process.env) {
     this.host = env.BACKEND_HOST ?? "127.0.0.1";
     this.token = env.BACKEND_AUTH_TOKEN || undefined;
     this.origins = new Set((env.BACKEND_ALLOWED_ORIGINS ?? "").split(",").map((value) => value.trim()).filter(Boolean));

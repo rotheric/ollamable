@@ -1,3 +1,4 @@
+import { describe, it, expect } from "vitest";
 import { buildOpenAIRequestBody, type FormatStep, type FormatTool } from "@/shared/openai-format";
 
 const userStep: FormatStep = {
