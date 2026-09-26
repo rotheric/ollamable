@@ -6,7 +6,8 @@ export interface ToolExecutor {
   execute(
     name: string,
     args: Record<string, unknown>,
-    emit: (event: MetaEvent) => void
+    emit: (event: MetaEvent) => void,
+    signal?: AbortSignal
   ): Promise<string>;
 }
 
@@ -28,12 +29,14 @@ export class ToolDispatcher {
   async execute(
     name: string,
     args: Record<string, unknown>,
-    emit: (event: MetaEvent) => void
+    emit: (event: MetaEvent) => void,
+    signal?: AbortSignal
   ): Promise<string> {
+    signal?.throwIfAborted();
     const executor = this.executors.find((e) => e.canHandle(name));
     if (!executor) {
       return JSON.stringify({ error: `No executor found for tool: ${name}` });
     }
-    return executor.execute(name, args, emit);
+    return executor.execute(name, args, emit, signal);
   }
 }

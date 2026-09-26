@@ -42,8 +42,10 @@ export class WebSearchExecutor implements ToolExecutor {
   async execute(
     _name: string,
     args: Record<string, unknown>,
-    emit: (event: MetaEvent) => void
+    emit: (event: MetaEvent) => void,
+    signal?: AbortSignal
   ): Promise<string> {
+    signal?.throwIfAborted();
     const query = String(args.query ?? "");
     const count = Math.min(Number(args.count) || 5, 20);
     const startTime = Date.now();
@@ -76,6 +78,7 @@ export class WebSearchExecutor implements ToolExecutor {
       const response = await fetch(
         `https://api.search.brave.com/res/v1/web/search?${params}`,
         {
+          signal,
           headers: {
             Accept: "application/json",
             "Accept-Encoding": "gzip",
@@ -122,6 +125,7 @@ export class WebSearchExecutor implements ToolExecutor {
 
       return JSON.stringify({ query, results });
     } catch (error) {
+      signal?.throwIfAborted();
       const durationMs = Date.now() - startTime;
       const message =
         error instanceof Error ? error.message : "Unknown search error";

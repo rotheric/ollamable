@@ -228,6 +228,7 @@ export class ConnectionHandler {
           reasoningEffort,
           signal: controller.signal,
           onDelta: (partialSteps) => {
+            if (controller.signal.aborted) return;
             this.send({
               type: "chat.delta",
               conversationId,
@@ -235,6 +236,8 @@ export class ConnectionHandler {
             });
           },
         });
+
+        controller.signal.throwIfAborted();
 
         // Tag each LLM-generated step with the model name
         for (const s of responseSteps) s.model = model;
@@ -308,6 +311,7 @@ export class ConnectionHandler {
         const toolResultSteps: ConversationStep[] = [];
 
         for (const toolStep of executableToolCalls) {
+          controller.signal.throwIfAborted();
           const { name, arguments: toolArgs } = toolStep.toolCall!;
           const argSummary = JSON.stringify(toolArgs);
           const truncatedArgs = argSummary.length > 200 ? argSummary.slice(0, 200) + "…" : argSummary;
@@ -336,8 +340,12 @@ export class ConnectionHandler {
           const result = await this.dispatcher.execute(
             name,
             toolArgs,
-            (event) => this.sendMeta(conversationId, event)
+            (event) => {
+              if (!controller.signal.aborted) this.sendMeta(conversationId, event);
+            },
+            controller.signal
           );
+          controller.signal.throwIfAborted();
           const durationMs = Date.now() - startTime;
           const truncatedResult = result.length > 300 ? result.slice(0, 300) + "…" : result;
 

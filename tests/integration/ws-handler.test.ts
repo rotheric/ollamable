@@ -25,6 +25,7 @@ vi.mock("../../server/ollama-client.js", () => ({
   buildOllamaChatBody: vi.fn(),
 }));
 
+import { CurlExecutor } from "../../server/tools/curl.js";
 import { WebSearchExecutor } from "../../server/tools/web-search.js";
 import { ConnectionHandler } from "../../server/ws-handler.js";
 import { streamOllamaResponse } from "../../server/ollama-client.js";
@@ -369,6 +370,35 @@ describe("ConnectionHandler", () => {
       const error = waitForMessage(ws, (m) => m.type === "chat.error");
       sendJson(ws, makeChatSend({ tools: [{ name: "missing_tool", description: "", parameters: {} }] }));
       expect((await error).message).toContain("Tool is not available on this server: missing_tool");
+      expect(mockStreamOllama).toHaveBeenCalledTimes(1);
+    } finally {
+      ws.close();
+    }
+  });
+
+  it.each(["stop", "disconnect"])("cancels an in-flight tool and prevents the next action on %s", async (action) => {
+    let release!: (response: Response) => void;
+    let requestSignal: AbortSignal | undefined;
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockImplementation(async (_url, options) => {
+      requestSignal = options?.signal as AbortSignal;
+      // Deliberately ignore abort until released, modelling a late tool completion.
+      return new Promise<Response>((resolve) => { release = resolve; });
+    });
+    mockStreamOllama.mockResolvedValue(["first", "second"].map((id) => makeStep("tool_call", "", {
+      toolCall: { id, name: "curl", arguments: { url: `https://example.com/${id}` } },
+    })));
+    const ws = await connectClient();
+    try {
+      const conversationId = `cancel-${action}`;
+      sendJson(ws, makeChatSend({ conversationId, tools: new CurlExecutor().getToolDefinitions() }));
+      await vi.waitFor(() => expect(requestSignal).toBeDefined());
+      if (action === "stop") sendJson(ws, { type: "chat.stop", conversationId });
+      else ws.close();
+      await vi.waitFor(() => expect(requestSignal!.aborted).toBe(true));
+      release(new Response("late result", { headers: { "content-type": "text/plain" } }));
+      // Allow the ignored-abort promise to finish and the sequential loop to advance.
+      await new Promise((resolve) => setTimeout(resolve, 30));
+      expect(fetchSpy).toHaveBeenCalledTimes(1);
       expect(mockStreamOllama).toHaveBeenCalledTimes(1);
     } finally {
       ws.close();

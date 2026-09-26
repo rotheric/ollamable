@@ -111,8 +111,10 @@ export class McpBridge implements ToolExecutor {
   async execute(
     name: string,
     args: Record<string, unknown>,
-    emit: (event: MetaEvent) => void
+    emit: (event: MetaEvent) => void,
+    signal?: AbortSignal
   ): Promise<string> {
+    signal?.throwIfAborted();
     const server = this.toolToServer.get(name);
     if (!server) {
       return JSON.stringify({ error: `No MCP server handles tool: ${name}` });
@@ -133,7 +135,7 @@ export class McpBridge implements ToolExecutor {
       const result = await server.client.callTool({
         name,
         arguments: args,
-      });
+      }, undefined, { signal });
 
       const durationMs = Date.now() - startTime;
       const content = result.content as Array<{ type: string; text?: string }>;
@@ -159,6 +161,7 @@ export class McpBridge implements ToolExecutor {
 
       return text || JSON.stringify(result.content);
     } catch (error) {
+      signal?.throwIfAborted();
       const durationMs = Date.now() - startTime;
       const message =
         error instanceof Error ? error.message : "Unknown MCP error";

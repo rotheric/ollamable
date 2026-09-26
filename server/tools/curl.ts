@@ -50,8 +50,10 @@ export class CurlExecutor implements ToolExecutor {
   async execute(
     _name: string,
     args: Record<string, unknown>,
-    emit: (event: MetaEvent) => void
+    emit: (event: MetaEvent) => void,
+    signal?: AbortSignal
   ): Promise<string> {
+    signal?.throwIfAborted();
     const url = String(args.url ?? "");
     const method = String(args.method ?? "GET").toUpperCase();
     const headers = (args.headers && typeof args.headers === "object"
@@ -105,7 +107,7 @@ export class CurlExecutor implements ToolExecutor {
         method,
         headers,
         body,
-        signal: controller.signal,
+        signal: signal ? AbortSignal.any([signal, controller.signal]) : controller.signal,
         redirect: "follow",
       });
 
@@ -160,6 +162,7 @@ export class CurlExecutor implements ToolExecutor {
         truncated,
       });
     } catch (error) {
+      signal?.throwIfAborted();
       if (controller.signal.aborted) {
         return fail(`Request timed out after ${DEFAULT_TIMEOUT_MS}ms`);
       }

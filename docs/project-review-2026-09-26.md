@@ -23,7 +23,7 @@ Repository constraints from [AGENTS.md](../AGENTS.md): package-manager guidance 
 - [x] **R01 — P1:** Static-file path traversal.
 - [ ] **R02 — P1:** Unauthenticated backend and unrestricted WebSocket origins.
 - [x] **R03 — P1:** Disabled tools remain executable.
-- [ ] **R04 — P1:** Stop does not stop subsequent tools.
+- [x] **R04 — P1:** Stop does not stop subsequent tools.
 - [ ] **R05 — P2:** Disconnect/reconnect leaves chat generation pending.
 - [ ] **R06 — P2:** Initial model loading overwrites saved selections.
 - [ ] **R07 — P2:** Assistant text disappears when the step also contains tool calls.
@@ -120,6 +120,11 @@ The execution filter checks only `dispatcher.canHandle(name)`. It does not inter
 **Implementation context:** Enforce the request's enabled tools at execution time, not only when constructing the provider prompt. Decide how a rejected/unknown call becomes a protocol result or explicit error; silently leaving outstanding calls can invalidate the next provider request. Keep this authorization fix distinct from argument validation (R20) and name collisions (R22).
 
 ### R04 — Stop does not stop subsequent tools
+
+Owner: Codex
+State: COMPLETE
+
+Resolution: request cancellation now crosses `ToolDispatcher` into curl fetch (combined with its timeout), Brave fetch, and MCP SDK call options. `server/ws-handler.ts` checks cancellation after provider/tool awaits and before every action, suppressing late deltas/metadata. Real-WebSocket regression tests delay the first of two curl calls, exercise Stop and disconnect, verify fetch signal abortion, then release late completion and assert no second action/provider request. Handler suite: 18 passed; backend TypeScript passed. Already completed external actions remain irreversible.
 
 **Priority:** P1. **Evidence:** Reproduced.  
 **Location:** [server/ws-handler.ts](../server/ws-handler.ts), tool loop around lines 298–327; [server/tool-executor.ts](../server/tool-executor.ts), executor interface.
