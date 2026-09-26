@@ -562,6 +562,7 @@ describe("ConnectionHandler", () => {
 
       if (ollamaCallCount === 1) {
         const toolCallStep = makeStep("tool_call", "Requested web_search", {
+          usage: { inputTokens: 11, outputTokens: 7 },
           toolCall: {
             name: "web_search",
             arguments: { query: "test query" },
@@ -575,6 +576,7 @@ describe("ConnectionHandler", () => {
         "assistant",
         "Based on the search results, here is the answer."
       );
+      assistantStep.usage = { inputTokens: 23, outputTokens: 5 };
       args.onDelta([assistantStep]);
       return [assistantStep];
     });
@@ -604,20 +606,20 @@ describe("ConnectionHandler", () => {
       );
       expect(searchEvents.length).toBe(2);
 
-      // Final chat.done should include assistant (with merged toolCalls) + tool_result + final assistant
+      // Protocol calls remain separate; only authored prose becomes an assistant step.
       const done = messages.find((m) => m.type === "chat.done");
       expect(done).toBeDefined();
 
       const stepKinds = done!.steps!.map((s) => s.kind);
       expect(stepKinds).toContain("tool_result");
       expect(stepKinds).toContain("assistant");
+      expect(done!.steps!.reduce((sum, s) => sum + (s.usage?.inputTokens ?? 0), 0)).toBe(34);
+      expect(done!.steps!.reduce((sum, s) => sum + (s.usage?.outputTokens ?? 0), 0)).toBe(12);
 
-      // Tool calls are merged into the assistant step's toolCalls array
-      const assistantWithTools = done!.steps!.find(
-        (s) => s.kind === "assistant" && s.toolCalls?.length
-      );
-      expect(assistantWithTools).toBeDefined();
-      expect(assistantWithTools!.toolCalls![0].name).toBe("web_search");
+      expect(done!.steps!.find((s) => s.kind === "tool_call")?.toolCall?.name).toBe("web_search");
+      expect(done!.steps!.filter((s) => s.kind === "assistant")).toHaveLength(1);
+      expect(messages.filter((m) => m.steps).flatMap((m) => m.steps!)
+        .filter((s) => s.kind === "assistant").every((s) => Boolean(s.content.trim()))).toBe(true);
 
       // Tool result should contain search output
       const toolResult = done!.steps!.find((s) => s.kind === "tool_result");
@@ -660,19 +662,13 @@ describe("ConnectionHandler", () => {
       sendJson(ws, makeChatSend({ tools: new WebSearchExecutor().getToolDefinitions() }));
       await donePromise;
 
-      // The second call should include original steps + assistant (with toolCalls) + tool_result
+      // The second invocation receives protocol calls and results, without an empty assistant.
       const kinds = secondCallSteps.map((s) => s.kind);
       expect(kinds).toContain("system");
       expect(kinds).toContain("user");
-      expect(kinds).toContain("assistant");
+      expect(kinds).not.toContain("assistant");
       expect(kinds).toContain("tool_result");
-
-      // Tool calls are merged into the assistant step
-      const assistantWithTools = secondCallSteps.find(
-        (s) => s.kind === "assistant" && s.toolCalls?.length
-      );
-      expect(assistantWithTools).toBeDefined();
-      expect(assistantWithTools!.toolCalls![0].name).toBe("web_search");
+      expect(secondCallSteps.find((s) => s.kind === "tool_call")?.toolCall?.name).toBe("web_search");
     } finally {
       ws.close();
     }

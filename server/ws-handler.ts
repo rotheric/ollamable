@@ -1,3 +1,4 @@
+import { normalizeResponseSteps } from "../shared/normalize-response-steps.js";
 import type WebSocket from "ws";
 import { randomUUID } from "node:crypto";
 import { ToolDispatcher } from "./tool-executor.js";
@@ -241,7 +242,7 @@ export class ConnectionHandler {
 
     // Mutable copy of steps that we extend through the tool loop.
     // `originalCount` marks the boundary so chat.done sends only new steps.
-    let steps = [...msg.steps];
+    let steps = normalizeResponseSteps(msg.steps);
     const originalCount = steps.length;
 
     let loopIteration = 0;
@@ -308,27 +309,6 @@ export class ConnectionHandler {
           }
         }
 
-        const mergedSteps = responseSteps.filter(
-          (s) => s.kind !== "tool_call"
-        );
-
-        // Merge tool calls into the assistant step as toolCalls[]
-        if (toolCallSteps.length > 0) {
-          let assistantStep = mergedSteps.find((s) => s.kind === "assistant");
-          if (!assistantStep) {
-            assistantStep = {
-              id: randomUUID(),
-              kind: "assistant",
-              title: "Assistant",
-              content: "",
-              createdAt: new Date().toISOString(),
-              expanded: true,
-            };
-            mergedSteps.push(assistantStep);
-          }
-          assistantStep.toolCalls = toolCallSteps.map((s) => s.toolCall!);
-        }
-
         const executableToolCalls = toolCallSteps.filter(
           (s) => s.toolCall && this.dispatcher.canHandle(s.toolCall.name)
         );
@@ -340,7 +320,7 @@ export class ConnectionHandler {
 
         if (executableToolCalls.length === 0) {
           // No executable tool calls — we're done.
-          const allNewSteps = [...steps.slice(originalCount), ...mergedSteps];
+          const allNewSteps = [...steps.slice(originalCount), ...responseSteps];
           console.log(`[ws] conversation=${conversationId} done after ${loopIteration} loop(s), returning ${allNewSteps.length} new step(s)`);
           this.send({
             type: "chat.done",
@@ -351,12 +331,12 @@ export class ConnectionHandler {
           break;
         }
 
-        // Send merged assistant (with toolCalls) to frontend
+        // Preserve protocol calls separately from authentic assistant prose.
         this.send({
           type: "chat.steps",
           conversationId,
           requestId,
-          steps: mergedSteps,
+          steps: responseSteps,
         });
 
         // Execute tools, emitting harness steps for each
@@ -425,8 +405,8 @@ export class ConnectionHandler {
           steps: toolResultSteps,
         });
 
-        // Append merged steps + tool results for next LLM iteration
-        steps = [...steps, ...mergedSteps, ...toolResultSteps];
+        // Append provider response records and tool results for the next invocation
+        steps = [...steps, ...responseSteps, ...toolResultSteps];
       }
     } catch (error) {
       if (controller.signal.aborted) {

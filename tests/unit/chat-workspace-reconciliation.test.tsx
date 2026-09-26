@@ -186,7 +186,7 @@ describe("chat-workspace request-preview panel (S4)", () => {
     expect(screen.queryByTestId("reconciliation-figures")).not.toBeInTheDocument();
   });
 
-  it("AC-UX-6 (merged shape the live server actually persists — ws-handler.ts folds tool_call steps into assistant.toolCalls[]): a tool-call turn reports reconciliation-unavailable with a named reason instead of figures", async () => {
+  it("AC-UX-6 (legacy merged assistant.toolCalls[] shape, migrated on load): a tool-call turn reports reconciliation-unavailable with a named reason instead of figures", async () => {
     const user = userEvent.setup();
     seedConversation([
       {

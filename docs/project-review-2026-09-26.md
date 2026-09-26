@@ -32,7 +32,7 @@ Repository constraints from [AGENTS.md](../AGENTS.md): package-manager guidance 
 - [x] **R10 — P2:** MCP initialization/disconnection leaks clients or subprocesses.
 - [x] **R11 — P2:** Tool loop has no execution budget.
 - [x] **R12 — P2:** Production start script is incompatible with static export.
-- [ ] **R13 — P2:** Tool-only replies become synthetic assistant transcript steps.
+- [x] **R13 — P2:** Tool-only replies become synthetic assistant transcript steps.
 - [x] **R14 — P2:** Failed chat sends leave unresolved promises.
 - [x] **R15 — P2:** Overlapping generations share ownership and message correlation.
 - [x] **R16 — P2:** Malformed chat messages receive no correlated failure.
@@ -40,7 +40,7 @@ Repository constraints from [AGENTS.md](../AGENTS.md): package-manager guidance 
 - [x] **R18 — P2:** Tokenization caches omit provider identity.
 - [x] **R19 — P2:** Discovery and tool network requests lack application deadlines.
 - [x] **R20 — P2:** Invalid final tool arguments become an executable empty object.
-- [ ] **R21 — P3:** Tool-only/reasoning-only responses lose usage metadata.
+- [x] **R21 — P3:** Tool-only/reasoning-only responses lose usage metadata.
 - [x] **R22 — P2:** MCP tool names collide across servers and built-ins.
 - [x] **R23 — P2:** Documented development startup and `dev:full` are miswired.
 - [x] **R24 — P2:** Handwritten environment loading preserves quoting syntax.
@@ -226,6 +226,11 @@ The parser searches each content fragment independently for complete `<think>` a
 
 ### R13 — Tool-only replies become synthetic assistant transcript steps
 
+Owner: Codex
+State: COMPLETE
+
+Resolution: The server retains standalone tool_call records throughout streaming, stable results and subsequent provider history; it no longer synthesizes assistant steps. A shared idempotent migration separates legacy embedded calls from genuine prose when loading saved chats and applying backend responses. Calls, results and metadata render in a separately labeled activity region, with inspection retained; empty assistants do not contribute chat controls or message counts. Browser coverage verifies a tool-only response and a migrated reload with no assistant/regenerate control; both provider formatters retain their required assistant-role wire envelopes in migration tests. The full browser run passed 44 tests; its remaining assertion encoded the obsolete hidden-call behavior, was corrected to check the separate activity region, and passes on rerun.
+
 **Priority:** P2. **Evidence:** Reproduced protocol output; rendering path inspected.  
 **Location:** [server/ws-handler.ts](../server/ws-handler.ts), assistant creation around lines 250–264; [chat-workspace.tsx](../src/components/chat-workspace.tsx), `isVisibleTranscriptStep` and `hasToolCalls` rendering.
 
@@ -334,6 +339,11 @@ Argument JSON parse failures are mapped to `{}` during streaming, which is reaso
 **Implementation context:** Distinguish provisional stream display from executable final calls. Validate the completed object and selected tool's required arguments before execution. Test incomplete JSON at a length-limited finish and syntactically valid non-object JSON. Preserve an actionable error rather than quietly substituting defaults.
 
 ### R21 — Tool-only/reasoning-only responses lose usage metadata
+
+Owner: Codex
+State: COMPLETE
+
+Resolution: Both provider parsers retain invocation usage exactly once on an emitted prose/reasoning/call record; an otherwise empty response uses metadata, never a fake assistant. Ollama also includes usage in the final delta. Eight parser regressions cover tool-only, reasoning-only, prose and empty outputs for both providers, including usage arriving after SSE content. The real WebSocket tool-loop test verifies summed usage across two model invocations. All 313 integration tests pass (2 live-provider skips), all 220 unit tests pass, backend typecheck and production build/type validation pass.
 
 **Priority:** P3. **Evidence:** Inspection.  
 **Location:** [server/ollama-client.ts](../server/ollama-client.ts), done handling and `compactSteps`; [server/openai-client.ts](../server/openai-client.ts), final usage assignment and compaction.

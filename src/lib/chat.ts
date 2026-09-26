@@ -1,3 +1,4 @@
+import { normalizeResponseSteps } from "../../shared/normalize-response-steps";
 import type {
   Conversation,
   ConversationStep,
@@ -235,7 +236,7 @@ export function ensureSystemPromptStep(conversation: Conversation): Conversation
     systemPrompt,
     availableTools: conversation.availableTools ?? [],
     activeToolIds: conversation.activeToolIds ?? [],
-    steps: [systemStep, ...otherSteps],
+    steps: [systemStep, ...normalizeResponseSteps(otherSteps)],
   };
 }
 

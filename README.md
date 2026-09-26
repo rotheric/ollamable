@@ -18,7 +18,7 @@ This project is a **demo for educational purposes** — it exposes the internals
 
 - Chat with any model available in your local Ollama instance
 - Define custom tools with JSON Schema and toggle them per conversation
-- Step-level transcript showing every role in the conversation
+- Transcript with authored assistant prose and reasoning; a separate activity section keeps tool calls, results, and execution metadata inspectable
 - Real-time streaming with reasoning and tool call visualization
 - Request JSON preview panel
 - Light and dark mode

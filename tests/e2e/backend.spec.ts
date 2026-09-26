@@ -664,9 +664,10 @@ test("renders tool call and tool result steps from the backend tool loop", async
   // The final assistant text should be visible
   await expect(page.getByText("Based on the search results, here is the answer.")).toBeVisible();
 
-  // tool_call is excluded from visibleTranscriptSteps but tool_result is shown
-  await expect(page.locator('[data-step-kind="tool_call"]')).toHaveCount(0);
-  await expect(page.locator('[data-step-kind="tool_result"]')).toHaveCount(1);
+  const activity = page.getByRole("region", { name: "Tool activity", exact: true });
+  await expect(activity.locator('[data-step-kind="tool_call"]')).toHaveCount(1);
+  await expect(activity.locator('[data-step-kind="tool_result"]')).toHaveCount(1);
+  await expect(page.getByRole("region", { name: "Conversation messages" }).locator('[data-step-kind="tool_call"], [data-step-kind="tool_result"]')).toHaveCount(0);
 });
 
 test("persists backend-routed conversation steps across page reload", async ({ page }) => {
@@ -964,9 +965,55 @@ for (const display of ["markdown", "plain", "tokens"] as const) {
     const assistant = page.locator('[data-step-kind="assistant"]');
     await expect(assistant).toContainText("Authentic");
     await expect(assistant).toContainText("assistant explanation");
-    await expect(assistant).toContainText("inspect_example");
-    await expect(assistant).toContainText("distinctive query");
+    await expect(page.getByRole("region", { name: "Tool activity", exact: true })).toContainText("inspect_example");
+    await expect(page.getByRole("region", { name: "Tool activity", exact: true })).toContainText("distinctive query");
     if (display === "markdown") await expect(assistant.locator("strong")).toHaveText("assistant explanation");
     if (display === "tokens") await expect(assistant.getByTestId("token-text")).toContainText("Authentic **assistant explanation**");
   });
 }
+
+test("tool-only responses and legacy saved calls stay outside assistant messages", async ({ page }) => {
+  wsHandler = (data, ws) => {
+    if (data.type !== "chat.send") return;
+    const createdAt = new Date().toISOString();
+    send(ws, { type: "chat.done", conversationId: data.conversationId, requestId: data.requestId, steps: [
+      { id: "protocol-call", kind: "tool_call", title: "Tool Call", content: "", createdAt, expanded: true,
+        toolCall: { id: "call-1", name: "inspect_example", arguments: { query: "only a tool" } }, usage: { inputTokens: 17, outputTokens: 9 } },
+      { id: "protocol-result", kind: "tool_result", title: "Result", content: "Inspection finished", createdAt, expanded: true,
+        toolResult: { id: "call-1", name: "inspect_example" } },
+    ] });
+  };
+  await page.goto("/");
+  await waitForWsConnection();
+  const prompt = page.getByRole("textbox", { name: "User Prompt" });
+  await prompt.fill("Inspect without prose");
+  await prompt.press("Enter");
+  const activity = page.getByRole("region", { name: "Tool activity", exact: true });
+  await expect(activity).toContainText("only a tool");
+  await expect(activity).toContainText("Inspection finished");
+  await expect(page.locator('[data-step-kind="assistant"]')).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Regenerate response" })).toHaveCount(0);
+  await expect(page.getByRole("region", { name: "Conversation messages" })).not.toContainText("Inspection finished");
+  await page.waitForFunction(() => localStorage.getItem("ollamable.conversations")?.includes("protocol-result"));
+  // Simulate an existing installation's merged tool-only assistant record.
+  await page.evaluate(() => {
+    const saved = JSON.parse(localStorage.getItem("ollamable.conversations")!);
+    for (const conversation of saved) for (const step of conversation.steps) {
+      if (step.id !== "protocol-call") continue;
+      step.kind = "assistant";
+      step.toolCalls = [step.toolCall];
+      delete step.toolCall;
+    }
+    localStorage.setItem("ollamable.conversations", JSON.stringify(saved));
+  });
+  await page.reload();
+  await expect(activity).toContainText("only a tool");
+  await expect(activity).toContainText("out: 9");
+  await expect(page.locator('[data-step-kind="assistant"]')).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Regenerate response" })).toHaveCount(0);
+  await page.waitForFunction(() => {
+    const saved = JSON.parse(localStorage.getItem("ollamable.conversations")!);
+    return saved.some((c: { steps: Array<{ kind: string; toolCalls?: unknown[] }> }) =>
+      c.steps.some((s) => s.kind === "tool_call") && c.steps.every((s) => !s.toolCalls));
+  });
+});

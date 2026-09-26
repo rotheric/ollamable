@@ -1,3 +1,4 @@
+import { retainResponseUsage } from "./response-usage.js";
 import { withNetworkDeadline } from "./network-deadline.js";
 /**
  * OpenAI-compatible API client for providers like MiniMax.
@@ -232,7 +233,7 @@ export async function streamOpenAIResponse(args: {
     };
   }
 
-  return compactSteps(reasoningStep, assistantStep, finalToolSteps);
+  return retainResponseUsage(compactSteps(reasoningStep, assistantStep, finalToolSteps), assistantStep.usage, assistantStep);
 }
 
 // ── SSE line processing ──────────────────────────────────────────────

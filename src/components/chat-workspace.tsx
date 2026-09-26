@@ -1,5 +1,7 @@
 "use client";
 
+import { normalizeResponseSteps } from "../../shared/normalize-response-steps";
+
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import {
   DndContext,
@@ -440,7 +442,6 @@ export function ChatWorkspace() {
     if (kind === "reasoning" && s.collapseReasoning) return false;
     if (kind === "tool_call" && s.collapseTools) return false;
     if (kind === "tool_result" && s.collapseToolCalls) return false;
-    if (kind === "assistant" && step.toolCalls?.length && s.collapseToolCalls) return false;
     if (kind === "meta" && s.collapseServerMessages) return false;
     return true;
   }, []);
@@ -1255,7 +1256,7 @@ export function ChatWorkspace() {
             step.kind === "meta")
       );
 
-      const nextStreamingSteps = partialSteps.map((step) => ({
+      const nextStreamingSteps = normalizeResponseSteps(partialSteps).map((step) => ({
         ...step,
         id: `stream-${step.id}`,
         expanded: defaultExpanded(step),
@@ -1270,6 +1271,7 @@ export function ChatWorkspace() {
   }
 
   function applyStableSteps(conversationId: string, newSteps: ConversationStep[]) {
+    newSteps = normalizeResponseSteps(newSteps);
     updateConversation(conversationId, (conversation) => {
       // Remove streaming steps, then upsert new stable steps by ID
       const stableSteps = conversation.steps.filter((s) => !s.id.startsWith("stream-"));
@@ -1354,7 +1356,7 @@ export function ChatWorkspace() {
     stopStreamRef.current = stop;
 
     try {
-      const responseSteps = await promise;
+      const responseSteps = normalizeResponseSteps(await promise);
       if (stopStreamRef.current !== stop) return;
       updateConversation(nextConversation.id, (conversation) => {
         const stableSteps = conversation.steps.filter((step) => !step.id.startsWith("stream-"));
@@ -2111,12 +2113,14 @@ export function ChatWorkspace() {
                           };
                           dataTour = tourMap[step.kind];
                         }
-                        const hasToolCalls = step.toolCalls && step.toolCalls.length > 0;
+                        const toolCalls = step.toolCall ? [step.toolCall] : step.toolCalls ?? [];
+                        const hasToolCalls = toolCalls.length > 0;
                         if (hasToolCalls) {
-                          cumulativeToolCalls += step.toolCalls!.length;
+                          cumulativeToolCalls += toolCalls.length;
                         }
                         return {
                           key: step.id,
+                          kind: step.kind,
                           depth: hasToolCalls ? 1 : stepThreadDepth(step.kind),
                           element: (
                       <StepCard
@@ -2129,7 +2133,7 @@ export function ChatWorkspace() {
                         headerLabel={hasToolCalls ? "tool call requests" : formatStepHeader(step)}
                         footerMeta={(() => {
                           const baseMeta = hasToolCalls
-                            ? [step.model, `${step.toolCalls!.length} tool${step.toolCalls!.length !== 1 ? "s" : ""}`].filter(Boolean).join(" / ")
+                            ? [step.model, `${toolCalls.length} tool${toolCalls.length !== 1 ? "s" : ""}`, formatStepFooterMeta(step)].filter(Boolean).join(" / ")
                             : formatStepFooterMeta(step);
                           if (step.kind === "assistant" && cumulativeToolCalls > 0) {
                             const suffix = `tool calls: ${cumulativeToolCalls}`;
@@ -2217,7 +2221,7 @@ export function ChatWorkspace() {
                         ) : null}
                         {hasToolCalls ? (
                           <Stack spacing={2}>
-                            {step.toolCalls!.map((tc, i) => (
+                            {toolCalls.map((tc, i) => (
                               <Box key={tc.id ?? i}>
                                 <Typography variant="body2" sx={{ mb: 0.5 }}>
                                   {tc.name}
@@ -2229,7 +2233,7 @@ export function ChatWorkspace() {
                             ))}
                           </Stack>
                         ) : null}
-                        {editingStepId === step.id ? (
+                        {step.kind === "tool_call" ? null : editingStepId === step.id ? (
                           <Stack spacing={1.5}>
                             <TextField
                               label="Edit message"
@@ -2275,7 +2279,17 @@ export function ChatWorkspace() {
                           ),
                         };
                       });
-                      return wrapWithThreadBars(items, theme);
+                      const activity = items.filter((item) => ["tool_call", "tool_result", "meta"].includes(item.kind));
+                      const messages = items.filter((item) => !["tool_call", "tool_result", "meta"].includes(item.kind));
+                      return <>
+                        <Stack component="section" aria-label="Conversation messages" spacing={2}>
+                          {wrapWithThreadBars(messages, theme)}
+                        </Stack>
+                        {activity.length > 0 ? <Stack component="section" aria-label="Tool activity" spacing={2}>
+                          <Typography variant="overline" color="text.secondary">Tool activity and response metadata</Typography>
+                          {wrapWithThreadBars(activity, theme)}
+                        </Stack> : null}
+                      </>;
                     })()}
                     {streaming ? (
                       <Paper
@@ -3191,7 +3205,8 @@ function renderToolSchema(tool: ToolDefinition) {
 function isVisibleTranscriptStep(step: ConversationStep) {
   return (
     step.kind === "user" ||
-    step.kind === "assistant" ||
+    (step.kind === "assistant" && Boolean(step.content.trim())) ||
+    step.kind === "tool_call" ||
     step.kind === "reasoning" ||
     step.kind === "tool_result" ||
     step.kind === "meta"

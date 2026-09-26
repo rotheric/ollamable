@@ -1,3 +1,4 @@
+import { retainResponseUsage } from "./response-usage.js";
 import { withNetworkDeadline } from "./network-deadline.js";
 import type { ConversationStep, ReasoningEffort, ToolDefinition } from "./types.js";
 import { randomUUID } from "node:crypto";
@@ -221,9 +222,6 @@ function processStreamLine(
     }
   }
 
-  const nextSteps = compactSteps(reasoningStep, assistantStep, toolSteps);
-  onDelta(nextSteps);
-
   if (chunk.done) {
     if (chunk.prompt_eval_count != null || chunk.eval_count != null || chunk.done_reason) {
       assistantStep.usage = {
@@ -232,9 +230,12 @@ function processStreamLine(
         ...(chunk.done_reason ? { stopReason: chunk.done_reason } : {}),
       };
     }
+    const nextSteps = retainResponseUsage(compactSteps(reasoningStep, assistantStep, toolSteps), assistantStep.usage, assistantStep);
+    onDelta(nextSteps);
     return { done: true, steps: nextSteps, reasoningStep };
   }
 
+  onDelta(compactSteps(reasoningStep, assistantStep, toolSteps));
   return { done: false, reasoningStep };
 }
 
