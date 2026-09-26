@@ -941,3 +941,32 @@ test("persists usage data across page reload", async ({ page }) => {
   await expect(assistantStep.getByText("out: 200")).toBeVisible();
   await expect(assistantStep.getByText("stop: length")).toBeVisible();
 });
+
+for (const display of ["markdown", "plain", "tokens"] as const) {
+  test(`keeps authentic assistant prose alongside tool calls in ${display} mode`, async ({ page }) => {
+    await page.addInitScript((mode) => {
+      localStorage.setItem("ollamable.sidebarState", JSON.stringify({ renderMarkdown: mode === "markdown", showTokens: mode === "tokens" }));
+    }, display);
+    wsHandler = (data, ws) => {
+      if (data.type !== "chat.send") return;
+      const step = {
+        id: "mixed-response", kind: "assistant", title: "Assistant", expanded: true,
+        content: "Authentic **assistant explanation**", createdAt: new Date().toISOString(),
+        toolCalls: [{ id: "mixed-call", name: "inspect_example", arguments: { query: "distinctive query" } }],
+      };
+      send(ws, { type: "chat.done", conversationId: data.conversationId, requestId: data.requestId, steps: [step] });
+    };
+    await page.goto("/");
+    await waitForWsConnection();
+    const prompt = page.getByRole("textbox", { name: "User Prompt" });
+    await prompt.fill("Explain before calling a tool");
+    await prompt.press("Enter");
+    const assistant = page.locator('[data-step-kind="assistant"]');
+    await expect(assistant).toContainText("Authentic");
+    await expect(assistant).toContainText("assistant explanation");
+    await expect(assistant).toContainText("inspect_example");
+    await expect(assistant).toContainText("distinctive query");
+    if (display === "markdown") await expect(assistant.locator("strong")).toHaveText("assistant explanation");
+    if (display === "tokens") await expect(assistant.getByTestId("token-text")).toContainText("Authentic **assistant explanation**");
+  });
+}

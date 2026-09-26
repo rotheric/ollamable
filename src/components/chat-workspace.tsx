@@ -2228,7 +2228,8 @@ export function ChatWorkspace() {
                               </Box>
                             ))}
                           </Stack>
-                        ) : editingStepId === step.id ? (
+                        ) : null}
+                        {editingStepId === step.id ? (
                           <Stack spacing={1.5}>
                             <TextField
                               label="Edit message"

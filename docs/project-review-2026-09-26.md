@@ -26,7 +26,7 @@ Repository constraints from [AGENTS.md](../AGENTS.md): package-manager guidance 
 - [x] **R04 — P1:** Stop does not stop subsequent tools.
 - [x] **R05 — P2:** Disconnect/reconnect leaves chat generation pending.
 - [x] **R06 — P2:** Initial model loading overwrites saved selections.
-- [ ] **R07 — P2:** Assistant text disappears when the step also contains tool calls.
+- [x] **R07 — P2:** Assistant text disappears when the step also contains tool calls.
 - [x] **R08 — P2:** Split reasoning tags corrupt assistant/reasoning separation.
 - [x] **R09 — P2:** Curl byte limit does not bound downloads or allocations.
 - [x] **R10 — P2:** MCP initialization/disconnection leaks clients or subprocesses.
@@ -197,6 +197,11 @@ The repair effect runs against `fallbackModels` before `/models` finishes. A sav
 **Implementation context:** Distinguish loading, successful discovery, and failed discovery before mutating persisted selections. A temporarily unreachable provider does not prove the saved model is invalid. Test a non-fallback saved model and a delayed response; also preserve provider identity when names overlap.
 
 ### R07 — Assistant text disappears when the step also contains tool calls
+
+Owner: Codex
+State: COMPLETE
+
+Resolution: Tool metadata and authentic prose now render independently. Three browser regressions send a mixed assistant/call response through the WebSocket client and verify that prose and call arguments remain visible in Markdown, plain-text and token modes. All three pass; production build/type validation passes. Tool-only representation remains tracked separately in R13.
 
 **Priority:** P2. **Evidence:** Browser reproduction.  
 **Location:** [chat-workspace.tsx](../src/components/chat-workspace.tsx), `hasToolCalls` branch around line 2233.
