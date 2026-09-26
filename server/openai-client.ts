@@ -161,11 +161,11 @@ export async function streamOpenAIResponse(args: {
 
   // Tracks whether we're inside a <think>…</think> region so content
   // arriving across multiple SSE chunks is routed to the reasoning step.
-  const thinkState = { inside: false };
+  const thinkState = { inside: false, pending: "" };
 
   while (true) {
     const { value, done } = await reader.read();
-    if (done) break;
+    if (done) { buffer += decoder.decode(); break; }
 
     buffer += decoder.decode(value, { stream: true });
     const lines = buffer.split("\n");
@@ -208,6 +208,10 @@ export async function streamOpenAIResponse(args: {
     }
   }
 
+  // A partial delimiter at EOF is ordinary text in the current region.
+  (thinkState.inside ? reasoningStep : assistantStep).content += thinkState.pending;
+  thinkState.pending = "";
+
   // Finalise tool steps with fully accumulated arguments
   const finalToolSteps = materialiseToolSteps(pendingToolCalls, toolSteps);
 
@@ -237,34 +241,26 @@ function routeContent(
   fragment: string,
   assistantStep: ConversationStep,
   reasoningStep: ConversationStep,
-  thinkState: { inside: boolean }
+  thinkState: { inside: boolean; pending: string }
 ): void {
-  let remaining = fragment;
-
+  let remaining = thinkState.pending + fragment;
+  thinkState.pending = "";
   while (remaining.length > 0) {
-    if (thinkState.inside) {
-      const closeIdx = remaining.indexOf("</think>");
-      if (closeIdx === -1) {
-        // Still inside thinking — all remaining goes to reasoning
-        reasoningStep.content += remaining;
-        return;
-      }
-      // Consume up to (and including) the closing tag
-      reasoningStep.content += remaining.slice(0, closeIdx);
-      remaining = remaining.slice(closeIdx + "</think>".length);
-      thinkState.inside = false;
-    } else {
-      const openIdx = remaining.indexOf("<think>");
-      if (openIdx === -1) {
-        // Not inside thinking — all remaining goes to assistant
-        assistantStep.content += remaining;
-        return;
-      }
-      // Text before the tag goes to assistant
-      assistantStep.content += remaining.slice(0, openIdx);
-      remaining = remaining.slice(openIdx + "<think>".length);
-      thinkState.inside = true;
+    const delimiter = thinkState.inside ? "</think>" : "<think>";
+    const destination = thinkState.inside ? reasoningStep : assistantStep;
+    const index = remaining.indexOf(delimiter);
+    if (index !== -1) {
+      destination.content += remaining.slice(0, index);
+      remaining = remaining.slice(index + delimiter.length);
+      thinkState.inside = !thinkState.inside;
+      continue;
     }
+    // Hold only a suffix that could become a delimiter in the next fragment.
+    let prefixLength = Math.min(remaining.length, delimiter.length - 1);
+    while (prefixLength > 0 && !delimiter.startsWith(remaining.slice(-prefixLength))) prefixLength--;
+    destination.content += remaining.slice(0, remaining.length - prefixLength);
+    thinkState.pending = prefixLength ? remaining.slice(-prefixLength) : "";
+    break;
   }
 }
 
@@ -272,7 +268,7 @@ function processLine(
   raw: string,
   assistantStep: ConversationStep,
   reasoningStep: ConversationStep,
-  thinkState: { inside: boolean },
+  thinkState: { inside: boolean; pending: string },
   toolSteps: ConversationStep[],
   pendingToolCalls: Map<number, { id: string; name: string; arguments: string }>,
   setUsage: (u: SseChunk["usage"]) => void,

@@ -27,7 +27,7 @@ Repository constraints from [AGENTS.md](../AGENTS.md): package-manager guidance 
 - [x] **R05 — P2:** Disconnect/reconnect leaves chat generation pending.
 - [ ] **R06 — P2:** Initial model loading overwrites saved selections.
 - [ ] **R07 — P2:** Assistant text disappears when the step also contains tool calls.
-- [ ] **R08 — P2:** Split reasoning tags corrupt assistant/reasoning separation.
+- [x] **R08 — P2:** Split reasoning tags corrupt assistant/reasoning separation.
 - [x] **R09 — P2:** Curl byte limit does not bound downloads or allocations.
 - [x] **R10 — P2:** MCP initialization/disconnection leaks clients or subprocesses.
 - [x] **R11 — P2:** Tool loop has no execution budget.
@@ -201,6 +201,11 @@ The tool-call branch replaces the content-rendering branch. A seeded assistant s
 **Implementation context:** Render authentic assistant content independently from call metadata, retaining Markdown/token-view behavior. Verify a response with both nonempty content and calls, not just tool-only or text-only fixtures. R13 covers synthetic assistant records and is related but independently observable.
 
 ### R08 — Split reasoning tags corrupt assistant/reasoning separation
+
+Owner: Codex
+State: COMPLETE
+
+Resolution: `server/openai-client.ts` carries partial delimiters between content fragments, flushes unfinished prefixes as ordinary text at EOF, and flushes the UTF-8 decoder. New real-parser SSE tests cover every opening/closing split combination, character-sized fragments, byte-sized UTF-8 transport chunks, multiple reasoning regions, ordinary less-than characters, and partial EOF prefixes. All 47 tests pass; restoring the original parser produces 43 failures. Backend TypeScript passed.
 
 **Priority:** P2. **Evidence:** Reproduced with a mocked SSE response.  
 **Location:** [server/openai-client.ts](../server/openai-client.ts), `routeContent` around lines 240–267.
