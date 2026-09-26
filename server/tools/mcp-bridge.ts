@@ -19,6 +19,7 @@ interface ConnectedServer {
 
 export class McpBridge implements ToolExecutor {
   private servers: ConnectedServer[] = [];
+  private disposed = false;
   private toolToServer = new Map<string, ConnectedServer>();
   private toolDefs: ToolDefinition[] = [];
 
@@ -34,10 +35,13 @@ export class McpBridge implements ToolExecutor {
     configs: Record<string, McpServerConfig>,
     emit: (event: MetaEvent) => void
   ): Promise<ToolDefinition[]> {
+    if (this.disposed) return [];
     this.toolDefs = [];
     const discoveredTools: ToolDefinition[] = [];
 
     for (const [name, config] of Object.entries(configs)) {
+      if (this.disposed) break;
+      let server: ConnectedServer | undefined;
       try {
         emit({
           id: randomUUID(),
@@ -59,18 +63,22 @@ export class McpBridge implements ToolExecutor {
           { capabilities: {} }
         );
 
+        // Own resources before the first await so disconnect can always close them.
+        server = { name, client, transport, tools: [] };
+        this.servers.push(server);
         await client.connect(transport);
+        if (this.disposed) {
+          await this.closeServer(server);
+          break;
+        }
 
         const toolsResult = await client.listTools();
+        if (this.disposed) {
+          await this.closeServer(server);
+          break;
+        }
         const toolNames = toolsResult.tools.map((t) => t.name);
-
-        const server: ConnectedServer = {
-          name,
-          client,
-          transport,
-          tools: toolNames,
-        };
-        this.servers.push(server);
+        server.tools = toolNames;
 
         for (const tool of toolsResult.tools) {
           this.toolToServer.set(tool.name, server);
@@ -91,6 +99,11 @@ export class McpBridge implements ToolExecutor {
           timestamp: new Date().toISOString(),
         });
       } catch (error) {
+        if (server) {
+          this.servers = this.servers.filter((entry) => entry !== server);
+          await this.closeServer(server);
+        }
+        if (this.disposed) break;
         const message =
           error instanceof Error ? error.message : "Unknown error";
         emit({
@@ -104,6 +117,7 @@ export class McpBridge implements ToolExecutor {
       }
     }
 
+    if (this.disposed) return [];
     this.toolDefs = discoveredTools;
     return discoveredTools;
   }
@@ -180,15 +194,21 @@ export class McpBridge implements ToolExecutor {
     }
   }
 
-  async disconnect(): Promise<void> {
-    for (const server of this.servers) {
-      try {
-        await server.client.close();
-      } catch {
-        // Best effort cleanup
-      }
+  private async closeServer(server: ConnectedServer): Promise<void> {
+    try {
+      await server.client.close();
+    } catch {
+      // A failed handshake may not have attached its transport to the client.
+    } finally {
+      try { await server.transport.close(); } catch { /* best effort */ }
     }
-    this.servers = [];
+  }
+
+  async disconnect(): Promise<void> {
+    this.disposed = true;
+    const servers = this.servers.splice(0);
     this.toolToServer.clear();
+    this.toolDefs = [];
+    await Promise.all(servers.map((server) => this.closeServer(server)));
   }
 }

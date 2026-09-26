@@ -29,7 +29,7 @@ Repository constraints from [AGENTS.md](../AGENTS.md): package-manager guidance 
 - [ ] **R07 — P2:** Assistant text disappears when the step also contains tool calls.
 - [ ] **R08 — P2:** Split reasoning tags corrupt assistant/reasoning separation.
 - [x] **R09 — P2:** Curl byte limit does not bound downloads or allocations.
-- [ ] **R10 — P2:** MCP initialization/disconnection leaks clients or subprocesses.
+- [x] **R10 — P2:** MCP initialization/disconnection leaks clients or subprocesses.
 - [x] **R11 — P2:** Tool loop has no execution budget.
 - [ ] **R12 — P2:** Production start script is incompatible with static export.
 - [ ] **R13 — P2:** Tool-only replies become synthetic assistant transcript steps.
@@ -285,6 +285,11 @@ Both adapters attach usage to an assistant step that is omitted when its text is
 ## MCP lifecycle and naming
 
 ### R10 — MCP initialization/disconnection leaks clients or subprocesses
+
+Owner: Codex
+State: COMPLETE
+
+Resolution: `server/tools/mcp-bridge.ts` owns each client/transport before handshake, closes both on failure, permanently marks disconnected bridges disposed, clears discovery/dispatch state, and closes late initialization without starting subsequent servers. Four mocked-SDK lifecycle regressions cover delayed connect/listTools and failures at both stages, including multiple configured servers. All four fail with the original implementation and pass with the fix; backend TypeScript passed. Tests launch no external MCP subprocesses.
 
 **Priority:** P2. **Evidence:** Inspection.  
 **Location:** [server/tools/mcp-bridge.ts](../server/tools/mcp-bridge.ts), `connect` around lines 51–73 and `disconnect` around line 180; [server/ws-handler.ts](../server/ws-handler.ts), async initialization and socket-close cleanup.
