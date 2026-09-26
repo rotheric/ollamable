@@ -83,6 +83,8 @@ export interface Conversation {
   steps: ConversationStep[];
   note?: string;
   _tourExample?: boolean;
+  /** Original example content, retained across reloads for safe tour cleanup. */
+  _tourSeed?: string;
 }
 
 export interface OllamaModel {

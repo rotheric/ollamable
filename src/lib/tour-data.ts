@@ -1,3 +1,4 @@
+import { tourConversationSignature } from "@/src/lib/tour-session";
 import type { Step } from "react-joyride";
 import type { Conversation, ToolDefinition } from "@/src/types/chat";
 import { createId, createStep } from "@/src/lib/chat";
@@ -8,10 +9,10 @@ export const TOUR_STEP_KEY = "ollamable.tourStep";
 export const tourSteps: Step[] = [
   // App Bar
   {
-    target: '[data-tour="tools-chip"]',
+    target: '[data-tour="tools-overview"]',
     title: "Active Tools",
     content:
-      "When tools are enabled for a conversation, this chip shows the count. Click it to jump to the Tools panel on the right.",
+      "This card lists the tools enabled for this conversation. Expand it to inspect their descriptions; click a tool to open its settings on the right.",
     placement: "bottom",
   },
 
@@ -224,5 +225,6 @@ The mission achieved several milestones: the Super Heavy booster was successfull
     _tourExample: true,
   };
 
+  conversation._tourSeed = tourConversationSignature(conversation);
   return [conversation];
 }

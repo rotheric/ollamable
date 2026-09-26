@@ -18,7 +18,8 @@ import {
   arrayMove,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { Joyride, ACTIONS, EVENTS, STATUS, type EventData } from "react-joyride";
+import { Joyride } from "react-joyride";
+import { useTour } from "@/src/lib/use-tour";
 import Markdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import {
@@ -104,12 +105,7 @@ import { BackendClient, WS_URL } from "@/src/lib/backend-client";
 import { TokenViewStepContent } from "@/src/components/token-view-step-content";
 import { RequestPreviewExtras } from "@/src/components/request-preview-extras";
 import { buildOpenAIRequestBody, toOpenAIMessages } from "@/shared/openai-format";
-import {
-  tourSteps,
-  createTourConversations,
-  TOUR_COMPLETED_KEY,
-  TOUR_STEP_KEY,
-} from "@/src/lib/tour-data";
+import { tourSteps } from "@/src/lib/tour-data";
 
 const SIDEBAR_WIDTH = 320;
 const APP_BAR_HEIGHT = 65;
@@ -366,8 +362,6 @@ function SortableConversationCard({
 export function ChatWorkspace() {
   const theme = useTheme();
   const [models, setModels] = useState<OllamaModel[]>(fallbackModels);
-  const modelsRef = useRef<OllamaModel[]>(fallbackModels);
-  modelsRef.current = models;
   const [tools, setTools] = useState<ToolDefinition[]>([]);
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [conversationOrder, setConversationOrder] = useState<string[] | null>(null);
@@ -514,249 +508,10 @@ export function ChatWorkspace() {
   const previousStepCountRef = useRef(0);
   const backendClientRef = useRef(new BackendClient());
 
-  // ── Tour state ──────────────────────────────────────────────────────
-  const [tourRun, setTourRun] = useState(false);
-  const [tourStepIndex, setTourStepIndex] = useState(0);
-  const tourConversationIdsRef = useRef<string[]>([]);
-  const preTourSidebarStateRef = useRef<SidebarState | null>(null);
-  const tourInitRef = useRef(false);
-
-  // Seed tour conversations and auto-start on first visit
-  useEffect(() => {
-    if (tourInitRef.current) return;
-    tourInitRef.current = true;
-
-    const completed = window.localStorage.getItem(TOUR_COMPLETED_KEY);
-    if (completed === "true") return;
-
-    // Defer tour on narrow viewports
-    if (window.innerWidth < 768) return;
-
-    // Wait for initial data to settle before starting tour
-    const timer = setTimeout(() => {
-      setConversations((current) => {
-        // Don't seed if tour conversations already exist (e.g. resume after refresh)
-        const existingTour = current.filter((c) => c._tourExample);
-        if (existingTour.length > 0) {
-          tourConversationIdsRef.current = existingTour.map((c) => c.id);
-          return current;
-        }
-
-        const model = current[0]?.model ?? fallbackModels[0].name;
-        const tourConvos = createTourConversations(model, tools);
-        tourConversationIdsRef.current = tourConvos.map((c) => c.id);
-        return [...tourConvos, ...current];
-      });
-
-      // Select first tour conversation
-      setConversations((current) => {
-        const firstTour = current.find((c) => c._tourExample);
-        if (firstTour) {
-          setSelectedConversationId(firstTour.id);
-        }
-        return current;
-      });
-
-      // Resume from saved step or start at 0
-      const savedStep = window.localStorage.getItem(TOUR_STEP_KEY);
-      const resumeIndex = savedStep ? parseInt(savedStep, 10) : 0;
-      setTourStepIndex(isNaN(resumeIndex) ? 0 : resumeIndex);
-      setTourRun(true);
-    }, 500);
-
-    return () => clearTimeout(timer);
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
-
-  function handleStartTour() {
-    if (window.innerWidth < 768) {
-      alert("For the best experience, please use a screen at least 768px wide.");
-      return;
-    }
-
-    // Save current sidebar state to restore after tour
-    preTourSidebarStateRef.current = { ...sidebarState };
-
-    window.localStorage.removeItem(TOUR_COMPLETED_KEY);
-
-    // Seed tour conversations if they don't already exist
-    const model = selectedConversation?.model ?? availableModels[0]?.name ?? fallbackModels[0].name;
-    setConversations((current) => {
-      const existingTour = current.filter((c) => c._tourExample);
-      if (existingTour.length > 0) {
-        tourConversationIdsRef.current = existingTour.map((c) => c.id);
-        const firstTour = existingTour[0];
-        setSelectedConversationId(firstTour.id);
-        return current;
-      }
-
-      const tourConvos = createTourConversations(model, tools);
-      tourConversationIdsRef.current = tourConvos.map((c) => c.id);
-      setSelectedConversationId(tourConvos[0].id);
-      return [...tourConvos, ...current];
-    });
-
-    // Ensure left sidebar is open for the first steps
-    updateSidebar({ sidebarOpen: true });
-
-    window.localStorage.removeItem(TOUR_STEP_KEY);
-    setTourStepIndex(0);
-    setTourRun(true);
-  }
-
-  function finishTour() {
-    // Stop the tour and dismiss backdrop immediately
-    setTourRun(false);
-    setTourStepIndex(0);
-    window.localStorage.setItem(TOUR_COMPLETED_KEY, "true");
-    window.localStorage.removeItem(TOUR_STEP_KEY);
-
-    // Remove all tour conversations (identified by _tourExample flag)
-    setConversations((current) => {
-      const remaining = current.filter((c) => !c._tourExample);
-
-      // Select first remaining conversation (preserves user's original chats)
-      setSelectedConversationId((currentId) => {
-        if (remaining.some((c) => c.id === currentId)) return currentId;
-        return remaining[0]?.id ?? "";
-      });
-
-      return remaining;
-    });
-
-    tourConversationIdsRef.current = [];
-
-    // Collapse both sidebars after tour
-    if (preTourSidebarStateRef.current) {
-      const restored = {
-        ...preTourSidebarStateRef.current,
-        sidebarOpen: false,
-        rightSidebarOpen: false,
-      };
-      setSidebarState(restored);
-      saveSidebarState(restored);
-      preTourSidebarStateRef.current = null;
-    } else {
-      updateSidebar({ sidebarOpen: false, rightSidebarOpen: false });
-    }
-  }
-
-  function applyTourStepSideEffects(nextIndex: number) {
-    // Indices 7-10: ensure right sidebar is open for all right sidebar steps
-    if (nextIndex >= 7 && nextIndex <= 10) {
-      const rightPatch: Partial<SidebarState> = { rightSidebarOpen: true };
-
-      if (nextIndex === 7) {
-        // Index 7 (Models): expand Models + open all provider subsections
-        // Use ref to avoid stale closure in memoized callback
-        const currentModels = modelsRef.current.filter((m) => !isEmbeddingModel(m));
-        const providerKeys: Record<string, boolean> = {};
-        for (const m of currentModels.length > 0 ? currentModels : fallbackModels) {
-          providerKeys[`model-${m.providerName ?? "Local"}`] = true;
-        }
-        setSidebarState((prev) => {
-          const next = {
-            ...prev,
-            ...rightPatch,
-            modelSectionOpen: true,
-            tempSectionOpen: false,
-            maxTokensSectionOpen: false,
-            toolsSectionOpen: false,
-            subsections: { ...prev.subsections, ...providerKeys },
-          };
-          saveSidebarState(next);
-          return next;
-        });
-      } else if (nextIndex === 8) {
-        // Index 8 (Temperature): collapse Models, expand Temperature
-        updateSidebar({ ...rightPatch, modelSectionOpen: false, tempSectionOpen: true, maxTokensSectionOpen: false, toolsSectionOpen: false });
-      } else if (nextIndex === 9) {
-        // Index 9 (Max Output Tokens): collapse Temperature, expand Max Tokens
-        updateSidebar({ ...rightPatch, modelSectionOpen: false, tempSectionOpen: false, maxTokensSectionOpen: true, toolsSectionOpen: false });
-      } else if (nextIndex === 10) {
-        // Index 10 (Tools): collapse Max Tokens, expand Tools + open builtin subsection + check web_search
-        setSidebarState((prev) => {
-          const next = {
-            ...prev,
-            ...rightPatch,
-            modelSectionOpen: false,
-            tempSectionOpen: false,
-            maxTokensSectionOpen: false,
-            toolsSectionOpen: true,
-            subsections: { ...prev.subsections, "tools-builtin": true },
-          };
-          saveSidebarState(next);
-          return next;
-        });
-        // Enable web_search tool after a brief delay so the user sees it toggle
-        setTimeout(() => {
-          const webSearchTool = tools.find((t) => t.name === "web_search");
-          if (webSearchTool && selectedConversation && !selectedConversation.activeToolIds.includes(webSearchTool.id)) {
-            updateConversation(selectedConversation.id, (c) => ({
-              ...c,
-              activeToolIds: [...c.activeToolIds, webSearchTool.id],
-              updatedAt: new Date().toISOString(),
-            }));
-          }
-        }, 800);
-      }
-    }
-
-  }
-
-  // Steps that trigger sidebar/section animations and need a delay before advancing
-  const STEPS_NEEDING_DELAY = new Set([7]);
-
-  const advanceToStep = useCallback((nextIndex: number) => {
-    setTourStepIndex(nextIndex);
-    window.localStorage.setItem(TOUR_STEP_KEY, String(nextIndex));
-  }, []);
-
-  const handleJoyrideEvent = useCallback(
-    (data: EventData) => {
-      const { action, index, status, type } = data;
-
-      if (
-        status === STATUS.FINISHED ||
-        status === STATUS.SKIPPED ||
-        action === ACTIONS.CLOSE
-      ) {
-        finishTour();
-        return;
-      }
-
-      // Skip past steps whose target element doesn't exist in the DOM
-      if (type === EVENTS.TARGET_NOT_FOUND) {
-        const nextIndex = index + 1;
-        if (nextIndex < tourSteps.length) {
-          advanceToStep(nextIndex);
-        }
-        return;
-      }
-
-      if (type === EVENTS.STEP_AFTER) {
-        const nextIndex =
-          action === ACTIONS.PREV ? index - 1 : index + 1;
-
-        // Past the last step — tour is done
-        if (nextIndex >= tourSteps.length) {
-          finishTour();
-          return;
-        }
-
-        if (nextIndex >= 0) {
-          applyTourStepSideEffects(nextIndex);
-
-          // Only delay for steps that trigger sidebar/section animations (350ms transition)
-          if (STEPS_NEEDING_DELAY.has(nextIndex)) {
-            setTimeout(() => advanceToStep(nextIndex), 400);
-          } else {
-            advanceToStep(nextIndex);
-          }
-        }
-      }
-    },
-    [advanceToStep] // eslint-disable-line react-hooks/exhaustive-deps
-  );
+  const { tourRun, tourStepIndex, handleStartTour, handleJoyrideEvent } = useTour({
+    conversations, setConversations, selectedConversationId, setSelectedConversationId,
+    setConversationOrder, sidebarState, setSidebarState, tools, models,
+  });
 
   const handleWsMessage = useCallback(
     (data: unknown) => {
@@ -992,13 +747,13 @@ export function ChatWorkspace() {
       previousSelectedConversationIdRef.current !== currentConversationId;
     const newStepAdded = stepCount > previousStepCountRef.current;
 
-    if (conversationChanged || newStepAdded) {
+    if (!tourRun && (conversationChanged || newStepAdded)) {
       transcriptEndRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
     }
 
     previousSelectedConversationIdRef.current = currentConversationId;
     previousStepCountRef.current = stepCount;
-  }, [selectedConversationId, selectedConversation?.steps.length]);
+  }, [selectedConversationId, selectedConversation?.steps.length, tourRun]);
 
   useEffect(() => {
     // Discovery can be delayed or partial. Absence never proves a saved selection invalid.
@@ -1708,6 +1463,8 @@ export function ChatWorkspace() {
           skip: "Skip tour",
         }}
         options={{
+          skipBeacon: true,
+          scrollDuration: 0,
           showProgress: true,
           overlayClickAction: false,
           primaryColor: "#2457d6",
@@ -2069,6 +1826,7 @@ export function ChatWorkspace() {
                     {activeTools.length > 0 ? (
                       <StepCard
                         step={{ id: "tools-card", kind: "system", title: "Tools", content: "", createdAt: selectedConversation.createdAt }}
+                        dataTour="tools-overview"
                         expanded={toolsCardExpanded}
                         onToggle={() => setToolsCardExpanded((v) => !v)}
                         onInspect={() => {

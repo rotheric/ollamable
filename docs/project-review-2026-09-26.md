@@ -46,12 +46,12 @@ Repository constraints from [AGENTS.md](../AGENTS.md): package-manager guidance 
 - [x] **R24 — P2:** Handwritten environment loading preserves quoting syntax.
 - [x] **R25 — P3:** Standalone frontend typechecking fails on test globals.
 - [x] **R26 — P3:** Broadly named test commands omit integration checks; E2E mocks the backend.
-- [ ] **R27 — P2:** Finishing the tour deletes modified example conversations.
-- [ ] **R28 — P3:** Tour completion does not restore the original sidebar state.
-- [ ] **R29 — P3:** Guided-tour lifecycle has no browser coverage.
-- [ ] **R30 — P2:** Tour initialization guard conflicts with effect cleanup/replay.
+- [x] **R27 — P2:** Finishing the tour deletes modified example conversations.
+- [x] **R28 — P3:** Tour completion does not restore the original sidebar state.
+- [x] **R29 — P3:** Guided-tour lifecycle has no browser coverage.
+- [x] **R30 — P2:** Tour initialization guard conflicts with effect cleanup/replay.
 - [ ] **R31 — P3:** Backlog findings and guided-tour status records are inconsistent or stale.
-- [ ] **R32 — P3:** Workspace component concentrates too many responsibilities.
+- [x] **R32 — P3:** Workspace component concentrates too many responsibilities.
 - [ ] **R33 — P3:** Default MCP configuration hardcodes a machine-specific browser path.
 - [ ] **R34 — P3:** Persistence failures are inconsistently handled and not surfaced to users.
 - [x] **R35 — P3:** README promises exact Ollama JSON, but the main preview is OpenAI format.
@@ -476,6 +476,11 @@ The repository instruction says the package manager is `uv`, while this JavaScri
 
 ### R27 — Finishing the tour deletes modified example conversations
 
+Owner: Codex
+State: COMPLETE
+
+Resolution: Tour examples now persist an original content signature. Cleanup removes only unchanged examples, preserves edited/sent-to/renamed examples as regular conversations, repairs selection and removes deleted IDs from saved order. Presentation toggles and automatic tool discovery do not count as content edits. Legacy examples are compared with their canonical seed. Hook regressions cover editing, adding a message and renaming; browser coverage edits/resends an example, skips, and confirms the retained answer after reload.
+
 **Priority:** P2. **Evidence:** Inspection against an explicit spec requirement.  
 **Location:** [chat-workspace.tsx](../src/components/chat-workspace.tsx), `finishTour` around line 613; [guided-tour spec](../specs/epic-guided-tour-with-react-joyride/spec.md), Tour conversations lifecycle around lines 392–394.
 
@@ -484,6 +489,11 @@ The implementation removes every conversation with `_tourExample`, regardless of
 **Implementation context:** Distinguish untouched seed data from user-modified conversations and clear/transition the example marker on preserved chats as appropriate. Selection and persisted order must remain valid after cleanup. Verify both untouched removal and retention after editing/sending messages.
 
 ### R28 — Tour completion does not restore original sidebar state
+
+Owner: Codex
+State: COMPLETE
+
+Resolution: Both automatic and manual start capture the complete sidebar state. A persisted tour-session snapshot preserves the original state through refresh/resume. Finish/skip restores that exact snapshot, including open flags and sections, and clears the session. Hook tests cover normal and Strict Mode starts plus resumed state; browser tests begin with the right sidebar open and left sidebar closed and verify restoration on skip and Finish.
 
 **Priority:** P3. **Evidence:** Inspection against the spec.  
 **Location:** [chat-workspace.tsx](../src/components/chat-workspace.tsx), `handleStartTour`, automatic-start effect, and `finishTour` around lines 627–637; [guided-tour spec](../specs/epic-guided-tour-with-react-joyride/spec.md), sidebar-state section.
@@ -494,6 +504,11 @@ Manual start saves the previous sidebar state, but finish explicitly overwrites 
 
 ### R29 — Guided-tour lifecycle has no browser coverage
 
+Owner: Codex
+State: COMPLETE
+
+Resolution: A dedicated browser suite runs the actual Joyride UI without suppressing the tour. Its three passing scenarios cover auto-start, skip, untouched cleanup, persisted completion, replay through every step/Finish, refresh/resume, editing/resending and retention after reload. Coverage exposed and fixed the obsolete first target, competing transcript auto-scroll, and animated-scroll navigation stalls; the first step now targets the current tools card, starts directly, and tour scrolling is immediate. Ordinary chat suites retain their completed-tour isolation. Deferred tour browser verification is now supplied; record consistency is tracked in R31.
+
 **Priority:** P3. **Evidence:** Coverage gap.  
 **Location:** [tests/e2e/app.spec.ts](../tests/e2e/app.spec.ts) and [tests/e2e/backend.spec.ts](../tests/e2e/backend.spec.ts), setup marking `ollamable.tourCompleted=true`; [guided-tour stories](../specs/epic-guided-tour-with-react-joyride/stories.json); [guided-tour spec](../specs/epic-guided-tour-with-react-joyride/spec.md), E2E tests section.
 
@@ -502,6 +517,11 @@ Both browser suites suppress the tour. Story 3 explicitly defers Playwright work
 **Implementation context:** Record deferred verification explicitly and exercise the actual tour instead of inheriting the global completed flag in those scenarios. Keep ordinary chat tests isolated from tour overlays.
 
 ### R30 — Tour initialization guard conflicts with effect cleanup/replay
+
+Owner: Codex
+State: COMPLETE
+
+Resolution: The dedicated useTour hook treats a scheduled start as pending until its callback runs. Effect cleanup cancels timers, so Strict Mode replay can install a replacement rather than skipping startup. All tour timers share cancellation on finish/unmount. Fake-timer tests verify normal/Strict Mode single startup, unmount before startup, and cancellation of delayed transitions after skip. The focused hook/data tests passed 23 tests; the full unit suite passed 228 tests.
 
 **Priority:** P2. **Evidence:** Inspection; development Strict Mode scenario not independently reproduced.  
 **Location:** [chat-workspace.tsx](../src/components/chat-workspace.tsx), auto-start effect around lines 523–568.
@@ -522,6 +542,11 @@ The epic state says `done`/`COMPLETE` and lists all stories completed, while all
 ## Maintainability, persistence, and documentation
 
 ### R32 — Workspace component concentrates too many responsibilities
+
+Owner: Codex
+State: COMPLETE
+
+Resolution: Tour scheduling, step transitions, example cleanup, sidebar restoration and persistence now belong to src/lib/use-tour.ts, with content comparison in tour-session.ts. ChatWorkspace supplies typed workspace state and renders Joyride through four returned values; approximately 240 lines of lifecycle orchestration were removed. This focused ownership seam is covered by eight hook lifecycle tests and three real-tour browser scenarios. Existing unit tests remain green (228 total); production build/type validation passes. No broad rewrite was required.
 
 **Priority:** P3. **Evidence:** Maintenance inspection.  
 **Location:** [chat-workspace.tsx](../src/components/chat-workspace.tsx), 3,735 lines at review time.

@@ -25,6 +25,10 @@ This project is a **demo for educational purposes** — it exposes the internals
 - Temperature control
 - Conversation history with persistence
 
+The guided tour resumes after refresh and restores the sidebar layout it captured
+before starting. Finishing or skipping removes untouched examples; examples with
+edited content or added messages remain as regular conversations.
+
 ## Prerequisites
 
 - [Node.js](https://nodejs.org/) (v22+)
