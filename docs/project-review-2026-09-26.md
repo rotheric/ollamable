@@ -21,7 +21,7 @@ Repository constraints from [AGENTS.md](../AGENTS.md): package-manager guidance 
 ## Issue checklist
 
 - [x] **R01 — P1:** Static-file path traversal.
-- [ ] **R02 — P1:** Unauthenticated backend and unrestricted WebSocket origins.
+- [x] **R02 — P1:** Unauthenticated backend and unrestricted WebSocket origins.
 - [x] **R03 — P1:** Disabled tools remain executable.
 - [x] **R04 — P1:** Stop does not stop subsequent tools.
 - [ ] **R05 — P2:** Disconnect/reconnect leaves chat generation pending.
@@ -95,6 +95,11 @@ This exposes files readable by the backend process outside the export directory,
 **Implementation context:** Validate the resolved candidate against the static root before any read. Account for directory boundaries, encoded paths, and symlinks if allowed; a bare string-prefix comparison is insufficient. Retain normal asset, `.html`, and directory-index serving. Verification should include traversal rejection and ordinary exported-page loading.
 
 ### R02 — Unauthenticated backend and unrestricted WebSocket origins
+
+Owner: Codex
+State: COMPLETE
+
+Resolution: `server/access-policy.ts` and `server/index.ts` bind to loopback by default and share Host/Origin and bearer-token enforcement across HTTP and WebSocket upgrades before MCP creation. Remote binding requires explicit origins and a token; no wildcard CORS remains. `scripts/run-dev.mjs` supplies the frontend origin. README documents authenticated proxy/native remote access without embedding secrets in the static frontend. Actual-server access/static suites: 24 passed; backend TypeScript passed. Native loopback clients remain trusted unless a token is configured.
 
 **Priority:** P1. **Evidence:** Reproduced handshake; exposure confirmed by inspection.  
 **Location:** [server/index.ts](../server/index.ts), CORS headers, `new WebSocketServer({ server: httpServer })`, and `httpServer.listen(PORT)` around lines 155–167.

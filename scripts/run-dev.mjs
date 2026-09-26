@@ -64,7 +64,11 @@ const children = [];
 const backendPort = String(Number(port) + 1);
 const backend = spawn(npmCommand, ["run", "dev:server"], {
   stdio: "inherit",
-  env: { ...process.env, PORT: backendPort },
+  env: {
+    ...process.env,
+    PORT: backendPort,
+    BACKEND_ALLOWED_ORIGINS: process.env.BACKEND_ALLOWED_ORIGINS ?? `http://127.0.0.1:${port},http://localhost:${port}`,
+  },
 });
 children.push(backend);
 

@@ -39,6 +39,36 @@ npm run dev
 
 Then open [http://localhost:3000](http://localhost:3000).
 
+## Backend access
+
+The backend binds to `127.0.0.1` by default. HTTP requests and WebSocket upgrades
+accept its own loopback origins; `BACKEND_ALLOWED_ORIGINS` adds exact, comma-separated
+origins (including ports, without trailing slashes). The combined development runner
+sets the frontend origin automatically. Untrusted origins and Host headers are rejected
+before model discovery or MCP initialization.
+
+For remote access, set all three server-side variables:
+
+```bash
+BACKEND_HOST=0.0.0.0
+BACKEND_ALLOWED_ORIGINS=https://chat.example
+BACKEND_AUTH_TOKEN=<a-long-random-secret>
+```
+
+Every HTTP request and WebSocket handshake then requires
+`Authorization: Bearer <secret>`; configuring a token also enables this requirement
+on loopback. Native clients can send this header directly. For browser access, use
+an HTTPS reverse proxy that authenticates users, injects the server-side header on
+both HTTP and WebSocket requests, and forwards the approved Host and Origin.
+Keep the backend port private to the proxy. The static frontend contains no backend
+secret. For remote development, the proxy can route page/assets to Next.js and
+`/models`, `/models/show`, `/tools`, and WebSocket upgrades to the backend; set
+`NEXT_PUBLIC_WS_URL` to the proxy's WebSocket URL when starting Next.js.
+
+Without a configured token, loopback access trusts local native processes. Browser
+origins remain restricted. Requests without an Origin header still undergo Host
+validation and, when configured, token authentication.
+
 ## License
 
 [MIT](LICENSE)

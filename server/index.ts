@@ -10,6 +10,7 @@ import { ToolDispatcher } from "./tool-executor.js";
 import { WebSearchExecutor } from "./tools/web-search.js";
 import { CurlExecutor } from "./tools/curl.js";
 import { loadProviderConfigs } from "./provider-config.js";
+import { AccessPolicy } from "./access-policy.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const PROJECT_ROOT = resolve(__dirname, "..");
@@ -36,6 +37,7 @@ for (const envFile of [".env", ".envrc"]) {
 const PORT = parseInt(process.env.PORT ?? process.env.WS_PORT ?? "3000", 10);
 const STATIC_DIR = resolve(process.env.STATIC_DIR ?? resolve(PROJECT_ROOT, "out"));
 const MCP_CONFIG = process.env.MCP_CONFIG ?? resolve(__dirname, "mcp-config.json");
+const accessPolicy = new AccessPolicy();
 
 const providerConfigs = loadProviderConfigs();
 const router = new LlmRouter(providerConfigs);
@@ -57,10 +59,17 @@ console.log(
 
 const httpServer = createServer(
   async (req: IncomingMessage, res: ServerResponse) => {
-    // CORS headers for frontend fetch
-    res.setHeader("Access-Control-Allow-Origin", "*");
+    const address = httpServer.address();
+    const access = accessPolicy.check(req, typeof address === "object" && address ? address.port : PORT);
+    if (access.status !== 200) {
+      res.writeHead(access.status, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: access.status === 401 ? "Authentication required" : "Origin or host not allowed" }));
+      return;
+    }
+    if (access.origin) res.setHeader("Access-Control-Allow-Origin", access.origin);
+    res.setHeader("Vary", "Origin");
     res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
-    res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+    res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
 
     if (req.method === "OPTIONS") {
       res.writeHead(204);
@@ -144,7 +153,16 @@ const httpServer = createServer(
 
 // ── WebSocket server ─────────────────────────────────────────────────
 
-const wss = new WebSocketServer({ server: httpServer });
+const wss = new WebSocketServer({ noServer: true });
+httpServer.on("upgrade", (req, socket, head) => {
+  const address = httpServer.address();
+  const access = accessPolicy.check(req, typeof address === "object" && address ? address.port : PORT);
+  if (access.status !== 200) {
+    socket.end(`HTTP/1.1 ${access.status} ${access.status === 401 ? "Unauthorized" : "Forbidden"}\r\nConnection: close\r\nContent-Length: 0\r\n\r\n`);
+    return;
+  }
+  wss.handleUpgrade(req, socket, head, (ws) => wss.emit("connection", ws, req));
+});
 
 wss.on("connection", (ws) => {
   console.log("[ws] client connected");
@@ -156,7 +174,7 @@ wss.on("connection", (ws) => {
   });
 });
 
-httpServer.listen(PORT, () => {
+httpServer.listen(PORT, accessPolicy.host, () => {
   const address = httpServer.address();
   console.log(`[server] Ollamable listening on http://localhost:${typeof address === "object" && address ? address.port : PORT}`);
 });
