@@ -26,6 +26,17 @@ async function expectRestoredSidebar(page: Page) {
 async function readConversations(page: Page) {
   return page.evaluate(() => JSON.parse(localStorage.getItem("ollamable.conversations")!));
 }
+/**
+ * Joyride mounts each tooltip transparent (opacity 0) while it positions and scrolls, and
+ * only then enters its "tooltip" lifecycle. Playwright treats the transparent buttons as
+ * clickable; a Next click in that window completes the step without a step:after event,
+ * so the controlled tour never advances and the tooltip vanishes. Wait for full opacity.
+ */
+async function clickTourButton(page: Page, stepIndex: number, name: string | RegExp) {
+  const floater = page.locator(`#react-joyride-step-${stepIndex}`);
+  await expect(floater).toHaveCSS("opacity", "1");
+  await floater.getByRole("alertdialog").getByRole("button", { name, exact: true }).click();
+}
 
 test("automatically starts, skips untouched examples, restores sidebars and persists completion", async ({ page }) => {
   await page.goto("/");
@@ -47,10 +58,10 @@ test("replays the real tour through Finish and cancels delayed work", async ({ p
   await page.getByRole("button", { name: "Take tour", exact: true }).click();
   await expect(page.getByRole("alertdialog")).toContainText("Active Tools");
   for (let step = 0; step < 10; step++) {
-    await page.getByRole("alertdialog").getByRole("button", { name: `Next (${step + 1} of 11)`, exact: true }).click();
+    await clickTourButton(page, step, `Next (${step + 1} of 11)`);
     await expect.poll(() => page.evaluate(() => localStorage.getItem("ollamable.tourStep"))).toBe(String(step + 1));
   }
-  await page.getByRole("alertdialog").getByRole("button", { name: /^Finish/ }).click();
+  await clickTourButton(page, 10, /^Finish/);
   await expect(page.getByRole("alertdialog")).toHaveCount(0);
   await page.waitForTimeout(900); // cover the delayed tool toggle after completion
   await expectRestoredSidebar(page);
@@ -60,9 +71,9 @@ test("replays the real tour through Finish and cancels delayed work", async ({ p
 
 test("resumes after refresh and preserves an edited example when skipped", async ({ page }) => {
   await page.goto("/");
-  await page.getByRole("alertdialog").getByRole("button", { name: /^Next/ }).click();
+  await clickTourButton(page, 0, /^Next/);
   await expect(page.getByRole("alertdialog")).toContainText("System Prompt");
-  await page.getByRole("alertdialog").getByRole("button", { name: /^Next/ }).click();
+  await clickTourButton(page, 1, /^Next/);
   await expect(page.getByRole("alertdialog")).toContainText("User Message");
   await page.reload();
   await expect(page.getByRole("alertdialog")).toContainText("User Message");
