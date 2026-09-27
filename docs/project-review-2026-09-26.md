@@ -99,6 +99,8 @@ This exposes files readable by the backend process outside the export directory,
 Owner: Codex
 State: COMPLETE
 
+Follow-up (2026-09-27): `make dev-remote` again serves a browser inside a Lima VM. Lima forwards `host.lima.internal` to the host loopback, so the target keeps loopback binding and only sets the inlined WebSocket URL and the origin/host allow-list; no token is required for that path.
+
 Resolution: `server/access-policy.ts` and `server/index.ts` bind to loopback by default and share Host/Origin and bearer-token enforcement across HTTP and WebSocket upgrades before MCP creation. Remote binding requires explicit origins and a token; no wildcard CORS remains. `scripts/run-dev.mjs` supplies the frontend origin. README documents authenticated proxy/native remote access without embedding secrets in the static frontend. Actual-server access/static suites: 24 passed; backend TypeScript passed. Native loopback clients remain trusted unless a token is configured.
 
 **Priority:** P1. **Evidence:** Reproduced handshake; exposure confirmed by inspection.  
@@ -156,6 +158,8 @@ Resolution: `server/tools/curl.ts` now reads incrementally into a capped buffer 
 
 Owner: Codex
 State: COMPLETE
+
+Follow-up (2026-09-27): the budget is a per-conversation setting ("Execution Budget" in the right sidebar, sent as `maxModelInvocations`/`maxToolCalls`); the server caps requests at `BACKEND_MAX_MODEL_INVOCATIONS`/`BACKEND_MAX_TOOL_CALLS` ceilings and the exhaustion error names the origin of the limit and points to Resume.
 
 Resolution: `server/ws-handler.ts` enforces server-owned limits of eight model invocations and 32 tool calls per request. Exhaustion emits correlated `chat.error` (which BackendClient rejects and removes from pending), retaining previously delivered steps. Oversized batches are rejected before execution. Handler regressions exercise an always-tool-calling provider, preservation of completed results, and oversized batches; Stop/disconnect tests still pass. Full integration suite: 184 passed, 2 live-provider skips; backend TypeScript passed.
 
@@ -228,6 +232,8 @@ The parser searches each content fragment independently for complete `<think>` a
 
 Owner: Codex
 State: COMPLETE
+
+Follow-up (2026-09-27): the separately rendered "Tool activity" region lost the transcript's chronology (every turn's calls and results were grouped below all messages). Tool calls, results and metadata now render inline at their chronological position, distinguished by thread bars and headers rather than by a separate region; no synthetic assistant record is involved.
 
 Resolution: The server retains standalone tool_call records throughout streaming, stable results and subsequent provider history; it no longer synthesizes assistant steps. A shared idempotent migration separates legacy embedded calls from genuine prose when loading saved chats and applying backend responses. Calls, results and metadata render in a separately labeled activity region, with inspection retained; empty assistants do not contribute chat controls or message counts. Browser coverage verifies a tool-only response and a migrated reload with no assistant/regenerate control; both provider formatters retain their required assistant-role wire envelopes in migration tests. The full browser run passed 44 tests; its remaining assertion encoded the obsolete hidden-call behavior, was corrected to check the separate activity region, and passes on rerun.
 
