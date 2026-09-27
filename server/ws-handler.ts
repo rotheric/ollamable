@@ -1,4 +1,5 @@
 import { normalizeResponseSteps } from "../shared/normalize-response-steps.js";
+import { DEFAULT_MAX_MODEL_INVOCATIONS, DEFAULT_MAX_TOOL_CALLS } from "../shared/execution-budget.js";
 import type WebSocket from "ws";
 import { randomUUID } from "node:crypto";
 import { ToolDispatcher } from "./tool-executor.js";
@@ -26,9 +27,42 @@ import type {
  * Chosen within the finding's suggested 64k-256k range.
  */
 const MAX_TOKENIZE_TEXT_LENGTH = 200_000;
-// Server-owned limits: a request cannot raise its own execution allowance.
-export const MAX_MODEL_INVOCATIONS = 8;
-export const MAX_TOOL_CALLS = 32;
+// Per-request execution budget. A conversation may choose its own budget
+// (persisted as a conversation setting); the server-owned ceilings below cap it.
+export { DEFAULT_MAX_MODEL_INVOCATIONS, DEFAULT_MAX_TOOL_CALLS };
+export const DEFAULT_MODEL_INVOCATION_CEILING = 64;
+export const DEFAULT_TOOL_CALL_CEILING = 256;
+
+export interface ExecutionLimits {
+  /** Highest number of model invocations any request may spend. */
+  maxModelInvocations: number;
+  /** Highest number of tool calls any request may spend. */
+  maxToolCalls: number;
+}
+
+function ceiling(value: string | undefined, fallback: number): number {
+  if (value === undefined || value === "") return fallback;
+  if (!/^\d+$/.test(value) || Number(value) < 1) {
+    throw new Error(`Execution ceilings must be positive integers, received: ${value}`);
+  }
+  return Number(value);
+}
+
+/** Server-owned ceilings from BACKEND_MAX_MODEL_INVOCATIONS / BACKEND_MAX_TOOL_CALLS. */
+export function loadExecutionLimits(env: Record<string, string | undefined> = process.env): ExecutionLimits {
+  return {
+    maxModelInvocations: ceiling(env.BACKEND_MAX_MODEL_INVOCATIONS, DEFAULT_MODEL_INVOCATION_CEILING),
+    maxToolCalls: ceiling(env.BACKEND_MAX_TOOL_CALLS, DEFAULT_TOOL_CALL_CEILING),
+  };
+}
+
+function budgetError(limit: number, unit: string, capped: boolean): Error {
+  const origin = capped ? "server ceiling" : "conversation setting";
+  return new Error(
+    `Execution budget exceeded: at most ${limit} ${unit} per request (${origin}). ` +
+    "Completed steps are kept; press Resume to continue, or raise the budget in the conversation settings."
+  );
+}
 
 interface McpConfig {
   mcpServers?: Record<
@@ -43,9 +77,11 @@ export class ConnectionHandler {
   private dispatcher: ToolDispatcher;
   private mcpBridge: McpBridge;
   private generations = new Map<string, { controller: AbortController; requestId?: string }>();
+  private readonly limits: ExecutionLimits;
 
-  constructor(ws: WebSocket, router?: LlmRouter) {
+  constructor(ws: WebSocket, router?: LlmRouter, limits: ExecutionLimits = loadExecutionLimits()) {
     this.ws = ws;
+    this.limits = limits;
     this.router = router ?? new LlmRouter(loadProviderConfigs());
     this.dispatcher = new ToolDispatcher();
     this.dispatcher.register(new WebSearchExecutor());
@@ -145,7 +181,7 @@ export class ConnectionHandler {
     if (msg.type === "chat.send") {
       const toolNames = (msg.tools ?? []).map((t) => t.name).join(", ");
       console.log(
-        `[ws] <- chat.send  conversation=${msg.conversationId}  model=${msg.model}  steps=${msg.steps.length}  tools=[${toolNames}]  temp=${msg.temperature ?? "default"}  maxTokens=${msg.maxOutputTokens ?? "default"}  reasoning=${msg.reasoningEffort ?? "default"}`
+        `[ws] <- chat.send  conversation=${msg.conversationId}  model=${msg.model}  steps=${msg.steps.length}  tools=[${toolNames}]  temp=${msg.temperature ?? "default"}  maxTokens=${msg.maxOutputTokens ?? "default"}  reasoning=${msg.reasoningEffort ?? "default"}  budget=${msg.maxModelInvocations ?? "default"}/${msg.maxToolCalls ?? "default"}`
       );
       await this.handleChatSend(msg);
       return;
@@ -231,6 +267,10 @@ export class ConnectionHandler {
   ): Promise<void> {
     const { conversationId, model, provider, tools, temperature, maxOutputTokens, reasoningEffort } = msg;
     const { requestId } = msg;
+    const requestedInvocations = msg.maxModelInvocations ?? DEFAULT_MAX_MODEL_INVOCATIONS;
+    const requestedToolCalls = msg.maxToolCalls ?? DEFAULT_MAX_TOOL_CALLS;
+    const maxModelInvocations = Math.min(requestedInvocations, this.limits.maxModelInvocations);
+    const maxToolCalls = Math.min(requestedToolCalls, this.limits.maxToolCalls);
     const previous = this.generations.get(conversationId);
     if (previous) {
       previous.controller.abort();
@@ -252,8 +292,8 @@ export class ConnectionHandler {
       // Tool loop: keep calling the LLM until we get a response with no tool calls
       while (true) {
         if (controller.signal.aborted) break;
-        if (loopIteration >= MAX_MODEL_INVOCATIONS) {
-          throw new Error(`Execution budget exceeded: at most ${MAX_MODEL_INVOCATIONS} model invocations per request.`);
+        if (loopIteration >= maxModelInvocations) {
+          throw budgetError(maxModelInvocations, "model invocations", requestedInvocations > maxModelInvocations);
         }
         loopIteration++;
 
@@ -288,8 +328,8 @@ export class ConnectionHandler {
         const toolCallSteps = responseSteps.filter(
           (s) => s.kind === "tool_call" && s.toolCall
         );
-        if (toolCallCount + toolCallSteps.length > MAX_TOOL_CALLS) {
-          throw new Error(`Execution budget exceeded: at most ${MAX_TOOL_CALLS} tool calls per request.`);
+        if (toolCallCount + toolCallSteps.length > maxToolCalls) {
+          throw budgetError(maxToolCalls, "tool calls", requestedToolCalls > maxToolCalls);
         }
 
         // Prompt visibility is not authorization: history can contain disabled calls.

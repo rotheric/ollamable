@@ -117,6 +117,7 @@ const DEFAULT_SIDEBAR_STATE_FOR_TEST = {
   reasoningEffortSectionOpen: false,
   tempSectionOpen: false,
   maxTokensSectionOpen: false,
+  budgetSectionOpen: false,
   toolsSectionOpen: false,
   clientSectionOpen: false,
   renderMarkdown: true,

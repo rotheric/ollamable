@@ -94,6 +94,9 @@ export type ClientMessage =
       temperature?: number;
       maxOutputTokens?: number;
       reasoningEffort?: ReasoningEffort;
+      /** Per-request execution budget; the server caps both at its configured ceilings. */
+      maxModelInvocations?: number;
+      maxToolCalls?: number;
     }
   | { type: "chat.stop"; requestId?: string; conversationId: string }
   | { type: "tokenize"; requestId: string; model: string; text: string; provider?: string }

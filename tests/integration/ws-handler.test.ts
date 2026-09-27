@@ -27,7 +27,7 @@ vi.mock("../../server/ollama-client.js", () => ({
 
 import { CurlExecutor } from "../../server/tools/curl.js";
 import { WebSearchExecutor } from "../../server/tools/web-search.js";
-import { ConnectionHandler, MAX_MODEL_INVOCATIONS, MAX_TOOL_CALLS } from "../../server/ws-handler.js";
+import { ConnectionHandler, DEFAULT_MAX_MODEL_INVOCATIONS, DEFAULT_MAX_TOOL_CALLS, loadExecutionLimits, type ExecutionLimits } from "../../server/ws-handler.js";
 import { streamOllamaResponse } from "../../server/ollama-client.js";
 import type { ConversationStep } from "../../server/types.js";
 
@@ -38,13 +38,15 @@ const mockStreamOllama = vi.mocked(streamOllamaResponse);
 let httpServer: Server;
 let wss: WebSocketServer;
 let wsPort: number;
+/** Server-owned ceilings for handlers created by the shared server; tests may lower them. */
+let handlerLimits: ExecutionLimits = loadExecutionLimits({});
 
 beforeAll(async () => {
   httpServer = createServer();
   wss = new WebSocketServer({ server: httpServer });
   wss.on("connection", (ws) => {
     // Create a handler but skip MCP init (no external servers needed)
-    new ConnectionHandler(ws);
+    new ConnectionHandler(ws, undefined, handlerLimits);
   });
 
   await new Promise<void>((resolve) => httpServer.listen(0, resolve));
@@ -416,25 +418,71 @@ describe("ConnectionHandler", () => {
       sendJson(ws, makeChatSend({ tools: new WebSearchExecutor().getToolDefinitions() }));
       const messages = await received;
       expect(messages.at(-1)?.message).toContain("Execution budget exceeded");
-      expect(mockStreamOllama).toHaveBeenCalledTimes(MAX_MODEL_INVOCATIONS);
+      expect(mockStreamOllama).toHaveBeenCalledTimes(DEFAULT_MAX_MODEL_INVOCATIONS);
       const completed = messages.flatMap((m) => m.steps ?? []).filter((s) => s.kind === "tool_result" && s.title.startsWith("Result:"));
-      expect(completed).toHaveLength(MAX_MODEL_INVOCATIONS);
+      expect(completed).toHaveLength(DEFAULT_MAX_MODEL_INVOCATIONS);
     } finally { ws.close(); }
   });
 
   it("rejects a batch exceeding the remaining action budget before any side effects", async () => {
     const fetchSpy = vi.spyOn(globalThis, "fetch");
-    mockStreamOllama.mockResolvedValue(Array.from({ length: MAX_TOOL_CALLS + 1 }, (_, index) => makeStep("tool_call", "", {
+    mockStreamOllama.mockResolvedValue(Array.from({ length: DEFAULT_MAX_TOOL_CALLS + 1 }, (_, index) => makeStep("tool_call", "", {
       toolCall: { id: String(index), name: "curl", arguments: { url: "https://example.com" } },
     })));
     const ws = await connectClient();
     try {
       const error = waitForMessage(ws, (m) => m.type === "chat.error");
       sendJson(ws, makeChatSend({ tools: new CurlExecutor().getToolDefinitions() }));
-      expect((await error).message).toContain(`${MAX_TOOL_CALLS} tool calls`);
+      expect((await error).message).toContain(`${DEFAULT_MAX_TOOL_CALLS} tool calls`);
       expect(fetchSpy).not.toHaveBeenCalled();
       expect(mockStreamOllama).toHaveBeenCalledTimes(1);
     } finally { ws.close(); }
+  });
+
+  it("honors a lower per-request model invocation budget from the conversation settings", async () => {
+    mockBraveSearchFetch();
+    mockStreamOllama.mockImplementation(async () => [makeStep("tool_call", "", {
+      toolCall: { name: "web_search", arguments: { query: "repeat" } },
+    })]);
+    const ws = await connectClient();
+    try {
+      const error = waitForMessage(ws, (m) => m.type === "chat.error");
+      sendJson(ws, makeChatSend({ tools: new WebSearchExecutor().getToolDefinitions(), maxModelInvocations: 2 }));
+      const message = (await error).message as string;
+      expect(message).toContain("at most 2 model invocations per request (conversation setting)");
+      expect(message).toContain("Resume");
+      expect(mockStreamOllama).toHaveBeenCalledTimes(2);
+    } finally { ws.close(); }
+  });
+
+  it("honors a lower per-request tool call budget before any side effects", async () => {
+    const fetchSpy = vi.spyOn(globalThis, "fetch");
+    mockStreamOllama.mockResolvedValue(Array.from({ length: 3 }, (_, index) => makeStep("tool_call", "", {
+      toolCall: { id: String(index), name: "curl", arguments: { url: "https://example.com" } },
+    })));
+    const ws = await connectClient();
+    try {
+      const error = waitForMessage(ws, (m) => m.type === "chat.error");
+      sendJson(ws, makeChatSend({ tools: new CurlExecutor().getToolDefinitions(), maxToolCalls: 2 }));
+      expect((await error).message).toContain("at most 2 tool calls per request (conversation setting)");
+      expect(fetchSpy).not.toHaveBeenCalled();
+    } finally { ws.close(); }
+  });
+
+  it("caps a requested budget at the server ceiling and says so", async () => {
+    const previous = handlerLimits;
+    handlerLimits = { maxModelInvocations: 3, maxToolCalls: 256 };
+    mockBraveSearchFetch();
+    mockStreamOllama.mockImplementation(async () => [makeStep("tool_call", "", {
+      toolCall: { name: "web_search", arguments: { query: "repeat" } },
+    })]);
+    const ws = await connectClient();
+    try {
+      const error = waitForMessage(ws, (m) => m.type === "chat.error");
+      sendJson(ws, makeChatSend({ tools: new WebSearchExecutor().getToolDefinitions(), maxModelInvocations: 50 }));
+      expect((await error).message).toContain("at most 3 model invocations per request (server ceiling)");
+      expect(mockStreamOllama).toHaveBeenCalledTimes(3);
+    } finally { handlerLimits = previous; ws.close(); }
   });
 
   it.each(["old-first", "new-first"])("keeps generation ownership when completion order is %s", async (order) => {
@@ -485,6 +533,7 @@ describe("ConnectionHandler", () => {
     { tools: {} }, { tools: [null] }, { tools: [{ name: "curl" }] },
     { model: null }, { provider: 7 }, { temperature: "hot" },
     { maxOutputTokens: -1 }, { reasoningEffort: "unknown" },
+    { maxModelInvocations: 0 }, { maxToolCalls: 1.5 }, { maxToolCalls: "many" },
   ])("rejects malformed chat with correlation before provider invocation: %j", async (invalid) => {
     const ws = await connectClient();
     try {
@@ -824,6 +873,20 @@ describe("ConnectionHandler", () => {
       expect(doneB!.steps![0].content).toBe("Response for conversation B");
     } finally {
       ws.close();
+    }
+  });
+});
+
+describe("loadExecutionLimits", () => {
+  it("uses the documented ceilings when the variables are unset or empty", () => {
+    expect(loadExecutionLimits({})).toEqual({ maxModelInvocations: 64, maxToolCalls: 256 });
+    expect(loadExecutionLimits({ BACKEND_MAX_MODEL_INVOCATIONS: "", BACKEND_MAX_TOOL_CALLS: "" })).toEqual({ maxModelInvocations: 64, maxToolCalls: 256 });
+  });
+
+  it("reads positive integer ceilings and rejects anything else", () => {
+    expect(loadExecutionLimits({ BACKEND_MAX_MODEL_INVOCATIONS: "12", BACKEND_MAX_TOOL_CALLS: "40" })).toEqual({ maxModelInvocations: 12, maxToolCalls: 40 });
+    for (const bad of ["0", "-1", "2.5", "lots"]) {
+      expect(() => loadExecutionLimits({ BACKEND_MAX_MODEL_INVOCATIONS: bad })).toThrow(/positive integers/);
     }
   });
 });

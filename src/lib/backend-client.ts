@@ -88,6 +88,8 @@ interface StreamRequest {
   temperature?: number;
   maxOutputTokens?: number;
   reasoningEffort?: ReasoningEffort;
+  maxModelInvocations?: number;
+  maxToolCalls?: number;
   onDelta: (steps: ConversationStep[]) => void;
   onStableSteps: (steps: ConversationStep[]) => void;
   onMetaEvent: (step: ConversationStep) => void;
@@ -174,7 +176,7 @@ export class BackendClient {
     send: (data: unknown) => boolean,
     request: StreamRequest
   ): { promise: Promise<ConversationStep[]>; stop: () => void } {
-    const { conversationId, model, provider, steps, tools, temperature, maxOutputTokens, reasoningEffort } = request;
+    const { conversationId, model, provider, steps, tools, temperature, maxOutputTokens, reasoningEffort, maxModelInvocations, maxToolCalls } = request;
 
     const requestId = createId();
     this.pending.get(conversationId)?.reject(new Error("Generation superseded by a newer request."));
@@ -182,7 +184,7 @@ export class BackendClient {
       this.pending.set(conversationId, { requestId, request, resolve, reject });
       try {
         if (!send({ type: "chat.send", requestId, conversationId, model, provider, steps, tools,
-          temperature, maxOutputTokens, reasoningEffort })) {
+          temperature, maxOutputTokens, reasoningEffort, maxModelInvocations, maxToolCalls })) {
           throw new Error("Chat send failed: socket not open");
         }
       } catch (error) {

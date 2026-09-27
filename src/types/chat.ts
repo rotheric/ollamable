@@ -76,6 +76,9 @@ export interface Conversation {
   temperature?: number;
   maxOutputTokens?: number;
   reasoningEffort?: ReasoningEffort;
+  /** Per-request execution budget (model invocations / tool calls); the server caps both. */
+  maxModelInvocations?: number;
+  maxToolCalls?: number;
   systemPrompt: string;
   createdAt: string;
   updatedAt: string;

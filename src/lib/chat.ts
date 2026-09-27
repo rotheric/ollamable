@@ -22,6 +22,7 @@ export interface SidebarState {
   reasoningEffortSectionOpen: boolean;
   tempSectionOpen: boolean;
   maxTokensSectionOpen: boolean;
+  budgetSectionOpen: boolean;
   toolsSectionOpen: boolean;
   clientSectionOpen: boolean;
   renderMarkdown: boolean;
@@ -49,6 +50,7 @@ const DEFAULT_SIDEBAR_STATE: SidebarState = {
   reasoningEffortSectionOpen: false,
   tempSectionOpen: false,
   maxTokensSectionOpen: false,
+  budgetSectionOpen: false,
   toolsSectionOpen: false,
   clientSectionOpen: false,
   renderMarkdown: true,

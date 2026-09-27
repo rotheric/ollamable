@@ -1,6 +1,7 @@
 "use client";
 
 import { normalizeResponseSteps } from "../../shared/normalize-response-steps";
+import { DEFAULT_MAX_MODEL_INVOCATIONS, DEFAULT_MAX_TOOL_CALLS } from "../../shared/execution-budget";
 
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import {
@@ -360,6 +361,9 @@ function SortableConversationCard({
   );
 }
 
+const MODEL_INVOCATION_OPTIONS = [1, 2, 4, 8, 16, 32];
+const TOOL_CALL_OPTIONS = [1, 4, 8, 16, 32, 64];
+
 export function ChatWorkspace() {
   const persistenceFailed = usePersistenceStatus();
   const theme = useTheme();
@@ -381,6 +385,7 @@ export function ChatWorkspace() {
     reasoningEffortSectionOpen: false,
     tempSectionOpen: false,
     maxTokensSectionOpen: false,
+    budgetSectionOpen: false,
     toolsSectionOpen: false,
     clientSectionOpen: false,
     renderMarkdown: true,
@@ -415,6 +420,7 @@ export function ChatWorkspace() {
     reasoningEffortSectionOpen,
     tempSectionOpen,
     maxTokensSectionOpen,
+    budgetSectionOpen,
     toolsSectionOpen,
     clientSectionOpen,
     renderMarkdown,
@@ -466,7 +472,7 @@ export function ChatWorkspace() {
   );
 
   const toggleRightSection = useCallback(
-    (key: "modelSectionOpen" | "reasoningEffortSectionOpen" | "tempSectionOpen" | "maxTokensSectionOpen" | "toolsSectionOpen" | "clientSectionOpen") => {
+    (key: "modelSectionOpen" | "reasoningEffortSectionOpen" | "tempSectionOpen" | "maxTokensSectionOpen" | "budgetSectionOpen" | "toolsSectionOpen" | "clientSectionOpen") => {
       setSidebarState((prev) => {
         const opening = !prev[key];
         const next = {
@@ -475,6 +481,7 @@ export function ChatWorkspace() {
           reasoningEffortSectionOpen: false,
           tempSectionOpen: false,
           maxTokensSectionOpen: false,
+          budgetSectionOpen: false,
           toolsSectionOpen: false,
           clientSectionOpen: false,
           [key]: opening,
@@ -894,6 +901,18 @@ export function ChatWorkspace() {
     }));
   }
 
+  function handleExecutionBudgetChange(field: "maxModelInvocations" | "maxToolCalls", value: number | undefined) {
+    if (!selectedConversation) {
+      return;
+    }
+
+    updateConversation(selectedConversation.id, (conversation) => ({
+      ...conversation,
+      [field]: value,
+      updatedAt: new Date().toISOString(),
+    }));
+  }
+
   function handleReasoningEffortChange(value: ReasoningEffort | undefined) {
     if (!selectedConversation) {
       return;
@@ -1106,6 +1125,8 @@ export function ChatWorkspace() {
       temperature: nextConversation.temperature,
       maxOutputTokens: nextConversation.maxOutputTokens,
       reasoningEffort: streamReasoningSupported ? nextConversation.reasoningEffort : undefined,
+      maxModelInvocations: nextConversation.maxModelInvocations,
+      maxToolCalls: nextConversation.maxToolCalls,
       onDelta: (partialSteps) => applyDelta(nextConversation.id, partialSteps),
       onStableSteps: (stableSteps) => applyStableSteps(nextConversation.id, stableSteps),
       onMetaEvent: (metaStep) => applyMetaEvent(nextConversation.id, metaStep),
@@ -1525,6 +1546,7 @@ export function ChatWorkspace() {
                       reasoningEffortSectionOpen: false,
                       tempSectionOpen: false,
                       maxTokensSectionOpen: false,
+                      budgetSectionOpen: false,
                       toolsSectionOpen: false,
                       clientSectionOpen: false,
                       subsections: { ...prev.subsections, [subsectionKey]: true },
@@ -1549,6 +1571,7 @@ export function ChatWorkspace() {
                       reasoningEffortSectionOpen: false,
                       tempSectionOpen: true,
                       maxTokensSectionOpen: false,
+                      budgetSectionOpen: false,
                       toolsSectionOpen: false,
                       clientSectionOpen: false,
                     })
@@ -1570,6 +1593,7 @@ export function ChatWorkspace() {
                       reasoningEffortSectionOpen: false,
                       tempSectionOpen: false,
                       maxTokensSectionOpen: true,
+                      budgetSectionOpen: false,
                       toolsSectionOpen: false,
                       clientSectionOpen: false,
                     })
@@ -1591,6 +1615,7 @@ export function ChatWorkspace() {
                       reasoningEffortSectionOpen: true,
                       tempSectionOpen: false,
                       maxTokensSectionOpen: false,
+                      budgetSectionOpen: false,
                       toolsSectionOpen: false,
                       clientSectionOpen: false,
                     })
@@ -2459,6 +2484,72 @@ export function ChatWorkspace() {
                             onClick={() =>
                               handleMaxOutputTokensChange(
                                 selectedConversation.maxOutputTokens === val ? undefined : val
+                              )
+                            }
+                          />
+                        ))}
+                      </Stack>
+                    </Collapse>
+                  </Box>
+
+                  <Divider />
+
+                  <Box data-tour="budget-section">
+                    <ListItemButton
+                      onClick={() => toggleRightSection("budgetSectionOpen")}
+                      sx={{ mx: -2, px: 2, py: 0.5 }}
+                    >
+                      <Typography variant="overline" color="text.secondary" sx={{ flexGrow: 1 }}>
+                        Execution Budget
+                      </Typography>
+                      <Typography variant="caption" color="text.secondary" sx={{ mr: 1 }}>
+                        {selectedConversation.maxModelInvocations != null || selectedConversation.maxToolCalls != null
+                          ? `${selectedConversation.maxModelInvocations ?? DEFAULT_MAX_MODEL_INVOCATIONS} / ${selectedConversation.maxToolCalls ?? DEFAULT_MAX_TOOL_CALLS}`
+                          : ""}
+                      </Typography>
+                      {budgetSectionOpen ? <ExpandLessOutlinedIcon fontSize="small" /> : <ExpandMoreOutlinedIcon fontSize="small" />}
+                    </ListItemButton>
+                    <Collapse in={budgetSectionOpen}>
+                      <Typography variant="caption" color="text.secondary" sx={{ display: "block", mt: 0.5 }}>
+                        Per request, before the server stops the tool loop. Unset uses {DEFAULT_MAX_MODEL_INVOCATIONS} model invocations and {DEFAULT_MAX_TOOL_CALLS} tool calls; the server may cap higher values.
+                      </Typography>
+                      <Typography variant="caption" color="text.secondary" sx={{ display: "block", mt: 1 }}>
+                        Model invocations
+                      </Typography>
+                      <Stack direction="row" spacing={0.5} flexWrap="wrap" useFlexGap sx={{ mt: 0.5 }} aria-label="Max model invocations">
+                        {MODEL_INVOCATION_OPTIONS.map((val) => (
+                          <Chip
+                            key={val}
+                            label={val}
+                            size="small"
+                            variant={selectedConversation.maxModelInvocations === val ? "filled" : "outlined"}
+                            color={selectedConversation.maxModelInvocations === val ? "primary" : "default"}
+                            clickable
+                            onClick={() =>
+                              handleExecutionBudgetChange(
+                                "maxModelInvocations",
+                                selectedConversation.maxModelInvocations === val ? undefined : val
+                              )
+                            }
+                          />
+                        ))}
+                      </Stack>
+                      <Typography variant="caption" color="text.secondary" sx={{ display: "block", mt: 1 }}>
+                        Tool calls
+                      </Typography>
+                      <Stack direction="row" spacing={0.5} flexWrap="wrap" useFlexGap sx={{ mt: 0.5 }} aria-label="Max tool calls">
+                        {TOOL_CALL_OPTIONS.map((val) => (
+                          <Chip
+                            key={val}
+                            label={val}
+                            size="small"
+                            variant={selectedConversation.maxToolCalls === val ? "filled" : "outlined"}
+                            color={selectedConversation.maxToolCalls === val ? "primary" : "default"}
+                            clickable
+                            onClick={() =>
+                              handleExecutionBudgetChange(
+                                "maxToolCalls",
+                                selectedConversation.maxToolCalls === val ? undefined : val
                               )
                             }
                           />

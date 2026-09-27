@@ -829,6 +829,41 @@ describe("ChatWorkspace", () => {
     });
   });
 
+  it("persists the execution budget per conversation and sends it with the request", async () => {
+    const user = userEvent.setup();
+    window.localStorage.setItem(
+      "ollamable.sidebarState",
+      JSON.stringify({ rightSidebarOpen: true, budgetSectionOpen: true, renderMarkdown: true, showTokens: false })
+    );
+    renderWorkspace();
+    await screen.findAllByText("qwen3:latest");
+
+    await user.click(within(screen.getByLabelText("Max model invocations")).getByText("16"));
+    await user.click(within(screen.getByLabelText("Max tool calls")).getByText("4"));
+    await waitFor(() => {
+      const saved = JSON.parse(window.localStorage.getItem(STORAGE_KEY)!)[0];
+      expect(saved).toMatchObject({ maxModelInvocations: 16, maxToolCalls: 4 });
+    });
+
+    const prompt = screen.getByRole("textbox", { name: "User Prompt" });
+    await user.type(prompt, "Budgeted prompt");
+    await user.keyboard("{Enter}");
+    await waitFor(() => {
+      expect(mockStartStream).toHaveBeenCalledWith(
+        expect.any(Function),
+        expect.objectContaining({ maxModelInvocations: 16, maxToolCalls: 4 })
+      );
+    });
+
+    // Clicking the selected chip again clears the setting so the server default applies.
+    await user.click(within(screen.getByLabelText("Max model invocations")).getByText("16"));
+    await waitFor(() => {
+      const saved = JSON.parse(window.localStorage.getItem(STORAGE_KEY)!)[0];
+      expect(saved.maxModelInvocations).toBeUndefined();
+      expect(saved.maxToolCalls).toBe(4);
+    });
+  });
+
   it("shows request JSON including tool call when a tool call is pending", async () => {
     const user = userEvent.setup();
     const now = new Date().toISOString();

@@ -4,7 +4,7 @@ import { resolve, dirname, extname } from "node:path";
 import { resolveStaticFile } from "./static-files.js";
 import { fileURLToPath } from "node:url";
 import { WebSocketServer } from "ws";
-import { ConnectionHandler } from "./ws-handler.js";
+import { ConnectionHandler, loadExecutionLimits } from "./ws-handler.js";
 import { LlmRouter } from "./llm-router.js";
 import { ToolDispatcher } from "./tool-executor.js";
 import { WebSearchExecutor } from "./tools/web-search.js";
@@ -26,6 +26,7 @@ if (process.argv.includes("--require-static-export") && !existsSync(resolve(STAT
 }
 const MCP_CONFIG = process.env.MCP_CONFIG ?? resolve(__dirname, "mcp-config.json");
 const accessPolicy = new AccessPolicy();
+const executionLimits = loadExecutionLimits();
 
 const providerConfigs = loadProviderConfigs();
 const router = new LlmRouter(providerConfigs);
@@ -151,7 +152,7 @@ httpServer.on("upgrade", (req, socket, head) => {
 
 wss.on("connection", (ws) => {
   console.log("[ws] client connected");
-  const handler = new ConnectionHandler(ws, router);
+  const handler = new ConnectionHandler(ws, router, executionLimits);
   void handler.initMcp(MCP_CONFIG);
 
   ws.on("close", () => {

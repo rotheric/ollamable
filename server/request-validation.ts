@@ -34,6 +34,10 @@ export function validateChatRequest(message: Record<string, unknown>): string | 
   if (message.temperature !== undefined && (typeof message.temperature !== "number" || !Number.isFinite(message.temperature))) return "Invalid temperature";
   if (message.maxOutputTokens !== undefined && (typeof message.maxOutputTokens !== "number" || !Number.isInteger(message.maxOutputTokens) || message.maxOutputTokens < 1)) return "Invalid maxOutputTokens";
   if (message.reasoningEffort !== undefined && !["disable", "low", "medium", "high"].includes(message.reasoningEffort as string)) return "Invalid reasoningEffort";
+  for (const field of ["maxModelInvocations", "maxToolCalls"] as const) {
+    const value = message[field];
+    if (value !== undefined && (typeof value !== "number" || !Number.isInteger(value) || value < 1)) return `Invalid ${field}`;
+  }
 }
 
 export class HttpInputError extends Error {

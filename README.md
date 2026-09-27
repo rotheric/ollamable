@@ -136,6 +136,14 @@ Discovery, metadata and shared vocabulary requests have 10-second application
 deadlines; web search has a 20-second deadline and honors Stop. Discovery retains
 healthy providers and models whose optional capability lookup times out.
 
+Each request has an execution budget for the tool loop: by default 8 model
+invocations and 32 tool calls. The conversation's "Execution Budget" settings
+change both per conversation and travel with the request as `maxModelInvocations`
+and `maxToolCalls`. The server caps them at `BACKEND_MAX_MODEL_INVOCATIONS`
+(default 64) and `BACKEND_MAX_TOOL_CALLS` (default 256). Exhausting the budget ends
+the request with a correlated `chat.error`; completed steps are kept and Resume
+continues with a fresh budget.
+
 MCP tool names must be unique across servers and built-ins. Conflicting definitions
 are rejected with an `MCP Tool Rejected` event; the first registered definition keeps
 its identity. Saved selections whose tool ID no longer matches fail explicitly and
