@@ -192,6 +192,14 @@ tests, frontend/test and backend typechecks, the static production build, then b
 tests. It stops at the first failed stage. Use `test:unit` or `test:integration` for
 focused checks; they do not establish a release pass by themselves.
 
+The gate and `scripts/run-playwright.mjs` copy the working tree into a temporary
+directory (sharing `node_modules` through a symlink) and run there, because the
+build and the startup scenario write `.next` and `out`, which a running `next dev`
+in the checkout serves from. A failed run keeps the copy and prints its path so
+traces and build output can be inspected. Pass `--in-place` (or set
+`CHECKS_IN_PLACE=1`) to run directly in the checkout, for example in a container
+where no dev server is running.
+
 Install the matching Chromium browser with
 `node node_modules/@playwright/test/cli.js install chromium` (the download requires
 network access and the host must provide Chromium's system libraries). To use an

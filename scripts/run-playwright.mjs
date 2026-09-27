@@ -2,8 +2,14 @@ import { spawn } from "node:child_process";
 import { createServer } from "node:net";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { createIsolatedCheckout, wantsInPlace } from "./isolated-checkout.mjs";
 
-const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+const checkout = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+// The build writes .next/out, which a live dev server in this checkout serves
+// from; run in a copy unless --in-place is given (the release gate already is).
+const isolated = wantsInPlace() ? undefined : await createIsolatedCheckout(checkout);
+const root = isolated?.dir ?? checkout;
+if (isolated) console.log(`[e2e] running in isolated copy ${root}`);
 const children = new Set();
 function launch(args, env = {}) {
   const child = spawn(process.execPath, args, { cwd: root, stdio: "inherit", env: { ...process.env, ...env } });
@@ -61,11 +67,15 @@ try {
     await new Promise((resolve) => setTimeout(resolve, 250));
   }
   if (!ready) throw new Error(`Test server did not become ready at ${baseUrl}.`);
-  const runner = launch(["node_modules/@playwright/test/cli.js", "test", ...args.filter((arg) => arg !== "--skip-build")], { PLAYWRIGHT_BASE_URL: baseUrl });
+  const runner = launch(["node_modules/@playwright/test/cli.js", "test", ...args.filter((arg) => arg !== "--skip-build" && arg !== "--in-place")], { PLAYWRIGHT_BASE_URL: baseUrl });
   process.exitCode = await runner.completion;
 } catch (error) {
   console.error(error instanceof Error ? error.message : String(error));
   process.exitCode = 1;
 } finally {
   await stopChildren();
+  if (isolated) {
+    if (process.exitCode) console.log(`[e2e] failed; build output and traces are kept in ${root}`);
+    else await isolated.cleanup();
+  }
 }
