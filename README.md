@@ -55,8 +55,9 @@ Set `OPEN_BROWSER=0` to suppress browser launch. Stop the runner to stop both se
 
 Ollama defaults to `http://localhost:11434/api`; set `OLLAMA_URL` for another server.
 Set `MINIMAX_API_KEY` (and optionally `MINIMAX_BASE_URL`) to enable MiniMax.
-Remote development uses the authenticated reverse-proxy setup below; `make dev-remote`
-requires its WebSocket URL, allowed origin and token rather than exposing an unauthenticated backend.
+`make dev-remote` starts the same pair for a browser inside a Lima VM (see
+"Backend access" below); the authenticated reverse-proxy setup there covers
+other remote access.
 
 For production, build the static export and start the backend that serves it:
 
@@ -106,6 +107,25 @@ secret. For remote development, the proxy can route page/assets to Next.js and
 Without a configured token, loopback access trusts local native processes. Browser
 origins remain restricted. Requests without an Origin header still undergo Host
 validation and, when configured, token authentication.
+
+A browser inside a Lima VM reaches the host's loopback services through
+`host.lima.internal`, so neither service needs a non-loopback binding or a token.
+Two things must name that host: the frontend's inlined WebSocket URL and the
+backend's origin allow-list (which also admits the Host header). `make dev-remote`
+sets both (override `REMOTE_HOST` for another forwarded name):
+
+```bash
+NEXT_PUBLIC_WS_URL=ws://host.lima.internal:3001 \
+BACKEND_ALLOWED_ORIGINS=http://host.lima.internal:3000,http://localhost:3000,http://127.0.0.1:3000 \
+npm run dev
+```
+
+Open `http://host.lima.internal:3000` from the VM. Because the WebSocket URL is
+inlined at startup, a host browser on `localhost:3000` will not connect to this
+instance; use `make dev` for host-side work. An explicit `BACKEND_ALLOWED_ORIGINS`
+replaces the runner's default, so keep the loopback frontend origins in the list.
+Plain HTTP on a non-localhost origin is not a secure context, so browser APIs
+restricted to secure contexts (such as `crypto.randomUUID`) are unavailable there.
 
 The backend limits WebSocket messages to 1 MiB and `/models/show` JSON uploads to
 64 KiB with a 10-second upload deadline. Invalid identifiable chat requests receive
