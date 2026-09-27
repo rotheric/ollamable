@@ -664,10 +664,12 @@ test("renders tool call and tool result steps from the backend tool loop", async
   // The final assistant text should be visible
   await expect(page.getByText("Based on the search results, here is the answer.")).toBeVisible();
 
-  const activity = page.getByRole("region", { name: "Tool activity", exact: true });
-  await expect(activity.locator('[data-step-kind="tool_call"]')).toHaveCount(1);
-  await expect(activity.locator('[data-step-kind="tool_result"]')).toHaveCount(1);
-  await expect(page.getByRole("region", { name: "Conversation messages" }).locator('[data-step-kind="tool_call"], [data-step-kind="tool_result"]')).toHaveCount(0);
+  const transcript = page.getByRole("region", { name: "Conversation transcript" });
+  await expect(transcript.locator('[data-step-kind="tool_call"]')).toHaveCount(1);
+  await expect(transcript.locator('[data-step-kind="tool_result"]')).toHaveCount(1);
+  // Protocol activity keeps its chronological position between the prompt and the answer.
+  const kinds = await transcript.locator("[data-step-kind]").evaluateAll((nodes) => nodes.map((node) => node.getAttribute("data-step-kind")));
+  expect(kinds).toEqual(["user", "tool_call", "tool_result", "assistant"]);
 });
 
 test("persists backend-routed conversation steps across page reload", async ({ page }) => {
@@ -965,8 +967,10 @@ for (const display of ["markdown", "plain", "tokens"] as const) {
     const assistant = page.locator('[data-step-kind="assistant"]');
     await expect(assistant).toContainText("Authentic");
     await expect(assistant).toContainText("assistant explanation");
-    await expect(page.getByRole("region", { name: "Tool activity", exact: true })).toContainText("inspect_example");
-    await expect(page.getByRole("region", { name: "Tool activity", exact: true })).toContainText("distinctive query");
+    const call = page.locator('[data-step-kind="tool_call"]');
+    await expect(call).toContainText("inspect_example");
+    await expect(call).toContainText("distinctive query");
+    await expect(assistant).not.toContainText("inspect_example");
     if (display === "markdown") await expect(assistant.locator("strong")).toHaveText("assistant explanation");
     if (display === "tokens") await expect(assistant.getByTestId("token-text")).toContainText("Authentic **assistant explanation**");
   });
@@ -988,12 +992,10 @@ test("tool-only responses and legacy saved calls stay outside assistant messages
   const prompt = page.getByRole("textbox", { name: "User Prompt" });
   await prompt.fill("Inspect without prose");
   await prompt.press("Enter");
-  const activity = page.getByRole("region", { name: "Tool activity", exact: true });
-  await expect(activity).toContainText("only a tool");
-  await expect(activity).toContainText("Inspection finished");
+  await expect(page.locator('[data-step-kind="tool_call"]')).toContainText("only a tool");
+  await expect(page.locator('[data-step-kind="tool_result"]')).toContainText("Inspection finished");
   await expect(page.locator('[data-step-kind="assistant"]')).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Regenerate response" })).toHaveCount(0);
-  await expect(page.getByRole("region", { name: "Conversation messages" })).not.toContainText("Inspection finished");
   await page.waitForFunction(() => localStorage.getItem("ollamable.conversations")?.includes("protocol-result"));
   // Simulate an existing installation's merged tool-only assistant record.
   await page.evaluate(() => {
@@ -1007,8 +1009,8 @@ test("tool-only responses and legacy saved calls stay outside assistant messages
     localStorage.setItem("ollamable.conversations", JSON.stringify(saved));
   });
   await page.reload();
-  await expect(activity).toContainText("only a tool");
-  await expect(activity).toContainText("out: 9");
+  await expect(page.locator('[data-step-kind="tool_call"]')).toContainText("only a tool");
+  await expect(page.locator('[data-step-kind="tool_call"]')).toContainText("out: 9");
   await expect(page.locator('[data-step-kind="assistant"]')).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Regenerate response" })).toHaveCount(0);
   await page.waitForFunction(() => {

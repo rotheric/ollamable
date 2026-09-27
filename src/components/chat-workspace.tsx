@@ -1883,7 +1883,6 @@ export function ChatWorkspace() {
                         }
                         return {
                           key: step.id,
-                          kind: step.kind,
                           depth: hasToolCalls ? 1 : stepThreadDepth(step.kind),
                           element: (
                       <StepCard
@@ -2042,17 +2041,14 @@ export function ChatWorkspace() {
                           ),
                         };
                       });
-                      const activity = items.filter((item) => ["tool_call", "tool_result", "meta"].includes(item.kind));
-                      const messages = items.filter((item) => !["tool_call", "tool_result", "meta"].includes(item.kind));
-                      return <>
-                        <Stack component="section" aria-label="Conversation messages" spacing={2}>
-                          {wrapWithThreadBars(messages, theme)}
+                      // Protocol activity (tool calls, results, metadata) stays at its
+                      // chronological position so each turn reads as it happened; the
+                      // thread bars and headers distinguish it from chat messages.
+                      return (
+                        <Stack component="section" aria-label="Conversation transcript" spacing={2}>
+                          {wrapWithThreadBars(items, theme)}
                         </Stack>
-                        {activity.length > 0 ? <Stack component="section" aria-label="Tool activity" spacing={2}>
-                          <Typography variant="overline" color="text.secondary">Tool activity and response metadata</Typography>
-                          {wrapWithThreadBars(activity, theme)}
-                        </Stack> : null}
-                      </>;
+                      );
                     })()}
                     {streaming ? (
                       <Paper

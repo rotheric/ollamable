@@ -84,7 +84,7 @@ for (const mode of ["production", "development"] as const) {
           { role: "assistant", content: "", tool_calls: [{ function: { name: "curl", arguments: { url: `http://127.0.0.1:${providerPort}/tool-target` } } }] },
           expect.objectContaining({ role: "tool", tool_name: "curl", content: expect.stringContaining("real local tool result") }),
         ]));
-        await expect(page.getByRole("region", { name: "Tool activity", exact: true })).toContainText("real local tool result");
+        await expect(page.locator('[data-step-kind="tool_result"]')).toContainText("real local tool result");
         await expect(page.locator('[data-step-kind="assistant"]')).toHaveCount(1);
       }
     } catch (error) {
