@@ -27,13 +27,16 @@ vi.mock("@/src/lib/use-websocket", () => ({
 }));
 
 vi.mock("@/src/lib/backend-client", () => ({
-  BackendClient: vi.fn().mockImplementation(() => ({
-    handleServerMessage: vi.fn(),
-    startStream: mockStartStream,
-    cancelAll: mockCancelAll,
-    connectionClosed: mockConnectionClosed,
-    tokenize: mockTokenize,
-  })),
+  // A function expression, not an arrow: the component calls this with `new`.
+  BackendClient: vi.fn().mockImplementation(function () {
+    return {
+      handleServerMessage: vi.fn(),
+      startStream: mockStartStream,
+      cancelAll: mockCancelAll,
+      connectionClosed: mockConnectionClosed,
+      tokenize: mockTokenize,
+    };
+  }),
   WS_URL: "ws://localhost:3001",
 }));
 
