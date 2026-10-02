@@ -275,7 +275,6 @@ describe("isQuotaExceeded's disjuncts, isolated from each other (AC-ERR-4 / Flow
 
   it("does NOT treat a plain object merely shaped like a QuotaExceededError as a quota failure -- the instanceof DOMException guard is load-bearing", () => {
     const setItemSpy = vi.spyOn(window.localStorage, "setItem").mockImplementation(() => {
-      // eslint-disable-next-line @typescript-eslint/no-throw-literal
       throw { name: "QuotaExceededError", code: 22 };
     });
 

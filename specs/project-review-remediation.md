@@ -15,7 +15,7 @@ a real local-provider/tool round trip through production.
 ## Release verification
 
 `node scripts/run-checks.mjs`, the package `test`/`check` commands and `make test`
-run project-record consistency, unit tests, server integration tests, both
+run project-record consistency, lint, unit tests, server integration tests, both
 standalone typechecks, the production build and browser tests. Every stage must
 pass before calling the release gate green. Live-provider skips and environment
 launch failures are reported separately. Focused checks are not release passes.

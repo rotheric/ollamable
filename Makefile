@@ -1,6 +1,6 @@
 SHELL := /bin/sh
 
-.PHONY: install clean build test test-unit test-integration test-e2e test-mutation start dev dev-remote help
+.PHONY: install clean build lint test test-unit test-integration test-e2e test-mutation start dev dev-remote help
 
 FRONTEND_PORT ?= 3000
 BACKEND_PORT ?= 3001
@@ -24,7 +24,10 @@ build: ## Clean and build the project
 	$(MAKE) clean
 	npm run build
 
-test: ## Release gate: unit, integration, types, build, and browser tests
+lint: ## Run ESLint (warnings fail)
+	npm run lint
+
+test: ## Release gate: lint, unit, integration, types, build, and browser tests
 	node scripts/run-checks.mjs
 
 test-unit: ## Run unit tests

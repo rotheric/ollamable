@@ -27,7 +27,6 @@ import remarkGfm from "remark-gfm";
 import {
   Alert,
   AppBar,
-  Badge,
   Box,
   Button,
   Checkbox,
@@ -39,18 +38,13 @@ import {
   DialogContent,
   DialogTitle,
   Divider,
-  FormControl,
   FormControlLabel,
   IconButton,
   InputAdornment,
-  InputLabel,
   List,
   ListItemButton,
   ListItemText,
-  ListSubheader,
-  MenuItem,
   Paper,
-  Select,
   Stack,
   TextField,
   Toolbar,
@@ -76,7 +70,7 @@ import ThermostatOutlinedIcon from "@mui/icons-material/ThermostatOutlined";
 import TokenOutlinedIcon from "@mui/icons-material/TokenOutlined";
 import TourOutlinedIcon from "@mui/icons-material/TourOutlined";
 import ViewSidebarOutlinedIcon from "@mui/icons-material/ViewSidebarOutlined";
-import type { Conversation, ConversationStep, OllamaModel, OllamaModelMeta, ReasoningEffort, StepKind, ToolCallPayload, ToolDefinition } from "@/src/types/chat";
+import type { Conversation, ConversationStep, OllamaModel, OllamaModelMeta, ReasoningEffort, ToolDefinition } from "@/src/types/chat";
 import { ColorModeToggle } from "@/src/components/color-mode-toggle";
 import {
   createConversation,
@@ -113,7 +107,6 @@ const SIDEBAR_WIDTH = 320;
 const APP_BAR_HEIGHT = 65;
 const SIDEBAR_COLLAPSED_WIDTH = 44;
 const RIGHT_SIDEBAR_WIDTH = 360;
-const TEMPERATURE_OPTIONS = [0.0, 0.2, 0.4, 0.6, 0.8, 1.0, 1.2, 1.4, 1.6, 2.0];
 const REASONING_EFFORT_OPTIONS: ReasoningEffort[] = ["disable", "low", "medium", "high"];
 
 interface SortableConversationCardProps {
@@ -642,7 +635,7 @@ export function ChatWorkspace() {
   useEffect(() => {
     setNoteDraft(selectedConversation?.note ?? "");
     setEditingNoteId(null);
-  }, [selectedConversationId]);
+  }, [selectedConversationId, selectedConversation?.note]);
 
   const activeTools = useMemo(
     () =>
@@ -653,7 +646,7 @@ export function ChatWorkspace() {
   );
   const toolSearchLower = toolSearch.toLowerCase();
   const hasToolFilter = toolFilterActive || Boolean(toolSearchLower);
-  const activeToolIds = selectedConversation?.activeToolIds ?? [];
+  const activeToolIds = useMemo(() => selectedConversation?.activeToolIds ?? [], [selectedConversation]);
   const matchesToolFilter = useCallback(
     (t: ToolDefinition) => {
       if (toolSearchLower && !t.name.toLowerCase().includes(toolSearchLower)) return false;
@@ -680,7 +673,7 @@ export function ChatWorkspace() {
       servers.set(serverName, group);
     }
     return servers;
-  }, [selectedConversation, toolSearchLower]);
+  }, [selectedConversation, matchesToolFilter]);
   const visibleTranscriptSteps = useMemo(
     () => selectedConversation?.steps.filter(isVisibleTranscriptStep) ?? [],
     [selectedConversation]
@@ -736,7 +729,7 @@ export function ChatWorkspace() {
       null,
       2
     );
-  }, [activeTools, composerValue, previewModel, selectedConversation]);
+  }, [activeTools, previewModel, selectedConversation]);
 
   useEffect(() => {
     if (!selectedConversation && conversations.length > 0) {
@@ -762,7 +755,7 @@ export function ChatWorkspace() {
 
     previousSelectedConversationIdRef.current = currentConversationId;
     previousStepCountRef.current = stepCount;
-  }, [selectedConversationId, selectedConversation?.steps.length, tourRun]);
+  }, [selectedConversation?.id, selectedConversation?.steps.length, tourRun]);
 
   useEffect(() => {
     // Discovery can be delayed or partial. Absence never proves a saved selection invalid.
@@ -3332,46 +3325,6 @@ function renderModelLabel(model: OllamaModel) {
       <span>{model.name}</span>
     </span>
   );
-}
-
-function groupModelsByProvider(models: OllamaModel[]) {
-  const providers = new Map<string, OllamaModel[]>();
-  for (const model of models) {
-    const key = model.providerName ?? "Local";
-    const group = providers.get(key) ?? [];
-    group.push(model);
-    providers.set(key, group);
-  }
-
-
-  // If there's only one provider, skip the subheaders
-  if (providers.size <= 1) {
-    return models.map((model) => {
-      const value = modelSelectKey(model.provider, model.name);
-      return (
-        <MenuItem key={value} value={value}>
-          {renderModelLabel(model)}
-        </MenuItem>
-      );
-    });
-  }
-
-  const elements: React.ReactNode[] = [];
-  for (const [providerName, group] of providers) {
-    elements.push(
-      <ListSubheader key={`header-${providerName}`}>{providerName}</ListSubheader>
-    );
-    for (const model of group) {
-      const value = modelSelectKey(model.provider, model.name);
-      elements.push(
-        <MenuItem key={value} value={value}>
-          {renderModelLabel(model)}
-        </MenuItem>
-      );
-    }
-  }
-
-  return elements;
 }
 
 /** Known reasoning model name patterns (for providers that don't report capabilities). */

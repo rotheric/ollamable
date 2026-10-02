@@ -11,6 +11,7 @@ const workdir = isolated?.dir ?? root;
 if (isolated) console.log(`[check] running in isolated copy ${workdir}`);
 const checks = [
   ["Project record consistency", ["scripts/check-project-records.mjs"]],
+  ["Lint", ["node_modules/eslint/bin/eslint.js", ".", "--max-warnings", "0"]],
   ["Unit tests", ["node_modules/vitest/vitest.mjs", "run"]],
   ["Server integration tests", ["node_modules/vitest/vitest.mjs", "run", "-c", "vitest.server.config.ts"]],
   ["Frontend and test types", ["node_modules/typescript/bin/tsc", "--noEmit", "--incremental", "false"]],

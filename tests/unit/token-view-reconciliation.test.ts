@@ -11,7 +11,7 @@
  */
 
 import { describe, it, expect, vi } from "vitest";
-import { renderHook, waitFor, act } from "@testing-library/react";
+import { renderHook, waitFor } from "@testing-library/react";
 import type { ConversationStep } from "@/src/types/chat";
 import {
   TEMPLATE_OVERHEAD_LABEL,
