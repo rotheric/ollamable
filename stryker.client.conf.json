@@ -19,7 +19,12 @@
     "src/components/token-view-step-content.tsx",
     "src/lib/backend-client.ts",
     "src/lib/chat.ts",
-    "src/lib/use-websocket.ts"
+    "src/lib/use-websocket.ts",
+    "src/lib/models.ts",
+    "src/lib/transcript.ts",
+    "src/lib/stream-steps.ts",
+    "src/lib/use-sidebar-state.ts",
+    "src/lib/use-conversations.ts"
   ],
   "ignorePatterns": [
     ".next",

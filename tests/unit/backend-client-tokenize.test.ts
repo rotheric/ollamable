@@ -173,6 +173,70 @@ describe("BackendClient.tokenize()", () => {
     }
   });
 
+  it("rejects with the transport's own error when send() throws, like the not-open case", async () => {
+    const client = new BackendClient();
+    const promise = client.tokenize(() => { throw new Error("socket exploded"); }, "qwen3:1.7b", "hi");
+    await expect(promise).rejects.toThrow("socket exploded");
+  });
+
+  describe("releases its timeout timer however the call settles", () => {
+    function pendingCall(send: (data: unknown) => boolean = () => true) {
+      const client = new BackendClient();
+      const sent: Array<{ requestId: string }> = [];
+      const promise = client.tokenize((data) => { sent.push(data as { requestId: string }); return send(data); }, "qwen3:1.7b", "hi");
+      // Settled outcomes are asserted per case; this only keeps a rejection from going unhandled.
+      promise.catch(() => {});
+      return { client, promise, requestId: () => sent[0].requestId };
+    }
+
+    it.each([
+      ["a result arrives", (c: ReturnType<typeof pendingCall>) =>
+        c.client.handleServerMessage({ type: "tokenize.result", requestId: c.requestId(), tokens: ["hi"], tokenIds: [1] })],
+      ["an error arrives", (c: ReturnType<typeof pendingCall>) =>
+        c.client.handleServerMessage({ type: "tokenize.error", requestId: c.requestId(), reason: "unsupported_provider" })],
+      ["the connection closes", (c: ReturnType<typeof pendingCall>) => c.client.connectionClosed()],
+      ["everything is cancelled", (c: ReturnType<typeof pendingCall>) => c.client.cancelAll()],
+    ])("when %s", async (_when, settle) => {
+      vi.useFakeTimers();
+      try {
+        const call = pendingCall();
+        expect(vi.getTimerCount()).toBe(1);
+
+        settle(call);
+
+        expect(vi.getTimerCount()).toBe(0);
+        await call.promise.catch(() => {});
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    it.each([
+      ["send() reports the socket is not open", () => false],
+      ["send() throws", () => { throw new Error("socket exploded"); }],
+    ])("when %s", async (_when, send) => {
+      vi.useFakeTimers();
+      try {
+        const call = pendingCall(send);
+
+        expect(vi.getTimerCount()).toBe(0);
+        await expect(call.promise).rejects.toThrow();
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    it("a settled call is forgotten: a duplicate answer for the same request is ignored", async () => {
+      const call = pendingCall();
+      call.client.handleServerMessage({ type: "tokenize.result", requestId: call.requestId(), tokens: ["hi"], tokenIds: [1] });
+
+      expect(() =>
+        call.client.handleServerMessage({ type: "tokenize.error", requestId: call.requestId(), reason: "late" })
+      ).not.toThrow();
+      await expect(call.promise).resolves.toEqual({ tokens: ["hi"], tokenIds: [1] });
+    });
+  });
+
   // ── S3-F4: explicit provider threading ───────────────────────────────
 
   it("includes the explicit provider field in the outgoing tokenize message when supplied", () => {
