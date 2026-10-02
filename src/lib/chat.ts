@@ -43,7 +43,7 @@ export interface SidebarState {
   subsections: Record<string, boolean>;
 }
 
-const DEFAULT_SIDEBAR_STATE: SidebarState = {
+export const DEFAULT_SIDEBAR_STATE: SidebarState = {
   sidebarOpen: true,
   rightSidebarOpen: false,
   modelSectionOpen: false,
