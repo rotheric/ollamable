@@ -92,6 +92,55 @@ export async function fetchOpenAIModels(
 
 // ── Streaming chat completions ───────────────────────────────────────
 
+/**
+ * Provider base URLs that rejected `stream_options` (in-process memory only). Strict
+ * OpenAI-compatible servers answer 4xx to the unknown field; for them usage stays unknown.
+ */
+const streamOptionsRejectedBy = new Set<string>();
+
+/** A 4xx whose error body names the field we added (`stream_options` / `include_usage`). */
+async function rejectsStreamOptions(response: Response): Promise<boolean> {
+  // Auth and rate-limit errors say nothing about the field, whatever their body mentions.
+  if (response.status < 400 || response.status >= 500 || [401, 403, 429].includes(response.status)) return false;
+  return /stream_options|include_usage/.test(await readBoundedBody(response, ERROR_BODY_MAX_BYTES, ERROR_BODY_TIMEOUT_MS));
+}
+
+const ERROR_BODY_MAX_BYTES = 8 * 1024;
+const ERROR_BODY_TIMEOUT_MS = 2000;
+
+/**
+ * At most `maxBytes` of the body, or "" when it errors (e.g. the request was aborted) or does not
+ * finish within `timeoutMs`; a stalled error body must not hang the chat. The reader is cancelled
+ * in every case.
+ */
+async function readBoundedBody(response: Response, maxBytes: number, timeoutMs: number): Promise<string> {
+  const reader = response.body?.getReader();
+  if (!reader) return "";
+  const decoder = new TextDecoder();
+  let text = "";
+  let bytes = 0;
+  const read = (async () => {
+    while (bytes < maxBytes) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      bytes += value.length;
+      text += decoder.decode(value, { stream: true });
+    }
+    return text;
+  })();
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<string>((resolve) => { timer = setTimeout(() => resolve(""), timeoutMs); });
+  try {
+    return await Promise.race([read, timeout]);
+  } catch {
+    return "";
+  } finally {
+    clearTimeout(timer);
+    reader.cancel().catch(() => {});
+    read.catch(() => {});
+  }
+}
+
 export async function streamOpenAIResponse(args: {
   config: ProviderConfig;
   model: string;
@@ -109,7 +158,8 @@ export async function streamOpenAIResponse(args: {
     model,
     stream: true,
     // Without this, OpenAI-compatible streams report no usage and the context fill is unknown.
-    stream_options: { include_usage: true },
+    // Omitted for providers that rejected it earlier (see `streamOptionsRejectedBy`).
+    ...(streamOptionsRejectedBy.has(config.baseUrl) ? {} : { stream_options: { include_usage: true } }),
     messages: toOpenAIMessages(steps),
   };
 
@@ -137,7 +187,7 @@ export async function streamOpenAIResponse(args: {
     body.reasoning_effort = reasoningEffort === "disable" ? "minimal" : reasoningEffort;
   }
 
-  const response = await fetch(`${config.baseUrl}/chat/completions`, {
+  const post = () => fetch(`${config.baseUrl}/chat/completions`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -146,6 +196,13 @@ export async function streamOpenAIResponse(args: {
     body: JSON.stringify(body),
     signal,
   });
+  let response = await post();
+  if (body.stream_options && (await rejectsStreamOptions(response))) {
+    // Retry exactly once without the field; remember the provider only if that retry succeeds.
+    delete body.stream_options;
+    response = await post();
+    if (response.ok) streamOptionsRejectedBy.add(config.baseUrl);
+  }
 
   if (!response.ok || !response.body) {
     throw new Error(`${config.name} request failed: ${response.status}`);
@@ -223,17 +280,13 @@ export async function streamOpenAIResponse(args: {
   // Finalise tool steps with fully accumulated arguments
   const finalToolSteps = materialiseToolSteps(pendingToolCalls, toolSteps, true);
 
-  if (lastUsage || finishReason) {
-    assistantStep.usage = {
-      ...(lastUsage?.prompt_tokens != null
-        ? { inputTokens: lastUsage.prompt_tokens }
-        : {}),
-      ...(lastUsage?.completion_tokens != null
-        ? { outputTokens: lastUsage.completion_tokens }
-        : {}),
-      ...(finishReason ? { stopReason: finishReason } : {}),
-    };
-  }
+  // The stream completed (aborts throw above): always attach a usage object, even an empty one, so
+  // a response that reported nothing is a boundary for `lastUsedTokens`, not skipped for an older figure.
+  assistantStep.usage = {
+    ...(lastUsage?.prompt_tokens != null ? { inputTokens: lastUsage.prompt_tokens } : {}),
+    ...(lastUsage?.completion_tokens != null ? { outputTokens: lastUsage.completion_tokens } : {}),
+    ...(finishReason ? { stopReason: finishReason } : {}),
+  };
 
   return retainResponseUsage(compactSteps(reasoningStep, assistantStep, finalToolSteps), assistantStep.usage, assistantStep);
 }

@@ -47,7 +47,10 @@ describe("ContextMeter", () => {
     expect(meter).not.toHaveAttribute("data-level");
   });
 
-  it.each([["unknown fill", computeContextFill([{ kind: "assistant" }], runtimeWindow)]])(
+  it.each([
+    ["unknown fill", computeContextFill([{ kind: "assistant" }], runtimeWindow)],
+    ["a usage-less tool-only response", computeContextFill([{ kind: "user" }, { kind: "tool_call", usage: { stopReason: "tool_calls" } }, { kind: "tool_result" }], runtimeWindow)],
+  ])(
     "shows an em dash and no level for %s (AC-UX-3)",
     (_name, fill) => {
     renderMeter(fill, undefined);

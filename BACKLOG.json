@@ -1,6 +1,6 @@
 {
   "version": 3,
-  "updated_at": "2026-10-03T07:26:28Z",
+  "updated_at": "2026-10-03T09:24:42Z",
   "epics": [
     {
       "path": "specs/epic-guided-tour-with-react-joyride/",
@@ -88,6 +88,32 @@
       "behavior": "Mostly untriaged card-layout and colour mutants; no direct component test renders the card's behaviour paths.",
       "approach": "Run base:mutation-testing on src/components/step-card.tsx, separate styling-only survivors from behaviour, add component tests for the behaviour paths.",
       "success_signal": "Real-gap survivors in src/components/step-card.tsx are zero or justified as side-effect-only."
+    },
+    {
+      "slug": "empty-completed-response-leaves-no-usage",
+      "scope": "any",
+      "anchor": {
+        "path": "server/response-usage.ts"
+      },
+      "text": "Empty completed response leaves no usage boundary",
+      "created_at": "2026-10-03",
+      "motivation": "The context meter and model-facing usage note must reflect the latest response only; a completely empty completed stream stores no step, so an older token count can still be shown as current.",
+      "behavior": "retainResponseUsage returns [] for an empty response with usage {} (deliberately, to avoid a blank transcript card), so lastUsedTokens falls back to the previous response's figure.",
+      "approach": "Track response completion and unknown-usage state separately from transcript steps (e.g. a non-rendered conversation field or a hidden boundary marker that placeStepsForModel drops), then test an empty completion after a numeric response.",
+      "success_signal": "An empty completed stream after a numeric response yields an unknown meter and a number-free note, with no visible transcript card."
+    },
+    {
+      "slug": "cap-4xx-error-body-read-within",
+      "scope": "any",
+      "anchor": {
+        "path": "server/openai-client.ts"
+      },
+      "text": "Cap 4xx error-body read within a single chunk",
+      "created_at": "2026-10-03",
+      "motivation": "The stream_options fallback reads 4xx bodies with an 8 KiB cap, but the cap is only checked between chunks.",
+      "behavior": "readBoundedBody decodes a whole chunk before checking the byte count, so a large single chunk is scanned in full and a field name beyond byte 8192 can still trigger the retry.",
+      "approach": "Decode only value.subarray(0, maxBytes - bytes) and cancel the reader once the cap is reached; add a test with one oversized chunk and the field name beyond byte 8192.",
+      "success_signal": "An oversized single-chunk 4xx body is decoded only up to 8 KiB and a field name beyond the cap does not trigger a retry."
     }
   ],
   "archive": []

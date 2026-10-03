@@ -255,13 +255,13 @@ function processStreamLine(
   }
 
   if (chunk.done) {
-    if (chunk.prompt_eval_count != null || chunk.eval_count != null || chunk.done_reason) {
-      assistantStep.usage = {
-        ...(chunk.prompt_eval_count != null ? { inputTokens: chunk.prompt_eval_count } : {}),
-        ...(chunk.eval_count != null ? { outputTokens: chunk.eval_count } : {}),
-        ...(chunk.done_reason ? { stopReason: chunk.done_reason } : {}),
-      };
-    }
+    // A completed response always carries a usage object (possibly empty) so that one reporting
+    // nothing is a boundary for `lastUsedTokens` rather than skipped in favour of an older figure.
+    assistantStep.usage = {
+      ...(chunk.prompt_eval_count != null ? { inputTokens: chunk.prompt_eval_count } : {}),
+      ...(chunk.eval_count != null ? { outputTokens: chunk.eval_count } : {}),
+      ...(chunk.done_reason ? { stopReason: chunk.done_reason } : {}),
+    };
     const nextSteps = retainResponseUsage(compactSteps(reasoningStep, assistantStep, toolSteps), assistantStep.usage, assistantStep);
     onDelta(nextSteps);
     return { done: true, steps: nextSteps, reasoningStep };

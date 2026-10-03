@@ -15,8 +15,9 @@
 - **resolved window** — the `{ tokens, source }` value returned by `resolveContextWindow`.
 - **fill** — `usage.inputTokens + usage.outputTokens` of the most recent step carrying token
   `usage`, unless an `assistant` step without token `usage` follows it (a response whose provider
-  reported none); in-flight steps are ignored. `none-yet` when no step carries token `usage` and
-  there is no `assistant` step; `unknown` otherwise when no value results.
+  reported none); in-flight steps are ignored. `none-yet` when the history contains no model
+  response (no `assistant` step, no `tool_call` step, and no step carrying a `usage` object);
+  `unknown` when a model response exists but no token value results.
 - **remembered window** — the last `/models/runtime` `contextLength` observed for a
   `provider/model` pair, persisted by the client.
 - **usage note** — the string returned by `buildContextUsageNote` in `shared/context-usage.ts`.

@@ -1,0 +1,115 @@
+{
+  "bug_name": "usage-staleness-and-include-usage",
+  "bug_report_file": "bug-reports/usage-staleness-and-include-usage-report.md",
+  "created_at": "2026-10-03T08:46:40Z",
+  "updated_at": "2026-10-03T09:27:12Z",
+  "phase": "ACCEPTED",
+  "complexity": "medium",
+  "verification_questions": [
+    {
+      "id": "VQ-B-001",
+      "category": "TEST",
+      "question": "Does a reproduction test fail on 3162836 and pass after the fix for: lastUsedTokens([user, assistant{1000/50}, user, tool_call{usage:{stopReason}}, tool_result]) === undefined, and does computeContextFill report { unknown: true } for that history?"
+    },
+    {
+      "id": "VQ-B-002",
+      "category": "SPEC",
+      "question": "Is the root cause of defect 1 addressed in lastUsedTokens (a step whose usage object has no numeric token counts is a response boundary returning undefined), without changing results for histories where the latest response carries numeric usage, and do the server tool loop, request preview and token view all inherit the fix via the shared function (AC-CTX-8, AC-NOTE-2, AC-NOTE-5)?"
+    },
+    {
+      "id": "VQ-B-003",
+      "category": "TEST",
+      "question": "Does an integration test with a stub OpenAI-compatible provider that rejects stream_options (HTTP 400 mentioning stream_options/include_usage) show the chat succeeds via exactly one retry without stream_options, and that subsequent requests to the same provider omit stream_options without a failing first attempt?"
+    },
+    {
+      "id": "VQ-B-004",
+      "category": "QUALITY",
+      "question": "Is the fallback narrowly scoped: other 4xx/5xx errors (not mentioning stream_options/include_usage) still fail as before with no retry, the retry happens at most once per request, and the remembered state is per provider base URL and in-process only?"
+    },
+    {
+      "id": "VQ-B-005",
+      "category": "SPEC",
+      "question": "Are the lastUsedTokens docstring and spec text updated so the 'accepted residual' covers only responses carrying no usage object at all, and is any spec/AC change recorded as a dated Amendment in specs/epic-compaction-tool/spec.md?"
+    },
+    {
+      "id": "VQ-B-006",
+      "category": "QUALITY",
+      "question": "Is the change minimal (shared/context-usage.ts, server/openai-client.ts, tests, docs) with no unrelated edits, and do unit, integration, lint, typecheck and the full release gate pass?"
+    },
+    {
+      "id": "VQ-B-007",
+      "category": "ARCHITECTURE",
+      "question": "Do existing guarantees still hold: Ollama paths unaffected; meter holds the last completed value during streaming (stream- steps ignored); stopReason-only usage on the assistant step still yields unknown; no new duplication of the usage-boundary rule outside shared/context-usage.ts?"
+    }
+  ],
+  "pre_existing_dirty_files": [
+    ".claude/settings.json",
+    "specs/epic-frontend-architecture-maintainability/acceptance-criteria.md",
+    "specs/epic-frontend-architecture-maintainability/spec.md"
+  ],
+  "plugin_sha": "unknown",
+  "consumer_sha": "3162836",
+  "models": {
+    "lead": "opus",
+    "examiner": "haiku",
+    "implementer": "sonnet"
+  },
+  "baseline": null,
+  "fix": null,
+  "review_rounds": [
+    {
+      "round": 1,
+      "verdict": "ACCEPTED",
+      "codex": "needs-attention: 2 medium"
+    },
+    {
+      "round": 2,
+      "verdict": "ACCEPTED",
+      "codex": "needs-attention: 2 medium (empty meta card, unbounded 4xx body read)"
+    },
+    {
+      "round": 3,
+      "verdict": "ACCEPTED",
+      "codex": "needs-attention: 2 findings rated low by reviewer, filed as backlog follow-ups"
+    }
+  ],
+  "remediation_round": 3,
+  "phase_history": [
+    {
+      "phase": "INITIALIZED",
+      "timestamp": "2026-10-03T08:46:40Z",
+      "trigger": "workflow_start"
+    },
+    {
+      "phase": "FIX_READY",
+      "timestamp": "2026-10-03T08:51:28Z",
+      "trigger": "fixer_done"
+    },
+    {
+      "phase": "REMEDIATING",
+      "timestamp": "2026-10-03T08:56:10Z",
+      "trigger": "decider_retry_vq_b_007"
+    },
+    {
+      "phase": "REMEDIATING",
+      "timestamp": "2026-10-03T09:08:27Z",
+      "trigger": "lead_closes_codex_medium_findings"
+    },
+    {
+      "phase": "REMEDIATING",
+      "timestamp": "2026-10-03T09:20:37Z",
+      "trigger": "lead_closes_round2_codex_mediums"
+    },
+    {
+      "phase": "ACCEPTED",
+      "timestamp": "2026-10-03T09:27:12Z",
+      "trigger": "reviewer_accepted_gate_green"
+    }
+  ],
+  "final_test_counts": {
+    "unit": 770,
+    "integration": "531+2 skipped",
+    "e2e": 52
+  },
+  "e2e_gate": "passed"
+}

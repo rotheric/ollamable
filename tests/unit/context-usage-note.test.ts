@@ -150,6 +150,21 @@ describe("lastUsedTokens", () => {
     // Usage-less steps of other kinds are skipped.
     expect(lastUsedTokens([withUsage, step("user", "u"), step("tool_result", "r"), step("reasoning", "t")])).toBe(15);
   });
+
+  it("AC-NOTE-5: a tool-only response whose usage object carries no token counts is undefined, not an older figure", () => {
+    const steps = [
+      step("user", "u1"),
+      step("assistant", "a1", { usage: { inputTokens: 1000, outputTokens: 50 } }),
+      step("user", "u2"),
+      step("tool_call", "", { usage: { stopReason: "tool_calls" } }),
+      step("tool_result", "r"),
+    ];
+    expect(lastUsedTokens(steps)).toBeUndefined();
+    expect(buildContextUsageNote({ usedTokens: lastUsedTokens(steps), windowTokens: 8192, source: "runtime" })).not.toMatch(/\d|%/);
+    // A latest response that does report numbers still wins.
+    const reported = step("tool_call", "", { usage: { inputTokens: 2000, outputTokens: 10, stopReason: "tool_calls" } });
+    expect(lastUsedTokens([...steps.slice(0, 3), reported, step("tool_result", "r")])).toBe(2010);
+  });
 });
 
 describe("applyContextPlacement", () => {

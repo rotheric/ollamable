@@ -1,0 +1,34 @@
+{
+  "bug": "usage-staleness-and-include-usage",
+  "date": "2026-10-03",
+  "allowed_files": [
+    "shared/context-usage.ts",
+    "server/openai-client.ts",
+    "tests/unit/context-usage-note.test.ts",
+    "tests/unit/context-window.test.ts",
+    "tests/integration/openai-client.test.ts",
+    "specs/epic-compaction-tool/spec.md (Design Decision 5 wording + dated Amendments entry)",
+    "specs/epic-compaction-tool/acceptance-criteria.md (only if wording accepted the old residual)",
+    "bug-reports/usage-staleness-and-include-usage-*.json",
+    "src/lib/context-window.ts",
+    "tests/unit/context-meter.test.tsx",
+    "specs/epic-compaction-tool/acceptance-criteria.md",
+    "server/ollama-client.ts (completed responses always carry a usage object)",
+    "tests/integration/completed-response-usage-boundary.test.ts",
+    "server/response-usage.ts (no meta step for an empty usage on an empty response)"
+  ],
+  "constraints": [
+    "lastUsedTokens: a step whose usage object has no numeric inputTokens/outputTokens is a response boundary -> undefined; results for histories whose latest response has numeric usage are unchanged",
+    "keep assistant-without-usage stop and the stream- filter in computeContextFill",
+    "stream_options retry only on HTTP 4xx whose body mentions stream_options or include_usage; at most one retry per request; remembered per provider base URL, in-process module state",
+    "other errors unchanged",
+    "completed streams always attach a usage object (possibly empty); interrupted streams unchanged; stream_options fallback excludes 401/403/429 and remembers a base URL only after a successful retry",
+    "error-body read for the stream_options check is bounded (8 KiB, 2 s) and falls back to the original status error"
+  ],
+  "non_goals": [
+    "no change to Ollama request/parsing paths; the only Ollama change is attaching a (possibly empty) usage object to completed responses (round 2)",
+    "no change to retainResponseUsage placement",
+    "no new user-facing settings",
+    "no dependency changes"
+  ]
+}

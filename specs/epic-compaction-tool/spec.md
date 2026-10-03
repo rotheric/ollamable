@@ -89,7 +89,13 @@ a research story establishes that before the seeding and injection stories are i
    sets `stream_options: { include_usage: true }`. With no usage yet the meter shows `0`; when a
    provider reports none after a response, fill is `unknown` and the meter shows `—` — also when
    an earlier response did report usage; neither the meter nor the note ever falls back to an older
-   figure (the server loop already behaves so per AC-NOTE-5). Whether
+   figure (the server loop already behaves so per AC-NOTE-5). A response that carries a `usage`
+   object without token counts (`{ stopReason }` only) counts as reporting none, also when it is a
+   tool-only response; every completed response with at least one step carries a (possibly
+   empty) `usage` object, so only an interrupted response or a completely empty completed response
+   (no steps are stored) can leave an older figure in place. A provider that rejects `stream_options` (HTTP 4xx naming `stream_options` or
+   `include_usage`) is retried once without it and remembered per base URL; its usage stays
+   unknown. Whether
    Ollama's reported prompt tokens can ever exceed the runtime window (or are capped by its
    truncation) is observed in S3; the meter's `error` band is defined by that finding.
 6. **The meter is a toggle, off by default**, stored as the sidebar preference
@@ -99,7 +105,8 @@ a research story establishes that before the seeding and injection stories are i
 7. **The model is never told a number the app does not know.** The usage note states tokens used,
    window and percentage only when both are known: with no usage reported yet (first invocation of
    a conversation) it omits all numbers; with an `assumed` window it states tokens used only; with
-   an `estimated` window it marks window and percentage as approximate.
+   an `estimated` window it marks window and percentage as approximate. (Fill `none-yet` vs `unknown`
+   follows the same rule, see Terminology "fill" in acceptance-criteria.md.)
 8. **Placement is a shared step-list transform applied to a per-invocation copy.**
    `shared/context-usage.ts` exports the note builder (numbers formatted with the fixed `en-US`
    locale) and `applyContextPlacement(steps, { note?, family? })`, which maps `compaction` steps
@@ -313,4 +320,16 @@ See [`acceptance-criteria.md`](./acceptance-criteria.md).
   review (raised twice), decided by an independent Fable review on the user's request. Rationale:
   the server loop already refused stale figures (AC-NOTE-5); the meter and a request's first note
   must not show an older response's count as current.
-
+- **2026-10-03** — Usage-less tool-only responses and strict providers (Design Decision 5;
+  `AC-CTX-8`, `AC-NOTE-2`, `AC-NOTE-5` interpretation). Source: Codex adversarial review of the
+  compaction commit, verified. Rationale: for a tool-only response from a provider that omits
+  token usage the server attaches `usage: { stopReason }` to the first `tool_call`; that step now
+  marks a response that reported no usage (fill `unknown`, number-free note) instead of being
+  skipped in favour of an older figure, so the "accepted residual" shrinks (see round 2). Also: `stream_options.include_usage` is dropped, after one retry, for
+  providers that reject it with a 4xx naming the field (remembered per base URL in-process).
+  Remediation round 1: fill is `none-yet` only when the history has no model response at all (no
+  `assistant` step, no `tool_call` step, no step with a `usage` object); otherwise a response
+  without a token value is `unknown` (Terminology "fill"; Design Decision 7 cross-reference).
+  Remediation round 2: a completed response always carries a `usage` object (possibly `{}`) from
+  both providers, so the residual is gone for completed responses; the `stream_options` fallback
+  excludes HTTP 401/403/429 and remembers a base URL only after the retry succeeds.

@@ -12,5 +12,7 @@ export function retainResponseUsage(
     target.usage = usage;
     return steps;
   }
+  // An empty response that reported nothing has no fields to retain: no content-free meta step.
+  if (Object.keys(usage).length === 0) return steps;
   return [{ ...source, kind: "meta", title: "Model usage", content: "", expanded: false, usage }];
 }

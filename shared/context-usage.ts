@@ -110,20 +110,23 @@ export function buildContextUsageNote({ usedTokens, windowTokens, source }: Cont
 /** Minimal shape carried by a step (both `ConversationStep` types satisfy it). */
 interface UsageCarrier {
   kind: string;
-  usage?: { inputTokens?: number; outputTokens?: number };
+  usage?: { inputTokens?: number; outputTokens?: number; stopReason?: string };
 }
 
 /**
  * `inputTokens + outputTokens` of the LATEST response's usage, i.e. the size of the model's whole
  * context after its latest invocation. Scans backward: the first step with numeric usage wins, but
- * an `assistant` step without numeric usage met first means the latest response reported none, so
- * the result is `undefined` even when an older response reported usage (a stale figure would
- * understate the context). Other usage-less kinds (tool_result, user, meta, tool_call, reasoning,
- * compaction, system) are skipped.
+ * an `assistant` step without numeric usage, or any step carrying a `usage` object without numeric
+ * token counts (e.g. `{ stopReason }` only, which the server attaches to the first step of a
+ * response that reported no usage, a `tool_call` for a tool-only response), met first means the
+ * latest response reported none, so the result is `undefined` even when an older response reported
+ * usage (a stale figure would understate the context). Steps without a `usage` object (tool_result,
+ * user, meta, tool_call, reasoning, compaction, system) are skipped.
  *
- * Accepted residual: a final response from a usage-omitting provider that leaves no assistant step
- * after normalisation (pure tool calls, or empty prose such as reasoning only) keeps the previous
- * figure.
+ * Completed responses: the server attaches a (possibly empty) `usage` object to every response
+ * whose stream completed with at least one step, so one that reported nothing is a boundary here.
+ * Residual: an interrupted response (no usage object) or a completed response that produced no
+ * steps at all (nothing is stored) can leave an older figure in place.
  */
 export function lastUsedTokens(steps: ReadonlyArray<UsageCarrier>): number | undefined {
   for (let i = steps.length - 1; i >= 0; i--) {
@@ -131,7 +134,8 @@ export function lastUsedTokens(steps: ReadonlyArray<UsageCarrier>): number | und
     if (usage && (typeof usage.inputTokens === "number" || typeof usage.outputTokens === "number")) {
       return (usage.inputTokens ?? 0) + (usage.outputTokens ?? 0);
     }
-    if (kind === "assistant") return undefined;
+    // A usage object without token counts marks a response that reported none.
+    if (kind === "assistant" || usage) return undefined;
   }
   return undefined;
 }

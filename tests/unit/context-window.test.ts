@@ -198,6 +198,34 @@ describe("computeContextFill", () => {
     expect(computeContextFill([step("user"), step("assistant", { stopReason: "stop" })], window)).toEqual({ unknown: true });
   });
 
+  it("AC-CTX-8: a tool-only latest response with stopReason-only usage is unknown, not an older figure", () => {
+    const steps = [
+      step("user"),
+      step("assistant", { inputTokens: 1000, outputTokens: 50 }),
+      step("user"),
+      step("tool_call", { stopReason: "tool_calls" }),
+      step("tool_result"),
+    ];
+    expect(computeContextFill(steps, window)).toEqual({ unknown: true });
+  });
+
+  it("AC-CTX-8: a tool-only response without a usable usage is unknown, with or without a trailing user step", () => {
+    const stopOnly = { stopReason: "tool_calls" };
+    expect(computeContextFill([step("system"), step("user"), step("tool_call", stopOnly), step("tool_result")], window)).toEqual({ unknown: true });
+    expect(computeContextFill([step("system"), step("user"), step("tool_call", stopOnly), step("tool_result"), step("user")], window)).toEqual({ unknown: true });
+    expect(computeContextFill([step("system"), step("user"), step("tool_call"), step("tool_result")], window)).toEqual({ unknown: true });
+    // A completed response that reported nothing carries an empty usage object (server contract).
+    const earlier = [step("user"), step("assistant", { inputTokens: 1000, outputTokens: 50 }), step("user")];
+    expect(computeContextFill([...earlier, step("tool_call", {}), step("tool_result")], window)).toEqual({ unknown: true });
+  });
+
+  it("none-yet: histories with no model response are zero fill; a latest numeric usage is numeric", () => {
+    expect(computeContextFill([step("system"), step("user")], window)).toEqual({ usedTokens: 0, percent: 0, level: "ok" });
+    expect(computeContextFill([step("system")], window)).toEqual({ usedTokens: 0, percent: 0, level: "ok" });
+    expect(computeContextFill([step("user"), step("tool_call", { inputTokens: 4096, outputTokens: 0 })], window))
+      .toEqual({ usedTokens: 4096, percent: 50, level: "ok" });
+  });
+
   it("none-yet: no usage and no assistant response is zero fill", () => {
     expect(computeContextFill([], window)).toEqual({ usedTokens: 0, percent: 0, level: "ok" });
     expect(computeContextFill([step("system"), step("user")], window)).toEqual({ usedTokens: 0, percent: 0, level: "ok" });
@@ -261,7 +289,7 @@ describe("computeContextFill", () => {
     expect(computeContextFill([step("assistant", { inputTokens: 995 })], { tokens: 1000 })).toEqual({ usedTokens: 995, percent: 100, level: "warn" });
   });
 
-  it("is the latest response's usage; unknown when the latest assistant step reports none (property)", () => {
+  it("is the latest response's usage; unknown when the latest response reports none (property)", () => {
     const stepArb = fc.record({
       kind: fc.constantFrom<ConversationStep["kind"]>("system", "user", "assistant", "reasoning", "tool_call", "tool_result", "meta"),
       usage: fc.option(
@@ -277,15 +305,15 @@ describe("computeContextFill", () => {
       fc.property(fc.array(stepArb, { maxLength: 12 }), fc.integer({ min: 1, max: 200_000 }), (steps, tokens) => {
         const fill = computeContextFill(steps, { tokens });
         const hasTokens = (s: (typeof steps)[number]) => !!s.usage && (s.usage.inputTokens !== undefined || s.usage.outputTokens !== undefined);
-        const lastWithTokens = steps.map(hasTokens).lastIndexOf(true);
-        const lastAssistant = steps.map((s) => s.kind === "assistant").lastIndexOf(true);
-        if (lastAssistant > lastWithTokens) {
-          expect(fill).toEqual({ unknown: true });
-        } else if (lastWithTokens < 0) {
-          expect(fill).toEqual({ usedTokens: 0, percent: 0, level: "ok" });
-        } else {
-          const last = steps[lastWithTokens].usage!;
+        // The latest response decides: its own token usage, or unknown when it reported none.
+        const latest = [...steps].reverse().find((s) => hasTokens(s) || s.kind === "assistant" || !!s.usage);
+        if (latest && hasTokens(latest)) {
+          const last = latest.usage!;
           expect(fill).toMatchObject({ usedTokens: (last.inputTokens ?? 0) + (last.outputTokens ?? 0) });
+        } else if (latest || steps.some((s) => s.kind === "tool_call")) {
+          expect(fill).toEqual({ unknown: true });
+        } else {
+          expect(fill).toEqual({ usedTokens: 0, percent: 0, level: "ok" });
         }
       }),
       { seed: 20261002 }

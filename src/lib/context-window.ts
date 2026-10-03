@@ -122,7 +122,8 @@ function levelFor(usedTokens: number, windowTokens: number): ContextFillLevel {
 /**
  * Fill is `inputTokens + outputTokens` of the LATEST response's usage (the model's whole context at
  * the end of its latest invocation). Before any response there is nothing to count (zero fill); a
- * latest response whose provider reported no usage is `unknown`, even when an older response
+ * latest response whose provider reported no usage is `unknown` (a response is any assistant or
+ * tool_call step, or any step with a usage object), even when an older response
  * reported usage. In-flight (streaming) steps are ignored, so the meter holds the previous
  * completed invocation's value while a response streams.
  */
@@ -136,6 +137,8 @@ export function computeContextFill(
     const percent = contextPercent(usedTokens, window.tokens);
     return { usedTokens, percent, level: levelFor(usedTokens, window.tokens) };
   }
-  if (steps.some((step) => step.kind === "assistant")) return { unknown: true };
+  // Any model response (assistant or tool_call step, or any step carrying a usage object, even
+  // stopReason-only) that yielded no number is unknown; zero fill only before the first response.
+  if (steps.some((step) => step.kind === "assistant" || step.kind === "tool_call" || step.usage)) return { unknown: true };
   return { usedTokens: 0, percent: 0, level: "ok" };
 }
