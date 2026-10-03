@@ -1,0 +1,68 @@
+{
+  "module_name": "context-usage",
+  "purpose": "Model-facing context-usage note and placement transform shared by server tool loop, request preview and token view; plus the client carriage of the resolved window and model family.",
+  "public_api": [
+    {
+      "name": "buildContextUsageNote",
+      "signature": "({ usedTokens?: number; windowTokens: number; source: ContextNoteSource }) => string",
+      "description": "Fixed en-US text; uses contextPercent; no numbers without usedTokens; assumed -> used tokens only; estimated -> approximately; always names compact_context."
+    },
+    {
+      "name": "applyContextPlacement",
+      "signature": "<T extends PlacementStep>(steps: ReadonlyArray<T>, opts?: { note?: string; family?: string; placement?: ContextPlacement }) => T[]",
+      "description": "Returns a new array, never mutates input. Maps compaction steps to user-role steps (collating the next user step onto them) and collates the note onto the last user step or adds a separate user step."
+    },
+    {
+      "name": "placeStepsForModel",
+      "signature": "<T extends PlacementStep>(steps: ReadonlyArray<T>, input: { compactEnabled: boolean; usedTokens: number | undefined; window?: { tokens: number; source: ContextNoteSource }; family?: string }) => T[]",
+      "description": "The single recipe used by tool loop and every preview; builds the note only when compactEnabled."
+    },
+    {
+      "name": "lastUsedTokens",
+      "signature": "(steps: ReadonlyArray<{ usage?: { inputTokens?: number; outputTokens?: number } }>) => number | undefined",
+      "description": "inputTokens + outputTokens of the last step of any kind that reports usage."
+    },
+    {
+      "name": "COMPACT_CONTEXT_TOOL_NAME",
+      "signature": "\"compact_context\"",
+      "description": "Tool name that gates the note."
+    }
+  ],
+  "private_files": [],
+  "owned_data": [
+    "Usage-note wording",
+    "Placement transform semantics (collate)"
+  ],
+  "dependencies_allowed": [
+    "shared/openai-format (FormatStep type only)",
+    "tool-loop",
+    "preview-parity",
+    "transport-client"
+  ],
+  "dependencies_forbidden": [
+    "server/**",
+    "src/**"
+  ],
+  "external_ports": [],
+  "events_emitted": [],
+  "events_consumed": [],
+  "test_targets": [
+    "tests/unit/context-usage-note.test.ts",
+    "tests/integration/ws-handler-context-note.test.ts",
+    "tests/unit/request-preview-context-note.test.tsx",
+    "tests/unit/backend-client-chat.test.ts",
+    "tests/unit/chat-workspace-context-meter.test.tsx"
+  ],
+  "seam": {
+    "creates": "S-PLACEMENT consumers API",
+    "consumes": [
+      "S-WINDOW",
+      "S-PLACEMENT data"
+    ],
+    "cross_story": true,
+    "consumed_by": [
+      "S5",
+      "S6"
+    ]
+  }
+}

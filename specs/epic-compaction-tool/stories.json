@@ -1,0 +1,506 @@
+{
+  "epic_name": "compaction-tool",
+  "created_at": "2026-10-02T10:30:00Z",
+  "total_stories": 7,
+  "stories": [
+    {
+      "id": "S1",
+      "name": "context-window-resolution",
+      "title": "Context Window Resolution",
+      "description": "Resolve each conversation's effective context window and fill from backend-reported facts without setting num_ctx. Adds POST /models/runtime (GET /api/ps, never loads a model), fetchModelRuntime, the pure resolveContextWindow/computeContextFill in src/lib/context-window.ts, the remembered per-provider/model runtime window persisted with the sidebar preferences, stream_options.include_usage on OpenAI-compatible streams, and chat.send validation of contextWindow/contextWindowSource/modelFamily.",
+      "acceptance_criteria": [
+        "AC-CTX-1",
+        "AC-CTX-2",
+        "AC-CTX-3",
+        "AC-CTX-4",
+        "AC-CTX-5",
+        "AC-CTX-6",
+        "AC-CTX-7",
+        "AC-CTX-8",
+        "AC-CTX-9"
+      ],
+      "scope": {
+        "includes": [
+          "src/lib/context-window.ts: resolveContextWindow and computeContextFill (pure)",
+          "server/index.ts, server/llm-router.ts runtimeInfo, server/ollama-client.ts /api/ps fetch: POST /models/runtime",
+          "src/lib/ollama.ts: fetchModelRuntime",
+          "src/lib/chat.ts, src/lib/use-sidebar-state.ts: remembered runtime window per provider/model, persisted",
+          "server/openai-client.ts: stream_options.include_usage",
+          "server/request-validation.ts and wire types: optional chat.send fields contextWindow, contextWindowSource, modelFamily (accepted and validated only; server does not act on them yet)",
+          "buildOllamaChatBody regression test: no options.num_ctx",
+          "shared/context-usage.ts: contextPercent only (shared arithmetic used by computeContextFill)"
+        ],
+        "excludes": [
+          "meter UI and showContextMeter preference (S2)",
+          "use of contextWindow/modelFamily by the server (S4)",
+          "note builder, placement data and applyContextPlacement in shared/context-usage.ts (S3/S4); S1 adds only contextPercent"
+        ]
+      },
+      "complexity": "medium",
+      "mock_dependencies": [],
+      "introduces_mocks": [],
+      "status": "done",
+      "lighter_path": false,
+      "is_integration_story": false,
+      "creates_seam": true,
+      "consumes_seams": [],
+      "notes": "Primary owning_module is context-window (src/lib/context-window.ts is the behavioural core: AC-CTX-1..4, 8). The story also adds small supporting edits in runtime-route, backend-http-client, sidebar-prefs, provider-clients and wire-types (validation of three optional chat.send fields); each is wiring for the one capability 'know the window' and none re-creates logic another module owns. Depends on: none. Defines seams S-WINDOW and S-RUNTIME. computeContextFill needs the rounded percentage: contextPercent lives in shared/context-usage.ts, whose file S3 creates; to keep S1 free of an S3 dependency, S1 creates shared/context-usage.ts with contextPercent only (arithmetic seam owned by the context-usage module) and S3 / S4 extend that file.",
+      "owning_module": "context-window"
+    },
+    {
+      "id": "S2",
+      "name": "context-meter",
+      "title": "Context Meter",
+      "description": "Toggleable frontend context meter bound to the showContextMeter sidebar preference (off by default, persisted). Renders token count and percentage with en-US grouping via contextPercent, a progress bar with data-level ok/warn/error (80/100 percent), an em dash for unknown fill, 0 for none-yet, labels for estimated/assumed/stale windows, and re-queries /models/runtime after each chat.done.",
+      "acceptance_criteria": [
+        "AC-UX-1",
+        "AC-UX-2",
+        "AC-UX-3",
+        "AC-UX-4",
+        "AC-UX-5",
+        "AC-UX-6",
+        "AC-UX-7",
+        "AC-STRUCT-2"
+      ],
+      "scope": {
+        "includes": [
+          "src/components/context-meter.tsx (new, presentational) wired from the composition root or a hook it calls",
+          "showContextMeter in SidebarState (src/lib/chat.ts, src/lib/use-sidebar-state.ts) and a settings preference row",
+          "post-chat.done runtime refresh feeding resolveContextWindow",
+          "theme tokens for ok/warn/error levels"
+        ],
+        "excludes": [
+          "window size display or configuration (deferred)",
+          "server-side meter logic (AC-STRUCT-2 forbids it)"
+        ]
+      },
+      "complexity": "medium",
+      "mock_dependencies": [],
+      "introduces_mocks": [],
+      "status": "done",
+      "lighter_path": false,
+      "is_integration_story": false,
+      "creates_seam": false,
+      "consumes_seams": [
+        "ResolvedContextWindow"
+      ],
+      "notes": "Depends on: S1 (resolveContextWindow, computeContextFill, fetchModelRuntime, contextPercent). Consumes seam S-WINDOW. Owns AC-STRUCT-2 because it is the story that introduces showContextMeter and so completes the 'no meter logic under server/' grep; the export half of AC-STRUCT-2 is delivered by S1 and re-verified here. Must land in the panes/hooks structure from epic-frontend-architecture-maintainability, not inline in chat-workspace.tsx.",
+      "owning_module": "meter-ui"
+    },
+    {
+      "id": "S3",
+      "name": "placement-research",
+      "title": "Placement Research",
+      "description": "Research story: establish how a usage note and a compaction summary are best placed in a model's context, per model family, on a live Ollama. Produces docs/research/compaction-placement.md (Method, Candidates, Findings, Decision) and mirrors the Decision table as placement data (default note placement, default summary placement, per-family exceptions) exported by shared/context-usage.ts, with a unit test asserting the data equals the parsed Decision table. Delivers the default early so S4-S6 are not blocked on exhaustive per-family testing.",
+      "acceptance_criteria": [
+        "AC-RES-1",
+        "AC-RES-2",
+        "AC-RES-3",
+        "AC-RES-4"
+      ],
+      "scope": {
+        "includes": [
+          "docs/research/compaction-placement.md with Method naming the Ollama version and instrument (OLLAMA_DEBUG runner logs, prompt_eval_duration deltas)",
+          "Findings: row per candidate for at least three families including qwen3 (default test model qwen3:1.7b), and the prompt_eval_count reported for a prompt longer than the loaded window; Decision states the meaning of the meter error band",
+          "placement data export in shared/context-usage.ts (default + exceptions) and the document-parsing unit test",
+          "MV-1 manual validation of the Findings (owner Markus, blocked on AC-RES-3, adjudicated 2026-10-02)"
+        ],
+        "excludes": [
+          "applyContextPlacement and buildContextUsageNote (S4)",
+          "any production code path consuming the placement data"
+        ]
+      },
+      "complexity": "high",
+      "mock_dependencies": [],
+      "introduces_mocks": [],
+      "status": "done",
+      "lighter_path": false,
+      "is_integration_story": false,
+      "creates_seam": true,
+      "consumes_seams": [],
+      "notes": "Research story; MV-1 is a manual-validation row, not an AC ID, so it is recorded here rather than in acceptance_criteria (schema requires AC-<TAG>-<N>). Depends on: none. Requires a live Ollama at OLLAMA_URL=http://host.lima.internal:11434/api (verified reachable via /api/tags at planning time). Locally pulled families usable as findings rows: qwen3 (qwen3:1.7b, default test model), qwen2 (qwen2.5:3b-instruct), llama (llama3.2:1b), gemma3 (gemma3:4b), gemma4 (gemma4:12b), qwen35, gptoss (gpt-oss:20b); candidates: at least qwen3, llama, gemma3 and one more. shared/context-usage.ts already exists after S1 (contextPercent); S3 adds only the placement data export and keeps the file's other exports untouched. creates_seam: placement data shape consumed by S4 (S-PLACEMENT).",
+      "owning_module": "research"
+    },
+    {
+      "id": "S4",
+      "name": "context-usage-note",
+      "title": "Context-Usage Note",
+      "description": "Shared note builder and placement transform, injected on every model invocation while compact_context is enabled. Adds buildContextUsageNote and applyContextPlacement (returns a new array; always called, also maps compaction steps onto wire steps) to shared/context-usage.ts, makes the tool loop in server/ws-handler.ts send the placed per-invocation copy with a note built from the previous invocation's usage (first invocation from incoming steps), carries the new chat.send fields through backend-client and chat-workspace, and applies the same transform in the request JSON preview, toOllamaFilteredMessages and useReconciliation. The note is never rendered or persisted as a step.",
+      "acceptance_criteria": [
+        "AC-NOTE-1",
+        "AC-NOTE-2",
+        "AC-NOTE-3",
+        "AC-NOTE-4",
+        "AC-NOTE-5",
+        "AC-NOTE-6",
+        "AC-NOTE-7",
+        "AC-NOTE-8",
+        "AC-NOTE-9"
+      ],
+      "scope": {
+        "includes": [
+          "shared/context-usage.ts: buildContextUsageNote (fixed en-US), applyContextPlacement(steps,{note?,family?})",
+          "server/ws-handler.ts: per-invocation placement, note from previous invocation usage, gated on compact_context being enabled",
+          "src/lib/backend-client.ts and composition root: send contextWindow, contextWindowSource, modelFamily",
+          "src/components/request-json-dialog.tsx, src/lib/token-view.ts toOllamaFilteredMessages and useReconciliation, request-preview-extras.tsx: same transform with note rebuilt from steps before the target"
+        ],
+        "excludes": [
+          "compact_context executor, interception and sole-call rule (S5)",
+          "fork and compaction step UI (S6)",
+          "StepKind 'compaction' type additions (S6); S4's transform treats kind structurally via FormatStep"
+        ]
+      },
+      "complexity": "high",
+      "mock_dependencies": [],
+      "introduces_mocks": [],
+      "status": "done",
+      "lighter_path": false,
+      "is_integration_story": false,
+      "creates_seam": true,
+      "consumes_seams": [
+        "ResolvedContextWindow",
+        "ContextPlacementData"
+      ],
+      "notes": "Depends on: S1 (chat.send fields, resolved window), S3 (placement data). Consumes seams S-WINDOW and S-PLACEMENT; creates the applyContextPlacement/buildContextUsageNote API consumed by S5, S6. Primary owning_module is context-usage; the ws-handler edit here is limited to placement and note injection, the tool-loop interception belongs to S5. Because compact_context is not registered until S5, S4 tests use a fake enabled tool id 'compact_context' in the request's tools via the mocked provider (a permanent test fixture, not a mock of production code).",
+      "owning_module": "context-usage"
+    },
+    {
+      "id": "S5",
+      "name": "compact-context-tool",
+      "title": "compact_context Tool",
+      "description": "Built-in server tool compact_context({summary, remaining_work?}) registered in both the static dispatcher behind GET /tools and each connection's dispatcher with one stable id. The tool loop intercepts it: a valid sole call records tool_call and tool_result steps and ends the turn with chat.done carrying compaction {toolCallStepId, summary, remainingWork}; any multi-call response containing compact_context, an empty/whitespace/missing summary executes nothing, returns error tool_results, counts every call against maxToolCalls and re-invokes the model within budgets; a disabled tool still ends in chat.error.",
+      "acceptance_criteria": [
+        "AC-TOOL-1",
+        "AC-TOOL-2",
+        "AC-TOOL-3",
+        "AC-TOOL-5",
+        "AC-TOOL-6",
+        "AC-TOOL-7",
+        "AC-TOOL-8"
+      ],
+      "scope": {
+        "includes": [
+          "server/tools/compact-context.ts ToolExecutor, registered after web-search and curl and before McpBridge construction, in both server/index.ts and the ws-handler constructor",
+          "server/ws-handler.ts: interception, sole-call rule, explicit per-call error tool_results, explicit toolCallCount increments for rejected calls, chat.done.compaction",
+          "server/types.ts and src/types/chat.ts: chat.done optional compaction field; backend-client carries the payload through to the client callbacks"
+        ],
+        "excludes": [
+          "client fork and auto-continue (S6)",
+          "the compaction StepKind and rendering (S6)"
+        ]
+      },
+      "complexity": "high",
+      "mock_dependencies": [],
+      "introduces_mocks": [],
+      "status": "done",
+      "lighter_path": false,
+      "is_integration_story": false,
+      "creates_seam": true,
+      "consumes_seams": [
+        "ContextPlacementData"
+      ],
+      "notes": "Depends on: S4 (applyContextPlacement and per-invocation loop structure it extends). Primary owning_module is tool-loop (server/ws-handler.ts: interception, sole-call rule and budget accounting are the bulk of the work; AC-STRUCT-5 monotonic toolCallCount lives here); the compact-context-tool executor file is a small registration deliverable of the same story. Creates seam S-COMPACTION-WIRE consumed by S6. The server MUST NOT call the model again after a valid sole compact_context.",
+      "owning_module": "tool-loop"
+    },
+    {
+      "id": "S6",
+      "name": "fork-and-auto-continue",
+      "title": "Fork and Auto-Continue",
+      "description": "Client-side fork on a chat.done carrying compaction: the original's steps are applied first, then a new conversation titled '<original title> (compacted)' with titleEdited true, inheriting settings/tools, forkedFrom link, the original's system steps and one compaction step is created, selected, and its first request is sent automatically without compact_context and with a fresh budget. Adds the compaction step kind (types both sides, STEP_KINDS), its card and back-link, the sidebar visibility extension, transcript turn-boundary handling, and protection of the fork's streaming state from the original's finally cleanup.",
+      "acceptance_criteria": [
+        "AC-FORK-1",
+        "AC-FORK-2",
+        "AC-FORK-3",
+        "AC-FORK-4",
+        "AC-FORK-5",
+        "AC-FORK-6",
+        "AC-FORK-7",
+        "AC-FORK-8",
+        "AC-FORK-9",
+        "AC-FORK-10",
+        "AC-FORK-11",
+        "AC-FORK-12",
+        "AC-STRUCT-1",
+        "AC-STRUCT-3"
+      ],
+      "scope": {
+        "includes": [
+          "src/lib/use-chat-generation.ts and src/lib/use-conversations.ts: fork creation, selection, auto-send, stop/supersession guard, visibility predicate user-or-compaction",
+          "src/types/chat.ts Conversation.forkedFrom; StepKind 'compaction' on server/types.ts, src/types/chat.ts and server/request-validation.ts STEP_KINDS",
+          "src/lib/transcript.ts: compaction as visible turn boundary (findResponseStartIndex, deleteLastExchangeCutIndex)",
+          "src/components/transcript-step.tsx, step-card.tsx: compaction card and back-link",
+          "compaction step mapping verified through shared/ollama-format.ts and shared/openai-format.ts and server provider messages"
+        ],
+        "excludes": [
+          "automatic or user-triggered compaction, forward links, in-place compaction (out of scope)"
+        ]
+      },
+      "complexity": "high",
+      "mock_dependencies": [],
+      "introduces_mocks": [],
+      "status": "done",
+      "lighter_path": false,
+      "is_integration_story": false,
+      "creates_seam": false,
+      "consumes_seams": [
+        "CompactionOutcome"
+      ],
+      "notes": "Depends on: S3 (summary placement data), S5 (chat.done.compaction payload; S4 transitively). Consumes seam S-COMPACTION-WIRE. Owns AC-STRUCT-1 (the 'compaction' kind and chat.done.compaction field complete only when S5 and S6 have both landed; S5 adds the chat.done field, S6 adds the kind) and AC-STRUCT-3 (final release-gate pass; every story must individually keep lint and unit suites green). transport-client work (backend-client carrying the payload to the fork flow, in-flight guard) is delivered here and in S5; it has no separate owner.",
+      "owning_module": "fork-flow"
+    },
+    {
+      "id": "S7",
+      "name": "compaction-integration-properties",
+      "title": "Compaction Integration Properties",
+      "description": "Final integration story (FR-A7): property tests over the assembled tool loop, context-usage module and fork flow, run against the real, already-implemented producers of S4, S5 and S6 with no mocks of them (only the provider streams are doubled, as in tests/integration/ws-handler.test.ts). Verifies note-from-previous-invocation and no-leak invariants, monotonic budget accounting with compaction only on a valid sole call, and client-event interleavings for the fork. Adds test code only; any defect found is fixed in the owning module's story files, not re-implemented here.",
+      "acceptance_criteria": [
+        "AC-STRUCT-4",
+        "AC-STRUCT-5",
+        "AC-STRUCT-6"
+      ],
+      "scope": {
+        "includes": [
+          "fast-check property tests for AC-STRUCT-4 (tool-loop x context-usage), AC-STRUCT-5 (budget monotonicity and compaction emission), AC-STRUCT-6 (client event interleavings across tool-loop, transport-client, fork-flow)",
+          "generators as specified in each AC, drawing families from the placement data"
+        ],
+        "excludes": [
+          "new production behaviour; re-implementation of logic owned by S4, S5 or S6"
+        ]
+      },
+      "complexity": "high",
+      "mock_dependencies": [],
+      "introduces_mocks": [],
+      "status": "done",
+      "lighter_path": false,
+      "is_integration_story": true,
+      "creates_seam": false,
+      "consumes_seams": [],
+      "notes": "Depends on: S4, S5, S6 (union of the owned ACs' spanned_by sets). Integration story: owning_module omitted by design, is_integration_story true, lighter_path false, no mocks-registry entries. fast-check is already used by the project's property suites; add it as a dev dependency only if absent."
+    },
+    {
+      "id": "S8",
+      "name": "compaction-harness-event",
+      "title": "Compaction Harness Event",
+      "description": "Replace the compaction tool_result with a client-side harness event. On a valid sole compact_context the server sends chat.done with the authentic tool_call only (no tool_result). When the client creates the fork it appends one harness step to the original (kind meta, metaEvent.kind compaction, data.forkConversationId) rendered as an event card linking to the fork. placeStepsForModel omits unanswered compact_context tool_calls and that harness step from every wire request, so continuing the original stays valid on strict OpenAI-compatible providers. Also removes auto-continue: the fork is created and selected but nothing is sent until the user writes in it; the first user send carries [system, compaction, user] collated into one user-role wire message; the original settles normally.",
+      "acceptance_criteria": [
+        "AC-TOOL-3",
+        "AC-FORK-4",
+        "AC-FORK-13",
+        "AC-FORK-14",
+        "AC-STRUCT-5",
+        "AC-FORK-6",
+        "AC-FORK-7",
+        "AC-STRUCT-6"
+      ],
+      "scope": {
+        "includes": [
+          "server/ws-handler.ts: sole valid compact_context ends with chat.done carrying the tool_call only (no tool_result); drop COMPACT_CONTEXT_ACK if unused",
+          "src/types/chat.ts + server/types.ts: MetaEventKind compaction",
+          "src/lib/fork.ts / use-chat-generation.ts / use-conversations.ts: append the harness meta step to the original when the fork is created (after the original chat.done steps)",
+          "shared/context-usage.ts placeStepsForModel: drop unanswered compact_context tool_calls and the compaction harness step",
+          "transcript rendering: harness event card with link to the fork (selects it), plain text when the fork is gone",
+          "update existing tests that assert the old tool_result (S5 tests, AC-STRUCT-5 property oracle, S6 fork tests)",
+          "use-chat-generation.ts: remove the fork auto-send, the withoutCompactContext/captured contextRequest path and the handoff settledCount bump; the original settles in its own finally",
+          "update S6/S7 tests and the AC-STRUCT-6 property for no auto-send"
+        ],
+        "excludes": [
+          "changes to the fork contents or auto-send (S6)",
+          "rejected compact_context error tool_results (they are sent to the model and stay)"
+        ]
+      },
+      "complexity": "medium",
+      "mock_dependencies": [],
+      "introduces_mocks": [],
+      "status": "done",
+      "lighter_path": false,
+      "is_integration_story": false,
+      "creates_seam": false,
+      "consumes_seams": [
+        "S-COMPACTION-WIRE",
+        "S-PLACEMENT"
+      ],
+      "notes": "Added mid-epic from user review after manual testing (spec.md Amendments 2026-10-02). Depends on S5, S6, S7.",
+      "owning_module": "fork-flow"
+    }
+  ],
+  "story_order": [
+    "S1",
+    "S2",
+    "S3",
+    "S4",
+    "S5",
+    "S6",
+    "S7",
+    "S8"
+  ],
+  "dependency_notes": "S2 -> S1; S4 -> S1, S3; S5 -> S4; S6 -> S3, S5; S7 -> S4, S5, S6 (integration story, last). stories.schema.json has no depends_on field, so dependencies are recorded here and in each story's notes. S1 and S3 are independent roots; S3 should deliver its default placement decision early so S4-S6 are not blocked on exhaustive per-family testing. The spec's S1-S6 split and IDs are kept unchanged; S7 is added solely because architecture.md declares Order-Sensitive Composition and acceptance-criteria.md carries property ACs with Spans modules lines (FR-A7). shared/context-usage.ts is created by S1 (contextPercent only), extended by S3 (placement data) and S4 (note builder, applyContextPlacement); the single module owner is context-usage, with S4 as the owning story.",
+  "mock_resolution_plan": "No temporary mocks. Every story depends only on earlier stories' real artifacts; provider streams are permanent test doubles (vi.mock of streamOllamaResponse/streamOpenAIResponse). mocks-registry.json stays empty.",
+  "seams": [
+    {
+      "data": "resolved context window",
+      "source": {
+        "story": "S1",
+        "artifact": "src/lib/context-window.ts resolveContextWindow"
+      },
+      "destination": {
+        "story": "S2",
+        "artifact": "src/components/context-meter.tsx and chat.send contextWindow fields (S4)"
+      },
+      "contract": {
+        "type_name": "ResolvedContextWindow",
+        "fields": [
+          {
+            "name": "tokens",
+            "type": "number"
+          },
+          {
+            "name": "source",
+            "type": "'runtime'|'modelfile'|'estimated'|'assumed'"
+          },
+          {
+            "name": "stale",
+            "type": "boolean",
+            "optional": true
+          }
+        ],
+        "invariants": [
+          "tokens is a positive integer",
+          "assumed implies tokens === 8192",
+          "stale is only ever true with source 'runtime'"
+        ]
+      }
+    },
+    {
+      "data": "runtime window query",
+      "source": {
+        "story": "S1",
+        "artifact": "POST /models/runtime"
+      },
+      "destination": {
+        "story": "S2",
+        "artifact": "fetchModelRuntime re-query after chat.done"
+      },
+      "contract": {
+        "type_name": "ModelRuntimeResponse",
+        "fields": [
+          {
+            "name": "loaded",
+            "type": "boolean"
+          },
+          {
+            "name": "contextLength",
+            "type": "number",
+            "optional": true
+          }
+        ],
+        "invariants": [
+          "loaded false for unlisted models and every OpenAI-compatible provider",
+          "contextLength present only when loaded is true",
+          "no model-loading endpoint is ever called"
+        ]
+      }
+    },
+    {
+      "data": "placement data and transform",
+      "source": {
+        "story": "S3",
+        "artifact": "shared/context-usage.ts placement data"
+      },
+      "intermediaries": [
+        {
+          "story": "S4",
+          "artifact": "applyContextPlacement / buildContextUsageNote"
+        }
+      ],
+      "destination": {
+        "story": "S6",
+        "artifact": "fork serialisation of the compaction step"
+      },
+      "contract": {
+        "type_name": "ContextPlacementData",
+        "fields": [
+          {
+            "name": "noteDefault",
+            "type": "placement identifier"
+          },
+          {
+            "name": "summaryDefault",
+            "type": "placement identifier"
+          },
+          {
+            "name": "exceptions",
+            "type": "Record<family, {note?: placement, summary?: placement}>"
+          }
+        ],
+        "invariants": [
+          "equals the Decision table of docs/research/compaction-placement.md",
+          "families without an exception, and an absent modelFamily, use the defaults",
+          "applyContextPlacement returns a new array and never mutates its input"
+        ]
+      }
+    },
+    {
+      "data": "compaction outcome",
+      "source": {
+        "story": "S5",
+        "artifact": "chat.done.compaction"
+      },
+      "intermediaries": [
+        {
+          "story": "S5",
+          "artifact": "src/lib/backend-client.ts payload pass-through"
+        }
+      ],
+      "destination": {
+        "story": "S6",
+        "artifact": "fork creation in use-chat-generation.ts"
+      },
+      "contract": {
+        "type_name": "CompactionOutcome",
+        "fields": [
+          {
+            "name": "toolCallStepId",
+            "type": "string"
+          },
+          {
+            "name": "summary",
+            "type": "string"
+          },
+          {
+            "name": "remainingWork",
+            "type": "string",
+            "optional": true
+          }
+        ],
+        "invariants": [
+          "summary contains a non-whitespace character",
+          "toolCallStepId references a tool_call step in the same chat.done steps",
+          "present only when the final response's sole call was a valid compact_context"
+        ]
+      }
+    }
+  ],
+  "cross_cutting_acs": [
+    {
+      "ac_id": "AC-STRUCT-4",
+      "spanned_by": [
+        "S4",
+        "S5"
+      ]
+    },
+    {
+      "ac_id": "AC-STRUCT-5",
+      "spanned_by": [
+        "S4",
+        "S5"
+      ]
+    },
+    {
+      "ac_id": "AC-STRUCT-6",
+      "spanned_by": [
+        "S5",
+        "S6"
+      ]
+    }
+  ]
+}

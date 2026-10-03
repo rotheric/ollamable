@@ -1,0 +1,60 @@
+{
+  "story_id": "S3",
+  "status": "done",
+  "remediation_rounds": 2,
+  "files_created": [
+    "docs/research/compaction-placement.md",
+    "tests/unit/context-placement-decision.test.ts"
+  ],
+  "files_modified": [
+    "shared/context-usage.ts"
+  ],
+  "implementation_summary": "Live-Ollama (0.30.8) placement research over qwen3, qwen2, llama, gemma3 and qwen35. Decision: note=trailing-user, summary=user, no family exceptions. Placement data exported as CONTEXT_PLACEMENT (+ NOTE_PLACEMENTS, SUMMARY_PLACEMENTS enums) in shared/context-usage.ts; unit test parses the document's Decision table and asserts equality. Overflow: Ollama reports prompt_eval_count = num_ctx-1 when the prompt does not fit.",
+  "tests_added": {
+    "unit": 8,
+    "integration": 0,
+    "property": 0
+  },
+  "test_counts": {
+    "baseline": 893,
+    "final": 901
+  },
+  "baseline": {
+    "unit": 523,
+    "integration": 370,
+    "integration_skipped": 2,
+    "lint": "clean",
+    "typecheck": "clean"
+  },
+  "final": {
+    "unit": 531,
+    "integration": 370,
+    "integration_skipped": 2,
+    "lint": "clean",
+    "typecheck": "clean"
+  },
+  "mocks": [],
+  "modules_touched": [
+    "research",
+    "context-usage"
+  ],
+  "manual_validation": [
+    "MV-1 (owner Markus): Findings reflect Ollama 0.30.8 on host.lima.internal; raw probe output kept in the session scratchpad, not the repo"
+  ],
+  "retrospective": {
+    "skipped": false,
+    "harder_than_needed": "AC-RES-1 presumes OLLAMA_DEBUG runner logs, but the Ollama host (and its logs) is outside the VM, so rendering and cache reuse had to be reconstructed from /api/show templates, raw-generate token-count equality and prompt_eval_duration ratios.",
+    "surprised_by": "Ollama's collate/.System handling silently hoists every trailing system message into the first system block for qwen/llama templates (cache lost every call, llama also loses its generation header); qwen35/gemma4 use compiled renderers with template '{{ .Prompt }}' that cannot be inspected through the API.",
+    "scope": "project_specific",
+    "outcome": "planning_only",
+    "commits_made": [],
+    "absorbed_from": [],
+    "lead_clarifications": []
+  },
+  "final_outcome": "accepted",
+  "completed_at": "2026-10-02T11:45:21Z",
+  "caveats": [
+    "VQ-S3-011 PARTIAL: numeric claims not re-run live by the examiner (Ollama unreachable from examiner sandbox); covered by MV-1",
+    "VQ-S3-013 PARTIAL: collate semantics are an S4 implementation obligation; gemma4/gpt-oss unprobed"
+  ]
+}

@@ -1,0 +1,76 @@
+{
+  "story_id": "S7",
+  "authored_by": "story-planner",
+  "authored_at": "2026-10-02T11:00:00Z",
+  "questions": [
+    {
+      "question_id": "VQ-S7-001",
+      "phase": "pre-impl",
+      "category": "QUALITY",
+      "question": "Do the integration property tests avoid vacuous production-path substitutes: do they drive the real `ws-handler` tool loop and real `applyContextPlacement`/`buildContextUsageNote` (mocking only the provider stream), and do generators actually reach the stated ranges (1-6 invocations, 0-3 calls, all families plus absent) rather than collapsing to a few values? Check by instrumenting generator coverage (fc.statistics or a counter)."
+    },
+    {
+      "question_id": "VQ-S7-002",
+      "phase": "pre-impl",
+      "category": "ARCHITECTURE",
+      "question": "Could this integration story's verification surface be deleted and rewritten without modifying any file outside its `dependencies_allowed` list (the union of its owned ACs' `Spans modules:` set: tool-loop, context-usage, transport-client, fork-flow)? If not, which cross-module dependencies exist and do they flow through declared seam contracts in architecture.md?"
+    },
+    {
+      "question_id": "VQ-S7-003",
+      "phase": "pre-impl",
+      "category": "ARCHITECTURE",
+      "question": "Does S7 add only test files (no new production behaviour, no re-implementation of logic owned by S4, S5 or S6, no mocks-registry.json entries for the real producers)? Verify with `git diff --name-only <S6 head>..HEAD -- server src shared` listing no production file attributable to S7."
+    },
+    {
+      "question_id": "VQ-S7-004",
+      "phase": "pre-impl",
+      "category": "TEST",
+      "question": "Is each of AC-STRUCT-4/5/6 implemented as a fast-check property with a named generator and an assertion that fails on violation, and is each shown to fail under a seeded mutation (e.g. leaking the note into `steps`, skipping `toolCallCount` on rejected calls, clearing the fork `stopStreamRef` in `finally`)? Verify `grep -rln \"fc.assert\" tests/integration` has a match for each property file post-impl and none pre-impl."
+    },
+    {
+      "question_id": "VQ-S7-005",
+      "phase": "pre-impl",
+      "category": "SPEC",
+      "question": "Do the three properties together cover the architecture.md Order-Sensitive Composition guarantees (note for invocation k from k-1 usage; no placement leakage; monotone budgets; fork-after-original-done; fork-before-first-delta; stop/supersession yields no fork; finally does not clear fork state)? Name any guarantee in the section not quantified by a property."
+    },
+    {
+      "question_id": "VQ-S7-006",
+      "phase": "pre-impl",
+      "category": "BEST_PRACTICES",
+      "question": "Are the property tests deterministic and CI-safe: fixed or logged seeds with `numRuns` bounds, no real timers or network, failures reproducible via the printed seed/path, and runtime within the integration suite budget?"
+    },
+    {
+      "question_id": "VQ-S7-007",
+      "phase": "pre-impl",
+      "category": "SPEC",
+      "ac_id": "AC-STRUCT-4",
+      "question": "Does the implementation satisfy AC-STRUCT-4: \"Property: for every generated tool-loop run (generator: invocation count 1\u20136, interleaved tool rounds, `modelFamily` drawn from the placement data's families plus absent, `compact_context` enabled or not, per-invocation `usage` drawn from non-negative integers), the usage note passed to invocation *k* MUST be built from invocation *k\u22121*'s `inputTokens + outputTokens`, the loop's accumulated `steps` and every emitted `chat.delta`/`chat.steps`/`chat.done` step MUST contain neither the note text nor any step produced by `applyContextPlacement`, and the accumulated `steps` MUST deep-equal the concatenation of the untransformed provider responses. Spans modules: tool-loop, context-usage\"? Demand evidence of (a) the production code (file:line), (b) the test(s) that exercise this AC end-to-end through the real producer path, and (c) confirmation the tests are not pure mock-spy proxies (assertions are on observable output, not on call counts alone)."
+    },
+    {
+      "question_id": "VQ-S7-008",
+      "phase": "pre-impl",
+      "category": "SPEC",
+      "ac_id": "AC-STRUCT-5",
+      "question": "Does the implementation satisfy AC-STRUCT-5: \"Property: for every generated sequence of provider responses (generator: each response holds 0\u20133 tool calls drawn from valid `compact_context`, invalid `compact_context`, `web_search`, `curl`; `maxModelInvocations` and `maxToolCalls` drawn from 1\u20136), `toolCallCount` MUST be non-decreasing across invocations, MUST increase by exactly the number of calls in every response (executed or rejected), the number of model invocations MUST NOT exceed `maxModelInvocations`, and `compaction` MUST appear on a `chat.done` only when the final response's sole call was a valid `compact_context`. Spans modules: tool-loop, context-usage\"? Demand evidence of (a) the production code (file:line), (b) the test(s) that exercise this AC end-to-end through the real producer path, and (c) confirmation the tests are not pure mock-spy proxies (assertions are on observable output, not on call counts alone)."
+    },
+    {
+      "question_id": "VQ-S7-009",
+      "phase": "pre-impl",
+      "category": "SPEC",
+      "ac_id": "AC-STRUCT-6",
+      "question": "Does the implementation satisfy AC-STRUCT-6: \"Property: for every generated client-event interleaving for one original request (generator: ordering of `chat.delta`, `chat.done` with or without `compaction`, user stop, supersession by another send, and the original's `finally` cleanup), a fork MUST exist if and only if a `chat.done` carrying `compaction` was applied without a preceding stop or supersession; when it exists, the original's `chat.done` steps MUST be applied to the original before the fork is in state, the fork MUST be in state before its first `chat.delta` is processed, and the original's `finally` cleanup MUST NOT clear the fork's streaming state or its `stopStreamRef` token. Spans modules: tool-loop, transport-client, fork-flow\"? Demand evidence of (a) the production code (file:line), (b) the test(s) that exercise this AC end-to-end through the real producer path, and (c) confirmation the tests are not pure mock-spy proxies (assertions are on observable output, not on call counts alone)."
+    },
+    {
+      "question_id": "VQ-S7-010",
+      "phase": "post-impl",
+      "category": "TEST",
+      "question": "AC-STRUCT-6 is a unit property over the real useChatGeneration with the backend client's stream doubled (tests/unit/use-chat-generation-fork-properties.test.tsx); the tool-loop leg of its 'Spans modules' (the server emitting chat.done.compaction) is covered by the AC-STRUCT-5 integration property and ws-handler-fork.test.ts, not by a single end-to-end run. Is that split acceptable, and does the property still fail when the hook's ownership guard, handoff bump, fork/original ordering or finally guard is broken (checked: M7-M11c)?"
+    },
+    {
+      "question_id": "VQ-S7-011",
+      "phase": "post-impl",
+      "category": "QUALITY",
+      "question": "The AC-STRUCT-5 oracle (`simulate` in tests/integration/ws-handler-compaction-properties.test.ts) re-states the budget rules from AC-TOOL-5 as amended (budget check before sole-call interception, every call of a processed response counted). If the amendment changes, does the oracle change with it rather than silently tracking production? Seeds are fixed (FC_SEED overrides), so new counterexamples need an explicit exploratory run."
+    }
+  ]
+}

@@ -1,0 +1,24 @@
+{
+  "story_id": "S8",
+  "captured_at": "2026-10-02T16:00:00Z",
+  "baseline": {
+    "status": "PASS",
+    "unit": {
+      "command": "npx vitest run",
+      "files": 36,
+      "passed": 625,
+      "failed": 0,
+      "skipped": 0
+    },
+    "integration": {
+      "command": "npx vitest run -c vitest.server.config.ts",
+      "files": 25,
+      "passed": 424,
+      "failed": 0,
+      "skipped": 2
+    },
+    "lint": "clean",
+    "typecheck": "clean"
+  },
+  "notes": "Counts supplied by the lead; snapshot includes S1-S7 uncommitted working-tree changes."
+}

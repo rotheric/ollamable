@@ -3,6 +3,7 @@ import { withNetworkDeadline } from "./network-deadline.js";
 import type { ConversationStep, ReasoningEffort, ToolDefinition } from "./types.js";
 import { randomUUID } from "node:crypto";
 import { toOllamaMessages } from "../shared/ollama-format.js";
+import { withDefaultTag } from "../shared/model-name.js";
 
 const DEFAULT_OLLAMA_URL = process.env.OLLAMA_URL ?? "http://localhost:11434/api";
 
@@ -77,6 +78,37 @@ export async function fetchOllamaModelMeta(
     }
 
     return (await response.json()) as ShowResponse;
+  }, callerSignal);
+}
+
+/**
+ * Reads the loaded window of `modelName` from `GET /ps`. This only lists what is
+ * already resident; it never loads a model. The response is parsed defensively:
+ * anything but a listed entry with a positive-integer `context_length` is `{ loaded: false }`.
+ */
+export async function fetchOllamaRuntime(
+  baseUrl: string,
+  modelName: string,
+  callerSignal?: AbortSignal
+): Promise<{ loaded: boolean; contextLength?: number }> {
+  return withNetworkDeadline(async (signal) => {
+    const response = await fetch(`${baseUrl}/ps`, { signal });
+    if (!response.ok) {
+      throw new Error(`Ollama /ps failed: ${response.status}`);
+    }
+    const data = (await response.json()) as { models?: unknown };
+    const models = Array.isArray(data?.models) ? data.models : [];
+    // Ollama lists untagged names with their resolved ":latest" tag.
+    const wanted = new Set([modelName, withDefaultTag(modelName)]);
+    for (const entry of models) {
+      if (typeof entry !== "object" || entry === null) continue;
+      const { name, model, context_length: contextLength } = entry as Record<string, unknown>;
+      if (!wanted.has(name as string) && !wanted.has(model as string)) continue;
+      if (typeof contextLength === "number" && Number.isInteger(contextLength) && contextLength > 0) {
+        return { loaded: true, contextLength };
+      }
+    }
+    return { loaded: false };
   }, callerSignal);
 }
 

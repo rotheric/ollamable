@@ -68,3 +68,21 @@ describe("buildOllamaChatBody", () => {
     expect(body.options).toEqual({ temperature: 0.4, num_predict: 100 });
   });
 });
+
+describe("buildOllamaChatBody context window (AC-CTX-7)", () => {
+  it("never sets options.num_ctx, whatever else is configured", () => {
+    for (const stream of [true, false]) {
+      const body = buildOllamaChatBody({
+        model: "qwen3:latest",
+        steps: [userStep],
+        tools: noTools,
+        stream,
+        temperature: 0.3,
+        maxOutputTokens: 256,
+        reasoningEffort: "high",
+      }) as { options?: Record<string, unknown> };
+      expect(body.options ?? {}).not.toHaveProperty("num_ctx");
+      expect(JSON.stringify(body)).not.toContain("num_ctx");
+    }
+  });
+});

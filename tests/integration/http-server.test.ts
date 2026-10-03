@@ -6,6 +6,7 @@ import { join } from "node:path";
 import { request } from "node:http";
 import { WebSocket } from "ws";
 import manifest from "../../package.json";
+import { CompactContextExecutor } from "../../server/tools/compact-context.js";
 
 describe("production HTTP static boundary", () => {
   let child: ChildProcess;
@@ -88,6 +89,14 @@ describe("production HTTP static boundary", () => {
   it.each([false, true])("rejects oversized metadata uploads with chunked=%s", async (chunked) => {
     expect((await get("/models/show", JSON.stringify({ model: "x".repeat(70 * 1024) }), chunked)).status).toBe(413);
     expect((await get("/tools")).status).toBe(200);
+  });
+
+  it("lists compact_context on GET /tools with the id and schema the connection dispatcher uses", async () => {
+    const { tools } = JSON.parse((await get("/tools")).body) as { tools: Array<{ id: string; name: string }> };
+    const names = tools.map((tool) => tool.name);
+    expect(tools.filter((tool) => tool.name === "compact_context")).toEqual(new CompactContextExecutor().getToolDefinitions());
+    expect(names.indexOf("compact_context")).toBeGreaterThan(names.indexOf("curl"));
+    expect(names.indexOf("web_search")).toBe(0);
   });
 
   it("closes oversized WebSocket messages without crashing the backend", async () => {

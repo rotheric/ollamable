@@ -1,0 +1,58 @@
+{
+  "story_id": "S7",
+  "status": "done",
+  "remediation_rounds": 0,
+  "files_created": [
+    "tests/integration/ws-handler-compaction-properties.test.ts",
+    "tests/unit/use-chat-generation-fork-properties.test.tsx"
+  ],
+  "files_modified": [],
+  "implementation_summary": "AC-STRUCT-4 and AC-STRUCT-5 as fast-check integration properties over the real websocket server, ConnectionHandler tool loop, dispatcher (fetch doubled) and shared/context-usage (only the provider stream is mocked); AC-STRUCT-6 as a unit property over the real useChatGeneration with a faithful minimal conversation store (drops updates to conversations not in state) and an ownership-model oracle. Generators follow each AC; each file also checks generator reach. 100 runs each, fixed seed 20261002 (FC_SEED overrides). No production code touched.",
+  "decisions": [
+    "Both integration properties share one file and harness.",
+    "AC-STRUCT-5 oracle models the AC-TOOL-5 amendment: over-budget response ends with chat.error and gets no tool_results; asserted via the emitted tool_result id set.",
+    "AC-STRUCT-6 uses a plain store rather than useConversations; update-to-unknown-conversation is recorded as dropped and must be empty.",
+    "Disabled-compact AC-STRUCT-4 runs map invalid compact calls to search calls (a disabled compact call is a chat.error by design, outside the property)."
+  ],
+  "tests_added": {
+    "unit": 2,
+    "integration": 4,
+    "property": 3
+  },
+  "test_counts": {
+    "baseline": 1045,
+    "final": 1049
+  },
+  "baseline": {
+    "unit": 623,
+    "integration": 420,
+    "integration_skipped": 2,
+    "lint": "clean",
+    "typecheck": "clean"
+  },
+  "final": {
+    "unit": 625,
+    "integration": 424,
+    "integration_skipped": 2,
+    "lint": "clean",
+    "typecheck": "clean"
+  },
+  "mocks": [],
+  "modules_touched": [
+    "tool-loop",
+    "context-usage",
+    "transport-client",
+    "fork-flow"
+  ],
+  "caveats": [
+    "Mutation checks were done by temporary edits restored byte-for-byte from backups (diff empty).",
+    "Release gate not run.",
+    "VQ-S7-002 PARTIAL waived by Decider (ACCEPT): examiner misread dependencies_allowed; AC-STRUCT-6 spans transport-client"
+  ],
+  "retrospective": {
+    "skipped": true,
+    "reason": "clean_run"
+  },
+  "final_outcome": "accepted",
+  "completed_at": "2026-10-02T13:12:07Z"
+}

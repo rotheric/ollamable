@@ -1,0 +1,116 @@
+{
+  "story_id": "S5",
+  "authored_by": "story-planner",
+  "authored_at": "2026-10-02T11:00:00Z",
+  "questions": [
+    {
+      "question_id": "VQ-S5-001",
+      "phase": "pre-impl",
+      "category": "QUALITY",
+      "question": "Does `server/tools/compact-context.ts` and the interception in `server/ws-handler.ts` contain any vacuous path (executor that returns success without validating `summary`, `compaction` payload with frozen strings, rejected calls that skip the `toolCallCount` increment)? State-discriminating: `grep -c \"compact_context\" server/ws-handler.ts` is 0 pre-impl and >=1 post-impl; `ls server/tools/compact-context.ts` fails pre-impl."
+    },
+    {
+      "question_id": "VQ-S5-002",
+      "phase": "pre-impl",
+      "category": "ARCHITECTURE",
+      "question": "Does S5 comply with architecture.md: executor registered after `web-search` and `curl` and before `McpBridge` construction in both `server/index.ts` and the ws-handler constructor, the sole-call rule implemented with explicit per-call error `tool_result`s (not thrown into `chat.error`), and wire types duplicated in `server/types.ts` and `src/types/chat.ts` without cross-imports?"
+    },
+    {
+      "question_id": "VQ-S5-003",
+      "phase": "pre-impl",
+      "category": "ARCHITECTURE",
+      "question": "Could `tool-loop` be deleted and rewritten without modifying any file outside its `dependencies_allowed` list? If not, which cross-module dependencies exist (compact-context-tool, context-usage, provider-clients) and do they flow through declared seam contracts (S-COMPACTION-WIRE, S-PLACEMENT)?"
+    },
+    {
+      "question_id": "VQ-S5-004",
+      "phase": "pre-impl",
+      "category": "TEST",
+      "question": "Are there ws-handler integration tests with a mocked provider (Ollama and OpenAI-compatible) covering a lone valid call, mixed calls, duplicate `compact_context`, invalid summary, disabled tool, and exhausted budgets, plus a `/tools` listing test? Verify `grep -rln \"compact_context\" tests` (none pre-impl)."
+    },
+    {
+      "question_id": "VQ-S5-005",
+      "phase": "pre-impl",
+      "category": "SPEC",
+      "question": "Seam contract S-COMPACTION-WIRE: does `chat.done.compaction` have exactly `{ toolCallStepId: string, summary: string, remainingWork?: string }` (no other fields; `toolCallStepId` references a `tool_call` step present in the same `chat.done` steps; `remainingWork` omitted rather than empty when absent), and is this asserted in one owning test, with client-side `backend-client` carrying the payload through unchanged?"
+    },
+    {
+      "question_id": "VQ-S5-006",
+      "phase": "pre-impl",
+      "category": "SECURITY",
+      "question": "Does the tool boundary validate the model-supplied arguments (non-string or whitespace `summary`, non-string `remaining_work`, extra properties, oversized summary) and refuse execution when the tool is not enabled for the request, without trusting the model to bound `maxToolCalls`/`maxModelInvocations`?"
+    },
+    {
+      "question_id": "VQ-S5-007",
+      "phase": "pre-impl",
+      "category": "SPEC",
+      "ac_id": "AC-TOOL-1",
+      "question": "Does the implementation satisfy AC-TOOL-1: \"`GET /tools` MUST list `compact_context` with an input schema requiring a string `summary` containing a non-whitespace character and allowing an optional string `remaining_work`, and a connection's dispatcher MUST `canHandle(\"compact_context\")` with a definition whose `id` equals the listed `id`.\"? Demand evidence of (a) the production code (file:line), (b) the test(s) that exercise this AC end-to-end through the real producer path, and (c) confirmation the tests are not pure mock-spy proxies (assertions are on observable output, not on call counts alone)."
+    },
+    {
+      "question_id": "VQ-S5-008",
+      "phase": "pre-impl",
+      "category": "SPEC",
+      "ac_id": "AC-TOOL-2",
+      "question": "Does the implementation satisfy AC-TOOL-2: \"When a response's only tool call is a valid `compact_context`, the server's `chat.done` MUST carry `compaction.summary`, `compaction.remainingWork` and `compaction.toolCallStepId`, and the server MUST NOT invoke the model again in that request.\"? Demand evidence of (a) the production code (file:line), (b) the test(s) that exercise this AC end-to-end through the real producer path, and (c) confirmation the tests are not pure mock-spy proxies (assertions are on observable output, not on call counts alone)."
+    },
+    {
+      "question_id": "VQ-S5-009",
+      "phase": "pre-impl",
+      "category": "SPEC",
+      "ac_id": "AC-TOOL-3",
+      "question": "Does the implementation satisfy AC-TOOL-3: \"The `chat.done` of AC-TOOL-2 MUST contain the `tool_call` step and a `tool_result` step with `toolResult.name === \"compact_context\"`; when the call carries an id (OpenAI-compatible mocked provider), `toolResult.id` MUST equal it.\"? Demand evidence of (a) the production code (file:line), (b) the test(s) that exercise this AC end-to-end through the real producer path, and (c) confirmation the tests are not pure mock-spy proxies (assertions are on observable output, not on call counts alone)."
+    },
+    {
+      "question_id": "VQ-S5-010",
+      "phase": "pre-impl",
+      "category": "SPEC",
+      "ac_id": "AC-TOOL-5",
+      "question": "Does the implementation satisfy AC-TOOL-5: \"When a response contains more than one tool call and at least one is `compact_context` (including two `compact_context` calls), and all are enabled, the server MUST execute none of them, MUST return an error `tool_result` for every call in that response, MUST NOT attach `compaction` to any `chat.done`, and MUST invoke the model again unless `maxModelInvocations` or `maxToolCalls` is exhausted.\"? Demand evidence of (a) the production code (file:line), (b) the test(s) that exercise this AC end-to-end through the real producer path, and (c) confirmation the tests are not pure mock-spy proxies (assertions are on observable output, not on call counts alone)."
+    },
+    {
+      "question_id": "VQ-S5-011",
+      "phase": "pre-impl",
+      "category": "SPEC",
+      "ac_id": "AC-TOOL-6",
+      "question": "Does the implementation satisfy AC-TOOL-6: \"A `compact_context` call with an empty, whitespace-only or missing `summary` MUST yield an error `tool_result` and no `compaction` payload.\"? Demand evidence of (a) the production code (file:line), (b) the test(s) that exercise this AC end-to-end through the real producer path, and (c) confirmation the tests are not pure mock-spy proxies (assertions are on observable output, not on call counts alone)."
+    },
+    {
+      "question_id": "VQ-S5-012",
+      "phase": "pre-impl",
+      "category": "SPEC",
+      "ac_id": "AC-TOOL-7",
+      "question": "Does the implementation satisfy AC-TOOL-7: \"A `compact_context` call when the tool is not enabled for the request MUST end the request with a `chat.error` whose message contains `Tool is not enabled for this request`, and no `compaction` payload.\"? Demand evidence of (a) the production code (file:line), (b) the test(s) that exercise this AC end-to-end through the real producer path, and (c) confirmation the tests are not pure mock-spy proxies (assertions are on observable output, not on call counts alone)."
+    },
+    {
+      "question_id": "VQ-S5-013",
+      "phase": "pre-impl",
+      "category": "SPEC",
+      "ac_id": "AC-TOOL-8",
+      "question": "Does the implementation satisfy AC-TOOL-8: \"Every `compact_context` call, including those rejected under AC-TOOL-5, MUST count as one tool call against `maxToolCalls`.\"? Demand evidence of (a) the production code (file:line), (b) the test(s) that exercise this AC end-to-end through the real producer path, and (c) confirmation the tests are not pure mock-spy proxies (assertions are on observable output, not on call counts alone)."
+    },
+    {
+      "question_id": "VQ-S5-014",
+      "phase": "post-impl",
+      "category": "ARCHITECTURE",
+      "question": "Is the compact_context interception placed strictly after the budget, enablement, availability and id checks in server/ws-handler.ts, so a disabled or stale-id call never reaches it? Confirm tests in tests/integration/ws-handler-compact-context.test.ts (\"not enabled\" group) assert chat.error and no compaction."
+    },
+    {
+      "question_id": "VQ-S5-015",
+      "phase": "post-impl",
+      "category": "QUALITY",
+      "question": "toolCallCount is incremented by toolCallSteps.length on every compact_context-containing response (honored or rejected) while other responses still increment per executed call. Does any path double-count or skip a call, and is the budget check (toolCallCount + calls > maxToolCalls) still evaluated before any rejection side effect?"
+    },
+    {
+      "question_id": "VQ-S5-016",
+      "phase": "post-impl",
+      "category": "SPEC",
+      "question": "BackendClient keeps the stream promise resolving to ConversationStep[] and exposes the compaction payload through the optional StreamRequest.onCompaction callback invoked before resolve. Is this asserted unchanged (same object) in tests/unit/backend-client-chat.test.ts, and does use-chat-generation (untouched) still behave identically for responses without compaction?"
+    },
+    {
+      "question_id": "VQ-S5-017",
+      "phase": "post-impl",
+      "category": "SECURITY",
+      "question": "parseCompactContextArgs rejects non-object args, unknown properties, non-string summary/remaining_work and whitespace-only summaries without throwing; no maximum summary length is enforced (WS message size cap is the only bound). Is that acceptable, or should an explicit cap be added by S6/the lead?"
+    }
+  ]
+}

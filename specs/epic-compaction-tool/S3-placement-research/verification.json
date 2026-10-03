@@ -1,0 +1,89 @@
+{
+  "story_id": "S3",
+  "authored_by": "story-planner",
+  "authored_at": "2026-10-02T11:00:00Z",
+  "questions": [
+    {
+      "question_id": "VQ-S3-001",
+      "phase": "pre-impl",
+      "category": "QUALITY",
+      "question": "Is `docs/research/compaction-placement.md` genuine observed research rather than a placeholder: no TODO/TBD/lorem text, Method names a concrete Ollama version string and a concrete instrument, and Findings rows contain observations (not \"n/a\" in every cell)? State-discriminating: `test -f docs/research/compaction-placement.md` fails pre-impl; `grep -nE \"^## (Method|Candidates|Findings|Decision)\" docs/research/compaction-placement.md` yields 4 lines post-impl."
+    },
+    {
+      "question_id": "VQ-S3-002",
+      "phase": "pre-impl",
+      "category": "ARCHITECTURE",
+      "question": "Does the placement data export in `shared/context-usage.ts` honour architecture.md (shared imports only shared, `.js` suffixes, pure data, no consumption by production code paths since `applyContextPlacement` belongs to S4) and does S3 add no code outside `shared/context-usage.ts` and the research doc?"
+    },
+    {
+      "question_id": "VQ-S3-003",
+      "phase": "pre-impl",
+      "category": "ARCHITECTURE",
+      "question": "Could `research` (and the placement-data portion of `context-usage`) be deleted and rewritten without modifying any file outside its `dependencies_allowed` list? If not, which cross-module dependencies exist and do they flow through the S-PLACEMENT seam contract?"
+    },
+    {
+      "question_id": "VQ-S3-004",
+      "phase": "pre-impl",
+      "category": "TEST",
+      "question": "Does a unit test parse the `Decision` table out of the real markdown file (not a copy) and assert deep equality with the exported placement data, and does it fail when either the document row or the data is mutated? Verify mutation-sensitivity by editing one cell in a scratch copy and observing failure."
+    },
+    {
+      "question_id": "VQ-S3-005",
+      "phase": "pre-impl",
+      "category": "SPEC",
+      "question": "Seam contract S-PLACEMENT (data part): does the exported placement data have an exact, typed shape (default placement for note, default placement for summary, per-family exceptions keyed by family string; placement values constrained to a declared enum of wire positions) and does one owning test assert full enum membership? Cite shape and test."
+    },
+    {
+      "question_id": "VQ-S3-006",
+      "phase": "pre-impl",
+      "category": "BEST_PRACTICES",
+      "question": "Is MV-1 recorded for the owner (Markus) with the Findings tied to the named Ollama version, and does the document avoid asserting `prompt_eval_count` as a cache instrument, as the AC requires?"
+    },
+    {
+      "question_id": "VQ-S3-007",
+      "phase": "pre-impl",
+      "category": "SPEC",
+      "ac_id": "AC-RES-1",
+      "question": "Does the implementation satisfy AC-RES-1: \"`docs/research/compaction-placement.md` MUST exist with the sections `Method`, `Candidates`, `Findings` and `Decision`, and `Method` MUST name the Ollama version and the instrument used to observe rendered prompts and prefix-cache reuse (e.g. `OLLAMA_DEBUG=1` runner logs, `prompt_eval_duration` deltas; `prompt_eval_count` is not a cache instrument). `Findings` MUST also record the `prompt_eval_count` Ollama reports for a prompt deliberately longer than the loaded window, and `Decision` MUST state the resulting meaning of the meter's `error` band.\"? Demand evidence of (a) the production code (file:line), (b) the test(s) that exercise this AC end-to-end through the real producer path, and (c) confirmation the tests are not pure mock-spy proxies (assertions are on observable output, not on call counts alone)."
+    },
+    {
+      "question_id": "VQ-S3-008",
+      "phase": "pre-impl",
+      "category": "SPEC",
+      "ac_id": "AC-RES-2",
+      "question": "Does the implementation satisfy AC-RES-2: \"`Candidates` MUST list, for the usage note: trailing `system` message, appended to the first `system` message, trailing `user`-role message; and for the summary: `system`-role message, `user`-role message, and the bare fork shape \"system steps + summary with no prior `user` turn\".\"? Demand evidence of (a) the production code (file:line), (b) the test(s) that exercise this AC end-to-end through the real producer path, and (c) confirmation the tests are not pure mock-spy proxies (assertions are on observable output, not on call counts alone)."
+    },
+    {
+      "question_id": "VQ-S3-009",
+      "phase": "pre-impl",
+      "category": "SPEC",
+      "ac_id": "AC-RES-3",
+      "question": "Does the implementation satisfy AC-RES-3: \"`Findings` MUST contain a row per candidate for at least three model families, one of which MUST be the family of the repo's default test model.\"? Demand evidence of (a) the production code (file:line), (b) the test(s) that exercise this AC end-to-end through the real producer path, and (c) confirmation the tests are not pure mock-spy proxies (assertions are on observable output, not on call counts alone)."
+    },
+    {
+      "question_id": "VQ-S3-010",
+      "phase": "pre-impl",
+      "category": "SPEC",
+      "ac_id": "AC-RES-4",
+      "question": "Does the implementation satisfy AC-RES-4: \"`Decision` MUST name one default placement for the note and one for the summary plus zero or more family exceptions, and a unit test MUST assert that the placement data exported by `shared/context-usage.ts` equals the `Decision` table parsed from the document.\"? Demand evidence of (a) the production code (file:line), (b) the test(s) that exercise this AC end-to-end through the real producer path, and (c) confirmation the tests are not pure mock-spy proxies (assertions are on observable output, not on call counts alone)."
+    },
+    {
+      "question_id": "VQ-S3-011",
+      "phase": "post-impl",
+      "category": "QUALITY",
+      "question": "Is every numeric claim in docs/research/compaction-placement.md Findings (cache B/cold ratios, prompt_eval_count per candidate, overflow rows 2047/4095) traceable to a raw probe output, and is the 'hoisted into the leading system block' claim for qwen3/qwen2/llama backed by identical hand-rendered raw-generate prompt_eval_count (the 52/52 match in Method)? Re-run one cell (e.g. qwen3:1.7b trailing-system vs trailing-user B/cold) against the live Ollama 0.30.8 to confirm."
+    },
+    {
+      "question_id": "VQ-S3-012",
+      "phase": "post-impl",
+      "category": "TEST",
+      "question": "Do the document-structure assertions in tests/unit/context-placement-decision.test.ts (family-row regex over Findings, 'Reported `prompt_eval_count`' header, '2047' literal) fail when a Findings row, a candidate or the overflow row is deleted from a scratch copy of the document, and are they not so brittle that harmless prose edits break them?"
+    },
+    {
+      "question_id": "VQ-S3-013",
+      "phase": "post-impl",
+      "category": "ARCHITECTURE",
+      "question": "Does the Decision (note=trailing-user, summary=user, no exceptions) hold the S4 contract: trailing-user merges into the last user turn on Ollama in the chat shape, so does S4's applyContextPlacement/token-view reconciliation count the merged text (not a separate message) and does the note wording survive being the last paragraph of the user's message (documented caveat)? Also: gemma4 and gpt-oss were not exercised."
+    }
+  ]
+}

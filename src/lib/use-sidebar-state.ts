@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { DEFAULT_SIDEBAR_STATE, loadSidebarState, saveSidebarState, type SidebarState } from "@/src/lib/chat";
+import { recordRuntimeWindow, type ResolvedContextWindow } from "@/src/lib/context-window";
 import type { ConversationStep } from "@/src/types/chat";
 
 export type RightSectionKey =
@@ -45,6 +46,16 @@ export function useSidebarState() {
 
   const updateSidebar = useCallback(
     (patch: Partial<SidebarState>) => change((prev) => ({ ...prev, ...patch })),
+    [change]
+  );
+
+  /** Remembers a live runtime window for `provider/model`; stale or non-runtime windows are ignored. */
+  const rememberContextWindow = useCallback(
+    (provider: string | undefined, model: string, resolved: ResolvedContextWindow) =>
+      change((prev) => {
+        const next = recordRuntimeWindow(prev.rememberedContextWindows, provider, model, resolved);
+        return next === prev.rememberedContextWindows ? prev : { ...prev, rememberedContextWindows: next };
+      }),
     [change]
   );
 
@@ -117,6 +128,7 @@ export function useSidebarState() {
     sidebarState,
     setSidebarState,
     updateSidebar,
+    rememberContextWindow,
     isSubsectionOpen,
     toggleSubsection,
     toggleRightSection,

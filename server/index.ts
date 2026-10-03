@@ -9,6 +9,7 @@ import { LlmRouter } from "./llm-router.js";
 import { ToolDispatcher } from "./tool-executor.js";
 import { WebSearchExecutor } from "./tools/web-search.js";
 import { CurlExecutor } from "./tools/curl.js";
+import { CompactContextExecutor } from "./tools/compact-context.js";
 import { loadProviderConfigs } from "./provider-config.js";
 import { AccessPolicy } from "./access-policy.js";
 import { HttpInputError, isRecord, readJsonBody } from "./request-validation.js";
@@ -31,11 +32,35 @@ const executionLimits = loadExecutionLimits();
 const providerConfigs = loadProviderConfigs();
 const router = new LlmRouter(providerConfigs);
 
+/** Shared body parsing and error mapping for the `{ model, provider? }` model-lookup POST routes. */
+async function handleModelRequest(
+  req: IncomingMessage,
+  res: ServerResponse,
+  lookup: (provider: string | undefined, model: string) => Promise<unknown>,
+  failureMessage: string
+): Promise<void> {
+  try {
+    const body = await readJsonBody(req);
+    if (!isRecord(body) || typeof body.model !== "string" || !body.model.trim() ||
+      (body.provider !== undefined && (typeof body.provider !== "string" || !body.provider.trim()))) {
+      throw new HttpInputError(400, "Expected model and optional provider strings");
+    }
+    const result = await lookup(body.provider as string | undefined, body.model);
+    res.writeHead(200, { "Content-Type": "application/json" });
+    res.end(JSON.stringify(result));
+  } catch (err) {
+    const message = err instanceof Error ? err.message : failureMessage;
+    res.writeHead(err instanceof HttpInputError ? err.status : 500, { "Content-Type": "application/json", "Connection": "close" });
+    res.end(JSON.stringify({ error: message }));
+  }
+}
+
 // Static tool registry — used by the /tools HTTP endpoint.
 // MCP tools are per-connection and delivered via WebSocket tools.update instead.
 const staticDispatcher = new ToolDispatcher();
 staticDispatcher.register(new WebSearchExecutor());
 staticDispatcher.register(new CurlExecutor());
+staticDispatcher.register(new CompactContextExecutor());
 
 console.log(
   `[server] Providers: ${providerConfigs.map((p) => p.name).join(", ")}`
@@ -81,21 +106,12 @@ const httpServer = createServer(
     }
 
     if (req.url === "/models/show" && req.method === "POST") {
-      try {
-        const body = await readJsonBody(req);
-        if (!isRecord(body) || typeof body.model !== "string" || !body.model.trim() ||
-          (body.provider !== undefined && (typeof body.provider !== "string" || !body.provider.trim()))) {
-          throw new HttpInputError(400, "Expected model and optional provider strings");
-        }
-        const meta = await router.showModelMeta(body.provider as string | undefined, body.model);
-        res.writeHead(200, { "Content-Type": "application/json" });
-        res.end(JSON.stringify(meta));
-      } catch (err) {
-        const message =
-          err instanceof Error ? err.message : "Failed to fetch model metadata";
-        res.writeHead(err instanceof HttpInputError ? err.status : 500, { "Content-Type": "application/json", "Connection": "close" });
-        res.end(JSON.stringify({ error: message }));
-      }
+      await handleModelRequest(req, res, (provider, model) => router.showModelMeta(provider, model), "Failed to fetch model metadata");
+      return;
+    }
+
+    if (req.url === "/models/runtime" && req.method === "POST") {
+      await handleModelRequest(req, res, (provider, model) => router.runtimeInfo(provider, model), "Failed to fetch model runtime");
       return;
     }
 

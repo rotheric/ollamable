@@ -5,7 +5,9 @@ export type StepKind =
   | "reasoning"
   | "tool_call"
   | "tool_result"
-  | "meta";
+  | "meta"
+  /** A fork's opening summary written by the model via `compact_context`; sent to the model as a user turn. */
+  | "compaction";
 
 export type MetaEventKind =
   | "mcp_connect"
@@ -14,7 +16,8 @@ export type MetaEventKind =
   | "search_start"
   | "search_result"
   | "fetch_start"
-  | "fetch_result";
+  | "fetch_result"
+  | "compaction";
 
 export interface MetaEventPayload {
   kind: MetaEventKind;
@@ -48,6 +51,18 @@ export interface UsagePayload {
   stopReason?: string;
 }
 
+/** Where a resolved context window came from. Mirrored in server/types.ts (no cross-boundary import). */
+export type ContextWindowSource = "runtime" | "modelfile" | "estimated" | "assumed";
+
+/** `POST /models/runtime` response: what the backend can report about a loaded model. */
+export interface ModelRuntime {
+  loaded: boolean;
+  /** Whether `POST /models/show` can answer for this model (Ollama only). */
+  metadata: boolean;
+  /** Present, as a positive integer, only when `loaded` is true. */
+  contextLength?: number;
+}
+
 export type ReasoningEffort = "disable" | "low" | "medium" | "high";
 
 export interface ConversationStep {
@@ -65,6 +80,19 @@ export interface ConversationStep {
   contentTokens?: string[];
   model?: string;
   interrupted?: boolean;
+}
+
+/**
+ * The inputs that determined a request's usage note, recorded when the request was sent (never the
+ * note text, which must not be stored with the conversation). `startIndex` is the length of the
+ * step list that was sent, i.e. the index of the request's first new step; within one request
+ * these inputs are constant, so the note any of its invocations received can be reproduced.
+ */
+export interface RequestContextRecord {
+  startIndex: number;
+  compactEnabled: boolean;
+  contextWindow?: { tokens: number; source: ContextWindowSource };
+  modelFamily?: string;
 }
 
 export interface Conversation {
@@ -85,10 +113,25 @@ export interface Conversation {
   availableTools: ToolDefinition[];
   activeToolIds: string[];
   steps: ConversationStep[];
+  /** One record per sent request (ascending `startIndex`); see `RequestContextRecord`. */
+  requestContexts?: RequestContextRecord[];
+  /** Set on a conversation forked by `compact_context`: the conversation and `tool_call` step it was compacted from. */
+  forkedFrom?: { conversationId: string; stepId: string };
   note?: string;
   _tourExample?: boolean;
   /** Original example content, retained across reloads for safe tour cleanup. */
   _tourSeed?: string;
+}
+
+/**
+ * Seam S-COMPACTION-WIRE (mirror of server/types.ts, deliberately not imported): the payload of a
+ * `chat.done` that ended with a valid sole `compact_context` call. `toolCallStepId` is the id of
+ * that call's `tool_call` step among the same `chat.done` steps; `remainingWork` is omitted when absent.
+ */
+export interface CompactionPayload {
+  toolCallStepId: string;
+  summary: string;
+  remainingWork?: string;
 }
 
 export interface OllamaModel {

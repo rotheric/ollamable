@@ -1,0 +1,56 @@
+{
+  "module_name": "fork-flow",
+  "purpose": "Compaction takeover as a client-side harness event: a valid sole compact_context ends the request with the authentic tool_call only; the client forks, appends one compaction meta step to the original, selects the fork and sends nothing for it; placeStepsForModel keeps the call and the harness step off every wire request.",
+  "public_api": [
+    {
+      "name": "buildCompactionHarnessStep",
+      "signature": "(fork: Conversation, now?: Date) => ConversationStep",
+      "description": "The meta/compaction step appended to the original; data.forkConversationId = fork.id."
+    },
+    {
+      "name": "compactionHarnessText",
+      "signature": "(forkTitle: string) => string",
+      "description": "Event text naming the fork."
+    },
+    {
+      "name": "placeStepsForModel",
+      "signature": "<T extends PlacementStep>(steps: ReadonlyArray<T>, input: PlaceStepsInput) => T[]",
+      "description": "Now also omits unanswered compact_context tool_calls and the compaction harness step."
+    }
+  ],
+  "private_files": [
+    "src/lib/fork.ts",
+    "src/lib/use-chat-generation.ts",
+    "src/components/transcript-step.tsx",
+    "src/components/transcript.tsx",
+    "src/components/chat-workspace.tsx",
+    "src/lib/transcript.ts"
+  ],
+  "owned_data": [
+    "compaction harness step on the original conversation"
+  ],
+  "dependencies_allowed": [
+    "tool-loop",
+    "context-usage",
+    "transport-client"
+  ],
+  "dependencies_forbidden": [],
+  "external_ports": [],
+  "events_emitted": [],
+  "events_consumed": [
+    "chat.done{steps, compaction}"
+  ],
+  "test_targets": [
+    "tests/unit/fork.test.ts",
+    "tests/unit/chat-workspace-fork.test.tsx",
+    "tests/unit/use-chat-generation.test.tsx",
+    "tests/unit/use-chat-generation-fork-properties.test.tsx",
+    "tests/integration/ws-handler-compact-context.test.ts",
+    "tests/integration/ws-handler-compaction-properties.test.ts",
+    "tests/integration/ws-handler-fork.test.ts"
+  ],
+  "seam": {
+    "cross_story": false,
+    "consumed_by": []
+  }
+}

@@ -94,6 +94,17 @@ describe("chat message routing", () => {
     expect(sent.requestId).not.toBe("");
   });
 
+  it("carries the resolved context window, its source and the model family in chat.send", () => {
+    const { sent } = start({ contextWindow: 8192, contextWindowSource: "runtime", modelFamily: "qwen3" });
+    expect(sent).toMatchObject({ type: "chat.send", contextWindow: 8192, contextWindowSource: "runtime", modelFamily: "qwen3" });
+  });
+
+  it("omits the context fields when none were resolved", () => {
+    const { sent } = start();
+    expect(JSON.parse(JSON.stringify(sent))).not.toHaveProperty("contextWindow");
+    expect(JSON.parse(JSON.stringify(sent))).not.toHaveProperty("modelFamily");
+  });
+
   it("routes deltas and stable steps to their own callbacks without settling the stream", async () => {
     const { callbacks, stream, fromServer } = start();
     const partial = [{ id: "a", kind: "assistant", content: "He" }];
@@ -109,6 +120,42 @@ describe("chat message routing", () => {
     void stream.promise.then(settled, settled);
     await Promise.resolve();
     expect(settled).not.toHaveBeenCalled();
+  });
+
+  it("hands the chat.done compaction payload to onCompaction unchanged, before the stream resolves", async () => {
+    const onCompaction = vi.fn();
+    const { stream, fromServer } = start({ onCompaction });
+    const final = [{ id: "tc", kind: "tool_call", content: "" }];
+    const compaction = { toolCallStepId: "tc", summary: "S", remainingWork: "R" };
+    const order: string[] = [];
+    onCompaction.mockImplementation(() => order.push("compaction"));
+    void stream.promise.then(() => order.push("resolved"));
+
+    fromServer({ type: "chat.done", steps: final, compaction });
+
+    await expect(stream.promise).resolves.toEqual(final);
+    expect(onCompaction).toHaveBeenCalledExactlyOnceWith(compaction);
+    expect(onCompaction.mock.calls[0][0]).toBe(compaction);
+    expect(order).toEqual(["compaction", "resolved"]);
+  });
+
+  it("still resolves the stream when onCompaction throws", async () => {
+    const onCompaction = vi.fn(() => { throw new Error("consumer bug"); });
+    const { stream, fromServer } = start({ onCompaction });
+    expect(() => fromServer({ type: "chat.done", steps: [], compaction: { toolCallStepId: "x", summary: "S" } })).toThrow("consumer bug");
+    await expect(stream.promise).resolves.toEqual([]);
+  });
+
+  it("does not call onCompaction for a chat.done without compaction, and tolerates a missing callback", async () => {
+    const onCompaction = vi.fn();
+    const withCallback = start({ onCompaction });
+    withCallback.fromServer({ type: "chat.done", steps: [] });
+    await expect(withCallback.stream.promise).resolves.toEqual([]);
+    expect(onCompaction).not.toHaveBeenCalled();
+
+    const without = start();
+    without.fromServer({ type: "chat.done", steps: [], compaction: { toolCallStepId: "x", summary: "S" } });
+    await expect(without.stream.promise).resolves.toEqual([]);
   });
 
   it("resolves with the final steps on chat.done and stops listening afterwards", async () => {

@@ -3,6 +3,8 @@ import { act, renderHook } from "@testing-library/react";
 import type { ConversationStep, StepKind } from "@/src/types/chat";
 import { SIDEBAR_STATE_KEY, type SidebarState } from "@/src/lib/chat";
 import { useSidebarState } from "@/src/lib/use-sidebar-state";
+import { resolveContextWindow, rememberedWindow } from "@/src/lib/context-window";
+import { modelIdentity } from "@/src/lib/model-identity";
 
 function stored(): SidebarState {
   return JSON.parse(window.localStorage.getItem(SIDEBAR_STATE_KEY) ?? "null") as SidebarState;
@@ -37,6 +39,7 @@ describe("useSidebarState", () => {
     expect(result.current.sidebarState.sidebarOpen).toBe(true);
     expect(result.current.sidebarState.rightSidebarOpen).toBe(false);
     expect(result.current.sidebarState.renderMarkdown).toBe(true);
+    expect(result.current.sidebarState.showContextMeter).toBe(false);
     expect(openSections(result.current.sidebarState)).toEqual([]);
   });
 
@@ -60,6 +63,45 @@ describe("useSidebarState", () => {
     expect(result.current.sidebarState.sidebarOpen).toBe(false);
     expect(result.current.sidebarState.renderMarkdown).toBe(true);
     expect(stored()).toEqual(result.current.sidebarState);
+  });
+
+  describe("remembered context window", () => {
+    it("AC-CTX-1/2: a live runtime window is remembered per provider/model, persisted, and resolves as stale after a reload", () => {
+      const first = renderHook(() => useSidebarState());
+      act(() => first.result.current.rememberContextWindow("ollama", "qwen3:1.7b", { tokens: 4096, source: "runtime" }));
+      expect(stored().rememberedContextWindows).toEqual({ [modelIdentity("ollama", "qwen3:1.7b")]: 4096 });
+      first.unmount();
+
+      const reloaded = renderHook(() => useSidebarState());
+      const remembered = rememberedWindow(reloaded.result.current.sidebarState.rememberedContextWindows, "ollama", "qwen3:1.7b");
+      expect(resolveContextWindow({ runtime: { loaded: false }, remembered })).toEqual({ tokens: 4096, source: "runtime", stale: true });
+    });
+
+    it("keeps one window per model and ignores stale or estimated windows", () => {
+      const { result } = renderHook(() => useSidebarState());
+      act(() => result.current.rememberContextWindow("ollama", "a", { tokens: 1000, source: "runtime" }));
+      act(() => result.current.rememberContextWindow("ollama", "b", { tokens: 2000, source: "runtime" }));
+      act(() => result.current.rememberContextWindow("ollama", "a", { tokens: 9999, source: "runtime", stale: true }));
+      act(() => result.current.rememberContextWindow("ollama", "c", { tokens: 40960, source: "estimated" }));
+      expect(result.current.sidebarState.rememberedContextWindows).toEqual({
+        [modelIdentity("ollama", "a:latest")]: 1000,
+        [modelIdentity("ollama", "b:latest")]: 2000,
+      });
+    });
+
+    it("merges a default empty record on load when the stored preferences predate it, and drops invalid entries", () => {
+      window.localStorage.setItem(SIDEBAR_STATE_KEY, JSON.stringify({ showTokens: true }));
+      expect(renderHook(() => useSidebarState()).result.current.sidebarState.rememberedContextWindows).toEqual({});
+
+      window.localStorage.setItem(
+        SIDEBAR_STATE_KEY,
+        JSON.stringify({ rememberedContextWindows: { good: 4096, zero: 0, text: "8192", frac: 1.5 } })
+      );
+      expect(renderHook(() => useSidebarState()).result.current.sidebarState.rememberedContextWindows).toEqual({ good: 4096 });
+
+      window.localStorage.setItem(SIDEBAR_STATE_KEY, JSON.stringify({ rememberedContextWindows: [4096] }));
+      expect(renderHook(() => useSidebarState()).result.current.sidebarState.rememberedContextWindows).toEqual({});
+    });
   });
 
   it("toggleRightSection keeps at most one section open and closes a section toggled twice", () => {

@@ -3,10 +3,13 @@
 import { useMemo } from "react";
 import { Alert } from "@mui/material";
 import type { Conversation, OllamaModel, ToolDefinition } from "@/src/types/chat";
+import type { ResolvedContextWindow } from "@/src/lib/context-window";
+import { placementInputForPreview } from "@/src/lib/token-view";
 import { JsonPreviewDialog } from "@/src/components/json-preview-dialog";
 import { RequestPreviewExtras } from "@/src/components/request-preview-extras";
 import { isReasoningModel } from "@/src/lib/models";
 import { buildOpenAIRequestBody } from "@/shared/openai-format";
+import { placeStepsForModel } from "@/shared/context-usage";
 
 interface RequestJsonDialogProps {
   open: boolean;
@@ -15,6 +18,8 @@ interface RequestJsonDialogProps {
   /** The conversation's model, when discovery knows it. */
   model: OllamaModel | undefined;
   activeTools: ToolDefinition[];
+  /** The resolved window (same resolution as the meter); absent while unresolved. */
+  contextWindow?: Pick<ResolvedContextWindow, "tokens" | "source">;
   showTokens: boolean;
   tokenizeText: (text: string) => Promise<string[]>;
 }
@@ -30,6 +35,7 @@ export function RequestJsonDialog({
   conversation,
   model,
   activeTools,
+  contextWindow,
   showTokens,
   tokenizeText,
 }: RequestJsonDialogProps) {
@@ -47,7 +53,10 @@ export function RequestJsonDialog({
     return JSON.stringify(
       buildOpenAIRequestBody({
         model: conversation.model,
-        steps: conversation.steps,
+        steps: placeStepsForModel(
+          conversation.steps,
+          placementInputForPreview(conversation.steps, { activeTools, contextWindow, family: model?.family })
+        ),
         tools: activeTools,
         temperature: conversation.temperature,
         maxOutputTokens: conversation.maxOutputTokens,
@@ -58,7 +67,7 @@ export function RequestJsonDialog({
       null,
       2
     );
-  }, [activeTools, model, conversation]);
+  }, [activeTools, model, conversation, contextWindow]);
 
   return (
     <JsonPreviewDialog
@@ -74,6 +83,9 @@ export function RequestJsonDialog({
               open={open}
               steps={conversation.steps}
               model={model}
+              activeTools={activeTools}
+              contextWindow={contextWindow}
+              requestContexts={conversation.requestContexts}
               tokenizeText={tokenizeText}
             />
           ) : (

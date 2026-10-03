@@ -3,6 +3,7 @@ import type { ConversationStep, ToolCallPayload } from "@/src/types/chat";
 export function isVisibleTranscriptStep(step: ConversationStep) {
   return (
     step.kind === "user" ||
+    step.kind === "compaction" ||
     (step.kind === "assistant" && Boolean(step.content.trim())) ||
     step.kind === "tool_call" ||
     step.kind === "reasoning" ||
@@ -29,6 +30,9 @@ export function formatStepHeader(step: ConversationStep): string {
   if (step.kind === "tool_result") {
     return "tool call response";
   }
+  if (step.kind === "compaction") {
+    return `written by ${step.model ?? "the model"} via compact_context`;
+  }
   if (step.kind === "meta" && step.metaEvent) {
     const kind = step.metaEvent.kind;
     if (kind === "mcp_call") {
@@ -39,6 +43,7 @@ export function formatStepHeader(step: ConversationStep): string {
       const tool = (step.metaEvent.data?.tool as string) ?? "";
       return `Server Result${tool ? `: ${tool}` : ""}`;
     }
+    if (kind === "compaction") return "app event: compaction";
     return step.metaEvent.kind.replace(/_/g, " ");
   }
   return step.kind.replace("_", " ");
@@ -72,7 +77,7 @@ export function findResponseStartIndex(steps: ConversationStep[], assistantIndex
   for (let index = assistantIndex - 1; index >= 0; index -= 1) {
     const step = steps[index];
 
-    if (step.kind === "user" || step.kind === "system" || step.kind === "tool_result") {
+    if (step.kind === "user" || step.kind === "compaction" || step.kind === "system" || step.kind === "tool_result") {
       return index + 1;
     }
   }
@@ -88,7 +93,10 @@ export function prettyPrintJson(text: string): string {
   }
 }
 
-/** The last chat message (user or assistant); only this one offers "Delete message". */
+/**
+ * The last chat message (user or assistant); only this one offers "Delete message". A `compaction`
+ * step is a turn boundary but never deletable: it is what the fork is made of.
+ */
 export function findLastDeletableStepIndex(steps: ConversationStep[]): number {
   for (let i = steps.length - 1; i >= 0; i--) {
     if (steps[i].kind === "user" || steps[i].kind === "assistant") {
@@ -115,7 +123,7 @@ export function deleteLastExchangeCutIndex(steps: ConversationStep[]): number {
   }
 
   for (let i = lastDeletableIndex - 1; i >= 0; i--) {
-    if (steps[i].kind === "user") {
+    if (steps[i].kind === "user" || steps[i].kind === "compaction") {
       return i + 1;
     }
     if (steps[i].kind === "system") {

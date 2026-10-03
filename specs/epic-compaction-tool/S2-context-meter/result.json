@@ -1,0 +1,59 @@
+{
+  "story_id": "S2",
+  "status": "done",
+  "remediation_rounds": 1,
+  "files_created": [
+    "src/components/context-meter.tsx",
+    "src/lib/use-context-window.ts",
+    "tests/unit/context-meter.test.tsx",
+    "tests/unit/use-context-window.test.tsx",
+    "tests/unit/chat-workspace-context-meter.test.tsx"
+  ],
+  "files_modified": [
+    "src/lib/chat.ts",
+    "src/lib/use-chat-generation.ts",
+    "src/components/chat-workspace.tsx",
+    "src/components/settings/settings-sidebar.tsx",
+    "tests/unit/chat.test.ts",
+    "tests/unit/use-sidebar-state.test.tsx"
+  ],
+  "implementation_summary": "Added showContextMeter (default false, persisted via existing sidebar state merge) with a 'Show context meter' row in the Client settings. useContextWindow resolves the window from fetchModelRuntime (fetched first) + fetchModelMetaIfAvailable (once per model, only if runtime.metadata) via resolveContextWindow, calls rememberContextWindow after every resolve, re-queries after each chat.done (completedCount from useChatGeneration), and computes fill with computeContextFill. ContextMeter renders tokens (en-US) and percent, em dash for unknown/pending, provenance word for estimated/assumed/stale, MUI success/warning/error theme colors, data-level, no window size. chat-workspace.tsx gets one hook call and one conditional render above the Composer.",
+  "tests_added": {
+    "unit": 37,
+    "integration": 0,
+    "property": 1
+  },
+  "test_counts": {
+    "baseline": 850,
+    "final": 887,
+    "baseline_unit": 480,
+    "final_unit": 517,
+    "baseline_integration": 370,
+    "final_integration": 370
+  },
+  "mocks": [],
+  "modules_touched": [
+    "meter-ui",
+    "context-window",
+    "sidebar-prefs",
+    "fork-flow"
+  ],
+  "decisions": [
+    "Meter placed above the Composer (not the app bar) to reuse the content column width.",
+    "No fetching while the meter is disabled; no theme.ts change since MUI default success/warning/error palette exists in both light and dark schemes.",
+    "Unknown/pending fill omits data-level instead of reporting ok.",
+    "On /models/runtime failure the window falls back to remembered/assumed and metadata is not requested.",
+    "Meter text is '<n> tokens · <p>%' for known/none-yet and a bare '—' for unknown."
+  ],
+  "gates": {
+    "lint": "clean",
+    "typecheck": "clean",
+    "ac_struct_2_grep_server": "0 matches"
+  },
+  "retrospective": {
+    "skipped": true,
+    "reason": "clean_run"
+  },
+  "final_outcome": "accepted",
+  "completed_at": "2026-10-02T11:01:47Z"
+}

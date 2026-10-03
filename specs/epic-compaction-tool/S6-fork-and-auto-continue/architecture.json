@@ -1,0 +1,72 @@
+{
+  "module_name": "fork-flow",
+  "purpose": "Client-side fork of a conversation on a chat.done carrying compaction, plus its auto-continue: pure fork construction (src/lib/fork.ts), orchestration inside use-chat-generation (stash payload; after ownership and applied steps, build, add, select, send), the compaction step kind with its card/back-link, sidebar visibility and transcript turn-boundary handling.",
+  "public_api": [
+    {
+      "name": "buildFork",
+      "signature": "(original: Conversation, payload: CompactionPayload, now?: Date) => Conversation",
+      "description": "Pure. System steps of the original + one compaction step; forkedFrom; inherited model/provider/settings/tools; '<title> (compacted)', titleEdited true; requestContexts []; fresh id/timestamps."
+    },
+    {
+      "name": "compactionContent",
+      "signature": "(payload: CompactionPayload) => string",
+      "description": "summary, then 'Remaining work:' section when remainingWork is present."
+    },
+    {
+      "name": "useChatGeneration onFork / streamConversationResponse(conversation, options)",
+      "signature": "onFork?: (fork: Conversation) => void; options: { withoutCompactContext?: boolean; contextRequest?: ContextRequestFields }",
+      "description": "Fork orchestration. The fork's first send excludes compact_context from the request's tools and carries the original's context fields explicitly."
+    },
+    {
+      "name": "useConversations.addForkedConversation",
+      "signature": "(fork: Conversation) => void",
+      "description": "Prepends the fork to the list and selects it."
+    },
+    {
+      "name": "orderVisibleConversations",
+      "signature": "(conversations, order) => Conversation[]",
+      "description": "Visible when the conversation has a user or compaction step."
+    },
+    {
+      "name": "Transcript props forkOrigin / onOpenConversation",
+      "signature": "forkOrigin?: {id,title}; onOpenConversation(id)",
+      "description": "Back-link above the compaction card; plain text when the original no longer exists."
+    }
+  ],
+  "private_files": [
+    "src/lib/fork.ts"
+  ],
+  "owned_data": [
+    "Conversation.forkedFrom",
+    "fork record shape (system steps + one compaction step)",
+    "compaction card rendering"
+  ],
+  "dependencies_allowed": [
+    "transport-client",
+    "wire-types",
+    "context-usage",
+    "transcript-model",
+    "compaction-card-ui"
+  ],
+  "dependencies_forbidden": [
+    "tool-loop",
+    "provider-clients"
+  ],
+  "external_ports": [],
+  "events_emitted": [],
+  "events_consumed": [
+    "chat.done.compaction (via StreamRequest.onCompaction)"
+  ],
+  "test_targets": [
+    "tests/unit/fork.test.ts",
+    "tests/unit/use-chat-generation.test.tsx",
+    "tests/unit/chat-workspace-fork.test.tsx",
+    "tests/integration/ws-handler-fork.test.ts",
+    "tests/integration/request-validation.test.ts"
+  ],
+  "seam": {
+    "cross_story": false,
+    "consumed_by": [],
+    "consumes": "CompactionOutcome (S-COMPACTION-WIRE) from S5"
+  }
+}

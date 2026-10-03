@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Alert, Box, Button, Chip, CircularProgress, Paper, Stack, TextField, Typography } from "@mui/material";
+import ArrowBackOutlinedIcon from "@mui/icons-material/ArrowBackOutlined";
 import PlayArrowOutlinedIcon from "@mui/icons-material/PlayArrowOutlined";
 import type { Conversation, ConversationStep, ToolDefinition } from "@/src/types/chat";
 import { JsonPreviewDialog } from "@/src/components/json-preview-dialog";
@@ -10,6 +11,7 @@ import { StepCard } from "@/src/components/step-card";
 import { wrapWithThreadBars } from "@/src/components/thread-bars";
 import { TranscriptStep } from "@/src/components/transcript-step";
 import { SYSTEM_PROMPT_EXAMPLES } from "@/src/lib/chat";
+import { compactionHarnessForkId } from "@/src/lib/fork";
 import { modelIdentity } from "@/src/lib/model-identity";
 import {
   annotateTranscriptSteps,
@@ -47,6 +49,11 @@ interface TranscriptProps {
   onDeleteLastExchange: () => void;
   onResume: () => void;
   onNavigateToTool: (toolId: string) => void;
+  /** The conversation this one was forked from by `compact_context`; absent when it no longer exists. */
+  forkOrigin?: { id: string; title: string };
+  onOpenConversation: (conversationId: string) => void;
+  /** Title of the conversation with this id, or undefined when it no longer exists. */
+  findConversationTitle?: (conversationId: string) => string | undefined;
 }
 
 /**
@@ -76,6 +83,9 @@ export function Transcript({
   onDeleteLastExchange,
   onResume,
   onNavigateToTool,
+  forkOrigin,
+  onOpenConversation,
+  findConversationTitle,
 }: TranscriptProps) {
   const [editingStepId, setEditingStepId] = useState<string | null>(null);
   const [stepDraft, setStepDraft] = useState("");
@@ -151,32 +161,59 @@ export function Transcript({
   const cacheKeySuffix = modelIdentity(conversation.provider, conversation.model);
   const items = transcriptItems.map((item) => {
     const { step } = item;
+    const stepElement = (
+      <TranscriptStep
+        key={step.id}
+        item={item}
+        streaming={streaming}
+        isLastDeletable={step.id === lastDeletableStepId}
+        isEditing={editingStepId === step.id}
+        stepDraft={stepDraft}
+        showTokens={showTokens}
+        renderMarkdown={renderMarkdown}
+        tokenizeText={tokenizeText}
+        cacheKeySuffix={cacheKeySuffix}
+        onToggle={() => onToggleStep(step.id)}
+        onInspect={() => setInspectStep(step)}
+        onStartEdit={() => handleStartStepEdit(step)}
+        onStepDraftChange={setStepDraft}
+        onSaveEdit={() => handleSaveStepEdit(step.id)}
+        onCancelEdit={handleCancelStepEdit}
+        onResend={() => onResendUserStep(step.id)}
+        onRegenerate={() => onRegenerateAssistantStep(step.id)}
+        onDeleteLastExchange={onDeleteLastExchange}
+        compactionForkTitle={compactionForkTitle(step, findConversationTitle)}
+        onOpenConversation={onOpenConversation}
+      />
+    );
     return {
       key: step.id,
       depth: item.toolCalls.length > 0 ? 1 : stepThreadDepth(step.kind),
-      element: (
-        <TranscriptStep
-          key={step.id}
-          item={item}
-          streaming={streaming}
-          isLastDeletable={step.id === lastDeletableStepId}
-          isEditing={editingStepId === step.id}
-          stepDraft={stepDraft}
-          showTokens={showTokens}
-          renderMarkdown={renderMarkdown}
-          tokenizeText={tokenizeText}
-          cacheKeySuffix={cacheKeySuffix}
-          onToggle={() => onToggleStep(step.id)}
-          onInspect={() => setInspectStep(step)}
-          onStartEdit={() => handleStartStepEdit(step)}
-          onStepDraftChange={setStepDraft}
-          onSaveEdit={() => handleSaveStepEdit(step.id)}
-          onCancelEdit={handleCancelStepEdit}
-          onResend={() => onResendUserStep(step.id)}
-          onRegenerate={() => onRegenerateAssistantStep(step.id)}
-          onDeleteLastExchange={onDeleteLastExchange}
-        />
-      ),
+      element:
+        step.kind === "compaction" && conversation.forkedFrom ? (
+          <Stack key={step.id} spacing={1}>
+            {forkOrigin ? (
+              <Button
+                variant="text"
+                size="small"
+                startIcon={<ArrowBackOutlinedIcon fontSize="small" />}
+                onClick={() => onOpenConversation(forkOrigin.id)}
+                aria-label="Open original conversation"
+                data-testid="fork-origin-link"
+                sx={{ alignSelf: "flex-start", textTransform: "none" }}
+              >
+                Compacted from &ldquo;{forkOrigin.title}&rdquo;
+              </Button>
+            ) : (
+              <Typography variant="body2" color="text.secondary" data-testid="fork-origin-missing">
+                Compacted from a conversation that no longer exists
+              </Typography>
+            )}
+            {stepElement}
+          </Stack>
+        ) : (
+          stepElement
+        ),
     };
   });
 
@@ -212,7 +249,7 @@ export function Transcript({
             />
           )}
 
-          {!hideSystemPrompt && showExamples && !conversation.steps.some((s) => s.kind === "user") ? (
+          {!hideSystemPrompt && showExamples && !conversation.steps.some((s) => s.kind === "user" || s.kind === "compaction") ? (
             <Stack data-testid="system-prompt-examples" spacing={1}>
               <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
                 {SYSTEM_PROMPT_EXAMPLES.map((example) => (
@@ -297,6 +334,14 @@ export function Transcript({
       />
     </>
   );
+}
+
+function compactionForkTitle(
+  step: ConversationStep,
+  findConversationTitle: ((conversationId: string) => string | undefined) | undefined
+): string | undefined {
+  const id = compactionHarnessForkId(step);
+  return id === undefined ? undefined : findConversationTitle?.(id);
 }
 
 function inspectJson(step: ConversationStep): string {

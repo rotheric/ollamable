@@ -1,0 +1,96 @@
+{
+  "story_id": "S8",
+  "authored_by": "story-planner",
+  "authored_at": "2026-10-02T12:00:00Z",
+  "questions": [
+    {
+      "question_id": "VQ-S8-001",
+      "phase": "pre-impl",
+      "category": "QUALITY",
+      "question": "Is the harness path free of vacuous or placeholder production behaviour: does the compaction harness step carry a real `data.forkConversationId` equal to the created fork's id (not a frozen constant), is `COMPACT_CONTEXT_ACK` actually deleted (not left exported and unused), and does `placeStepsForModel` filter by call-id/name matching rather than dropping every `compact_context` step? State-discriminating check: `grep -rn 'COMPACT_CONTEXT_ACK' server src shared tests` lists matches on the current tree (server/ws-handler.ts import and use) and MUST list none post-S8 (or only the definition if the story keeps it with a named consumer)."
+    },
+    {
+      "question_id": "VQ-S8-002",
+      "phase": "pre-impl",
+      "category": "ARCHITECTURE",
+      "question": "Could `fork-flow` be deleted and rewritten without modifying any file outside its `dependencies_allowed` list? If not, which cross-module dependencies exist and do they flow through declared seam contracts in architecture.md (S-COMPACTION-WIRE for the tool_call-only `chat.done`, S-PLACEMENT for `placeStepsForModel` in shared/context-usage.ts)? Also confirm the server no longer fabricates any step for compaction: `grep -n 'makeResult(toolCallStep' server/ws-handler.ts` matches on the current tree and MUST NOT match the compaction branch post-S8."
+    },
+    {
+      "question_id": "VQ-S8-003",
+      "phase": "pre-impl",
+      "category": "ARCHITECTURE",
+      "question": "Is `MetaEventKind` extended with `\"compaction\"` identically in `server/types.ts` and `src/types/chat.ts` (no drift between the two copies), and is the harness step appended only by the client fork flow (src/lib/fork.ts / use-chat-generation.ts / use-conversations.ts), never by the server? State-discriminating check: `grep -n '\"compaction\"' src/types/chat.ts server/types.ts` currently matches only `StepKind` lines; post-S8 each file MUST additionally show `\"compaction\"` inside the `MetaEventKind` union (compare `grep -n -A12 'type MetaEventKind' <file>` before and after)."
+    },
+    {
+      "question_id": "VQ-S8-004",
+      "phase": "pre-impl",
+      "category": "TEST",
+      "question": "Are there unit/integration tests that (a) drive the real ws-handler tool loop and assert the `chat.done` for a sole valid `compact_context` has the `tool_call` and zero `tool_result` steps for Ollama and OpenAI-compatible mocked providers, (b) exercise `placeStepsForModel` with answered, unanswered, id-less and rejected `compact_context` calls plus the harness step, (c) assert the fork-creation append yields original steps = before + done steps + exactly one harness step, (d) render the event card with and without an existing fork, and (e) were the old tests that assert the compaction `tool_result` (S5 tests, AC-STRUCT-5 property oracle, S6 fork tests) updated rather than deleted? Verify `grep -rln 'COMPACT_CONTEXT_ACK\\|compaction.*tool_result' tests` lists files on the current tree and none asserting the old behaviour post-S8."
+    },
+    {
+      "question_id": "VQ-S8-005",
+      "phase": "pre-impl",
+      "category": "SPEC",
+      "question": "Does S8 stay within its scope: only the compaction wire shape, MetaEventKind, harness step append, placement omission and event card change, while fork contents/auto-send (S6) and rejected `compact_context` error `tool_result`s remain unchanged and still sent to the model? Verify with `git diff` that no S6 fork-content/auto-send logic changed and that a rejected compact_context error tool_result test still passes."
+    },
+    {
+      "question_id": "VQ-S8-006",
+      "phase": "pre-impl",
+      "category": "SECURITY",
+      "question": "Is the harness step's `data.forkConversationId` treated as untrusted at the render boundary: does the event card only link when the id resolves to an existing conversation in local state (plain text otherwise, no navigation by raw id string, no HTML injection of the fork title), and does the harness step never reach a provider (omitted from every wire request, including `server/request-validation.ts` accepted shapes and the request-preview in request-json-dialog.tsx / token-view.ts)? Check that a persisted conversation containing a compaction meta step with a dangling id renders without throwing."
+    },
+    {
+      "question_id": "VQ-S8-007",
+      "phase": "pre-impl",
+      "category": "SPEC",
+      "ac_id": "AC-TOOL-3",
+      "question": "AC-TOOL-3 (rewritten): does the `chat.done` of AC-TOOL-2 contain the `tool_call` step whose id equals `compaction.toolCallStepId` and contain no `tool_result` step for that call, for both Ollama and OpenAI-compatible mocked providers? Evidence required: (a) the production code in server/ws-handler.ts compaction branch, (b) the test(s) asserting `done.steps` has the tool_call and no tool_result end-to-end through the ws handler, (c) confirmation the tests are not pure mock-spy proxies. State-discriminating: `grep -n 'COMPACT_CONTEXT_ACK' server/ws-handler.ts` matches (import line 9 and use line ~408) on the current tree and MUST return nothing post-S8; the new test fails on the current tree because a `tool_result` step is present."
+    },
+    {
+      "question_id": "VQ-S8-008",
+      "phase": "pre-impl",
+      "category": "SPEC",
+      "ac_id": "AC-FORK-4",
+      "question": "AC-FORK-4 (rewritten): after compaction, are the original's steps equal to its steps before the request plus the request's `chat.done` steps plus exactly one harness step (`kind: \"meta\"`, `metaEvent.kind: \"compaction\"`, `metaEvent.data.forkConversationId` = the fork's id), with no other field changed except `updatedAt` and the request's `requestContexts` record? Evidence required: (a) production code in src/lib/fork.ts / use-conversations.ts / use-chat-generation.ts appending the step after the done steps, (b) tests asserting the exact step-list equality and untouched fields end-to-end, (c) confirmation tests are not mock-spy proxies. State-discriminating: the post-S8 test fails on the current tree (no harness step, a compaction tool_result instead); `grep -rn 'kind: \"compaction\"\\|\"compaction\"' src/lib/fork.ts` currently shows only existing compaction-payload usage and MUST show the metaEvent construction post-S8."
+    },
+    {
+      "question_id": "VQ-S8-009",
+      "phase": "pre-impl",
+      "category": "SPEC",
+      "ac_id": "AC-FORK-13",
+      "question": "AC-FORK-13: does the harness step render in the original as an event card (not an assistant message) whose text names the fork's title and whose link, when activated, selects the fork, and does it render without a link when the fork no longer exists? Evidence required: (a) production rendering code in src/components/transcript-step.tsx / transcript.tsx (and step-card.tsx if used), (b) component tests for linked, activated-selects-fork, and fork-missing cases, (c) confirmation tests are not mock-spy proxies (selection asserted via real state/handler effect). Per AGENTS.md, the card must not be a synthetic assistant chat message. State-discriminating: `grep -rn 'forkConversationId' src/components` returns nothing on the current tree and MUST match in the transcript rendering post-S8."
+    },
+    {
+      "question_id": "VQ-S8-010",
+      "phase": "pre-impl",
+      "category": "SPEC",
+      "ac_id": "AC-FORK-14",
+      "question": "AC-FORK-14: does `placeStepsForModel` omit every `compact_context` tool_call with no same-id `tool_result` (or, for id-less calls, no same-name result after it) and the AC-FORK-4 harness step, while still sending rejected `compact_context` calls that have error `tool_result`s, so a `chat.send` continuing the original reaches mocked Ollama and OpenAI-compatible providers with no `compact_context` call and no harness text in the messages? Evidence required: (a) production code in shared/context-usage.ts `placeStepsForModel`, (b) unit tests on it plus provider-level tests capturing the actual outgoing messages for both providers, (c) confirmation tests are not mock-spy proxies. State-discriminating: `grep -n 'compaction' shared/context-usage.ts` on the current tree shows no metaEvent-kind omission in `placeStepsForModel` (line ~255) and MUST show it post-S8; the provider test fails on the current tree."
+    },
+    {
+      "question_id": "VQ-S8-011",
+      "phase": "pre-impl",
+      "category": "SPEC",
+      "ac_id": "AC-STRUCT-5",
+      "question": "AC-STRUCT-5 (amended): does the property test (generator: each response 0-3 calls from valid `compact_context`, invalid `compact_context`, `web_search`, `curl`; `maxModelInvocations` and `maxToolCalls` 1-6) assert `toolCallCount` non-decreasing, increasing by exactly the calls per response, invocations <= `maxModelInvocations`, `compaction` on `chat.done` only when the final response's sole call was a valid `compact_context`, and that final call receiving NO `tool_result`? Evidence required: (a) the production tool loop, (b) the fast-check property whose oracle was updated (it fails on a mutation that re-adds a compaction `tool_result`), (c) confirmation it drives the real ws-handler and is not a mock-spy proxy. State-discriminating: the old oracle expecting a `tool_result` for the final call fails against post-S8 code and the amended oracle fails against the current tree; `grep -rn 'fc.assert' tests/integration` must still match the property file, and the property file MUST contain an assertion that no tool_result exists for the final compact_context call."
+    },
+    {
+      "question_id": "VQ-S8-012",
+      "phase": "post-impl",
+      "category": "SPEC",
+      "question": "Scope extension (no auto-send): does compaction send NOTHING for the fork (no withoutCompactContext, no captured contextRequest, no handoff settledCount bump), settle the original once in its own finally, and is the user's first fork message a normal send [system, compaction, user] with compact_context in tools and one collated user wire message for both providers? Evidence: src/lib/use-chat-generation.ts; tests/unit/chat-workspace-fork.test.tsx (AC-FORK-5/6, AC-FORK-7), use-chat-generation.test.tsx, use-chat-generation-fork-properties.test.tsx (no stream for the fork), ws-handler-fork.test.ts (AC-FORK-7 per provider)."
+    },
+    {
+      "question_id": "VQ-S8-013",
+      "phase": "post-impl",
+      "category": "QUALITY",
+      "question": "placeStepsForModel drops the harness step and unanswered compact_context calls from the array it returns; are the preview/token-view/reconciliation consumers index-agnostic about dropped steps? The full unit suite passes with reconciliation and preview tests unchanged; verify no consumer maps placed indices back onto stored steps by position."
+    },
+    {
+      "question_id": "VQ-S8-014",
+      "phase": "post-impl",
+      "category": "SECURITY",
+      "question": "Harness card with malformed data (non-string id, no data, dangling id) renders its stored text without a link or throw (chat-workspace-fork.test.tsx 'without its fork'); the title is React text, never HTML. A renamed fork shows its live title in the link while the stored content keeps the creation-time title: confirm acceptable."
+    }
+  ]
+}

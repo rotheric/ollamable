@@ -122,6 +122,7 @@ const DEFAULT_SIDEBAR_STATE_FOR_TEST = {
   clientSectionOpen: false,
   renderMarkdown: true,
   showTokens: false,
+  showContextMeter: false,
   showTour: true,
   showExamples: true,
   collapseReasoning: false,
@@ -129,6 +130,7 @@ const DEFAULT_SIDEBAR_STATE_FOR_TEST = {
   collapseTools: true,
   collapseServerMessages: false,
   hideSystemPrompt: false,
+  rememberedContextWindows: {},
   subsections: {},
 };
 
@@ -150,6 +152,11 @@ describe("sidebar state persistence", () => {
     };
     saveSidebarState(state);
     expect(loadSidebarState()).toEqual(state);
+  });
+
+  it.each([null, [], "8192", 4096])("a corrupt remembered-window record %j is emptied without losing the other preferences", (rememberedContextWindows) => {
+    window.localStorage.setItem(SIDEBAR_STATE_KEY, JSON.stringify({ showTokens: true, rememberedContextWindows }));
+    expect(loadSidebarState()).toEqual({ ...DEFAULT_SIDEBAR_STATE_FOR_TEST, showTokens: true, rememberedContextWindows: {} });
   });
 
   it("merges a partial stored object over the defaults, rather than replacing them wholesale", () => {

@@ -1,0 +1,43 @@
+{
+  "module_name": "context-window",
+  "purpose": "Resolve a conversation's effective context window and fill from backend-reported facts (loaded runtime window, remembered window, Modelfile num_ctx, architecture maximum, 8192 assumption) without ever setting num_ctx; plus the supporting wiring for the one capability 'know the window'.",
+  "public_api": [
+    { "name": "resolveContextWindow", "signature": "resolveContextWindow(input: { runtime?: ModelRuntime; remembered?: number; modelMeta?: OllamaModelMeta }): ResolvedContextWindow", "description": "Pure. Precedence: loaded runtime window -> remembered (stale) -> Modelfile num_ctx -> <arch>.context_length (estimated) -> 8192 (assumed)." },
+    { "name": "computeContextFill", "signature": "computeContextFill(steps: readonly Pick<ConversationStep,'kind'|'usage'>[], window: ResolvedContextWindow): ContextFill", "description": "Pure. Fill of the most recent step carrying usage; none-yet => zero fill; assistant response without usage => { unknown: true }." },
+    { "name": "recordRuntimeWindow", "signature": "recordRuntimeWindow(remembered: Record<string, number>, provider: string | undefined, model: string, resolved: ResolvedContextWindow): Record<string, number>", "description": "Pure. Returns the remembered-window record updated with a live (non-stale runtime) window; same reference when nothing changes." },
+    { "name": "ASSUMED_CONTEXT_WINDOW", "signature": "8192", "description": "Fallback window when nothing is known." },
+    { "name": "fetchModelRuntime", "signature": "fetchModelRuntime(model: OllamaModel): Promise<ModelRuntime>", "description": "src/lib/ollama.ts; POST /models/runtime." },
+    { "name": "POST /models/runtime", "signature": "{ model: string, provider?: string } -> { loaded: boolean, contextLength?: number }", "description": "Seam S-RUNTIME. Ollama: GET /api/ps only; non-Ollama: { loaded: false }." },
+    { "name": "contextPercent", "signature": "contextPercent(used: number, window: number): number", "description": "shared/context-usage.ts; rounded integer percentage shared by meter and note." },
+    { "name": "SidebarState.rememberedContextWindows", "signature": "Record<string, number> keyed by modelIdentity(provider, model)", "description": "Persisted remembered runtime window; defaults merged on load." }
+  ],
+  "private_files": [],
+  "owned_data": [],
+  "dependencies_allowed": [
+    "src/types/chat.ts",
+    "src/lib/model-identity.ts",
+    "shared/context-usage.ts"
+  ],
+  "dependencies_forbidden": [
+    "server/*",
+    "src/components/*"
+  ],
+  "external_ports": ["Ollama GET /api/ps (via server/ollama-client.ts fetchOllamaRuntime)"],
+  "events_emitted": [],
+  "events_consumed": [],
+  "test_targets": [
+    "tests/unit/context-window.test.ts",
+    "tests/unit/context-usage.test.ts",
+    "tests/unit/use-sidebar-state.test.tsx",
+    "tests/unit/chat.test.ts",
+    "tests/unit/models.test.ts",
+    "tests/integration/models-runtime.test.ts",
+    "tests/integration/openai-client.test.ts",
+    "tests/integration/ollama-client.test.ts",
+    "tests/integration/request-validation.test.ts"
+  ],
+  "seam": {
+    "S-WINDOW": { "cross_story": true, "consumed_by": ["S2", "S4"] },
+    "S-RUNTIME": { "cross_story": true, "consumed_by": ["S2"] }
+  }
+}

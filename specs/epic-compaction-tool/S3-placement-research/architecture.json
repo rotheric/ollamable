@@ -1,0 +1,17 @@
+{
+  "module_name": "research",
+  "purpose": "Establish, on a live Ollama, where a context-usage note and a compaction summary are placed in a model's context per family, and mirror the Decision as placement data for S4-S6.",
+  "public_api": [
+    { "name": "PLACEMENT_NOTE_POSITIONS / PLACEMENT_SUMMARY_ROLES", "signature": "readonly string[] enums", "description": "Declared wire positions for the note and roles for the summary." },
+    { "name": "CONTEXT_PLACEMENT", "signature": "{ note: NotePlacement; summary: SummaryPlacement; exceptions: Record<string, { note?: NotePlacement; summary?: SummaryPlacement }> }", "description": "Decision table as data: one default each plus per-family exceptions (S-PLACEMENT data part)." }
+  ],
+  "private_files": ["docs/research/compaction-placement.md"],
+  "owned_data": ["placement decision table"],
+  "dependencies_allowed": [],
+  "dependencies_forbidden": ["server/**", "src/**"],
+  "external_ports": ["Ollama HTTP API (research probes only, not production)"],
+  "events_emitted": [],
+  "events_consumed": [],
+  "test_targets": ["tests/unit/context-placement-decision.test.ts"],
+  "seam": { "cross_story": true, "consumed_by": ["S4", "S5", "S6"] }
+}

@@ -1,10 +1,12 @@
 import { normalizeResponseSteps } from "../shared/normalize-response-steps.js";
 import { DEFAULT_MAX_MODEL_INVOCATIONS, DEFAULT_MAX_TOOL_CALLS } from "../shared/execution-budget.js";
+import { COMPACT_CONTEXT_TOOL_NAME, isCompactContextEnabled, lastUsedTokens, placeStepsForModel } from "../shared/context-usage.js";
 import type WebSocket from "ws";
 import { randomUUID } from "node:crypto";
 import { ToolDispatcher } from "./tool-executor.js";
 import { WebSearchExecutor } from "./tools/web-search.js";
 import { CurlExecutor } from "./tools/curl.js";
+import { CompactContextExecutor, parseCompactContextArgs } from "./tools/compact-context.js";
 import { McpBridge } from "./tools/mcp-bridge.js";
 import { LlmRouter, UnsupportedProviderError } from "./llm-router.js";
 import { loadProviderConfigs } from "./provider-config.js";
@@ -12,6 +14,7 @@ import { VocabUnavailableError } from "./tokenizer.js";
 import { isRecord, validateChatRequest } from "./request-validation.js";
 import type {
   ClientMessage,
+  CompactionPayload,
   ConversationStep,
   MetaEvent,
   ServerMessage,
@@ -86,6 +89,8 @@ export class ConnectionHandler {
     this.dispatcher = new ToolDispatcher();
     this.dispatcher.register(new WebSearchExecutor());
     this.dispatcher.register(new CurlExecutor());
+    // Before McpBridge construction so the name is reserved against MCP collisions.
+    this.dispatcher.register(new CompactContextExecutor());
     this.mcpBridge = new McpBridge(this.dispatcher.getToolDefinitions().map((tool) => tool.name));
     this.dispatcher.register(this.mcpBridge);
 
@@ -267,6 +272,12 @@ export class ConnectionHandler {
   ): Promise<void> {
     const { conversationId, model, provider, tools, temperature, maxOutputTokens, reasoningEffort } = msg;
     const { requestId } = msg;
+    // The usage note exists to inform the compaction decision, so it is sent only while the tool is enabled.
+    const compactEnabled = isCompactContextEnabled(tools);
+    // Without a resolved window from the client the note states used tokens only (source "assumed").
+    const contextWindow = msg.contextWindow === undefined || msg.contextWindowSource === undefined
+      ? undefined
+      : { tokens: msg.contextWindow, source: msg.contextWindowSource };
     const requestedInvocations = msg.maxModelInvocations ?? DEFAULT_MAX_MODEL_INVOCATIONS;
     const requestedToolCalls = msg.maxToolCalls ?? DEFAULT_MAX_TOOL_CALLS;
     const maxModelInvocations = Math.min(requestedInvocations, this.limits.maxModelInvocations);
@@ -287,6 +298,8 @@ export class ConnectionHandler {
 
     let loopIteration = 0;
     let toolCallCount = 0;
+    // Context size after the previous invocation (the last usage of the incoming steps before the first one).
+    let usedTokens = lastUsedTokens(steps);
 
     try {
       // Tool loop: keep calling the LLM until we get a response with no tool calls
@@ -299,10 +312,18 @@ export class ConnectionHandler {
 
         console.log(`[ws] conversation=${conversationId} loop=${loopIteration} sending ${steps.length} steps to ${provider ?? "default"}/${model}`);
 
+        // Placement is applied to a per-invocation copy only: `steps` (the accumulator behind
+        // chat.steps/chat.done) and the deltas below never contain the note or transformed steps.
+        const invocationSteps = placeStepsForModel(steps, {
+          compactEnabled,
+          usedTokens,
+          window: contextWindow,
+          family: msg.modelFamily,
+        });
         const responseSteps = await this.router.streamResponse({
           provider,
           model,
-          steps,
+          steps: invocationSteps,
           tools,
           temperature,
           maxOutputTokens,
@@ -320,6 +341,9 @@ export class ConnectionHandler {
         });
 
         controller.signal.throwIfAborted();
+
+        // The next invocation's note reports this invocation's usage (none reported: no numbers).
+        usedTokens = lastUsedTokens(responseSteps);
 
         // Tag each LLM-generated step with the model name
         for (const s of responseSteps) s.model = model;
@@ -347,6 +371,56 @@ export class ConnectionHandler {
           if (selected?.id !== actual?.id) {
             throw new Error(`Selected tool is no longer available: ${name}. Refresh the tool selection.`);
           }
+        }
+
+        // compact_context interception. The enablement/availability checks above have already run, so a
+        // disabled call never reaches here. Every call is counted against the budget it was checked
+        // against above, whether it is honored or rejected.
+        const compactSteps = toolCallSteps.filter((s) => s.toolCall!.name === COMPACT_CONTEXT_TOOL_NAME);
+        if (compactSteps.length > 0) {
+          toolCallCount += toolCallSteps.length;
+          const sole = toolCallSteps.length === 1;
+          const parsed = sole ? parseCompactContextArgs(compactSteps[0].toolCall!.arguments) : undefined;
+          const rejection = !sole
+            ? (step: ConversationStep) => step.toolCall!.name === COMPACT_CONTEXT_TOOL_NAME
+              ? "compact_context was not executed: it must be the only tool call in a response. Call it again on its own; nothing was compacted."
+              : `${step.toolCall!.name} was not executed because the same response contained compact_context, which must be the only tool call. Call it again separately.`
+            : parsed && !parsed.ok
+              ? () => parsed.error
+              : undefined;
+          const makeResult = (step: ConversationStep, content: string): ConversationStep => ({
+            id: randomUUID(),
+            kind: "tool_result",
+            title: `Result: ${step.toolCall!.name}`,
+            content,
+            createdAt: new Date().toISOString(),
+            expanded: true,
+            toolResult: { id: step.toolCall!.id, name: step.toolCall!.name },
+          });
+
+          if (!rejection && parsed?.ok) {
+            const toolCallStep = compactSteps[0];
+            const compaction: CompactionPayload = {
+              toolCallStepId: toolCallStep.id,
+              summary: parsed.summary,
+              ...(parsed.remainingWork !== undefined ? { remainingWork: parsed.remainingWork } : {}),
+            };
+            // No tool_result: nothing is sent back to the model, so none is fabricated. The client
+            // records the takeover as a harness event instead.
+            const allNewSteps = [...steps.slice(originalCount), ...responseSteps];
+            console.log(`[ws] conversation=${conversationId} compaction after ${loopIteration} loop(s), returning ${allNewSteps.length} new step(s)`);
+            this.send({ type: "chat.done", conversationId, requestId, steps: allNewSteps, compaction });
+            break;
+          }
+
+          // Rejected: error tool_results for EVERY call, nothing executed, then the model sees them.
+          const errorResults = toolCallSteps.map((step) =>
+            makeResult(step, JSON.stringify({ error: rejection!(step) })));
+          console.log(`[ws] conversation=${conversationId} loop=${loopIteration} compact_context rejected (${toolCallSteps.length} call(s))`);
+          this.send({ type: "chat.steps", conversationId, requestId, steps: responseSteps });
+          this.send({ type: "chat.steps", conversationId, requestId, steps: errorResults });
+          steps = [...steps, ...responseSteps, ...errorResults];
+          continue;
         }
 
         const executableToolCalls = toolCallSteps.filter(

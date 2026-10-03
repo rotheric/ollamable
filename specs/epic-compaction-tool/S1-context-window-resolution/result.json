@@ -1,0 +1,56 @@
+{
+  "story_id": "S1",
+  "status": "done",
+  "remediation_rounds": 1,
+  "files_created": [
+    "shared/context-usage.ts",
+    "src/lib/context-window.ts",
+    "tests/unit/context-window.test.ts",
+    "tests/unit/context-usage.test.ts",
+    "tests/unit/model-runtime-client.test.ts",
+    "tests/integration/models-runtime.test.ts",
+    "tests/integration/request-validation.test.ts"
+  ],
+  "files_modified": [
+    "server/index.ts",
+    "server/llm-router.ts",
+    "server/ollama-client.ts",
+    "server/openai-client.ts",
+    "server/request-validation.ts",
+    "server/types.ts",
+    "src/types/chat.ts",
+    "src/lib/ollama.ts",
+    "src/lib/chat.ts",
+    "src/lib/use-sidebar-state.ts",
+    "tests/unit/chat.test.ts",
+    "tests/unit/use-sidebar-state.test.tsx",
+    "tests/integration/ollama-client.test.ts",
+    "tests/integration/openai-client.test.ts"
+  ],
+  "tests_added": {
+    "unit": 60,
+    "integration": 48,
+    "property": 3
+  },
+  "test_counts": {
+    "baseline": 733,
+    "final": 841
+  },
+  "mocks": [],
+  "modules_touched": [
+    "context-window",
+    "context-usage",
+    "sidebar-prefs",
+    "backend-http-client",
+    "runtime-route",
+    "provider-clients",
+    "wire-types",
+    "transport-client"
+  ],
+  "retrospective": {
+    "skipped": true,
+    "reason": "clean_run"
+  },
+  "final_outcome": "accepted",
+  "completed_at": "2026-10-02T10:46:04Z"
+}

@@ -579,9 +579,13 @@ test("persists conversations created through the composer across reloads", async
   await expect(
     page.getByText("Create a persisted conversation title from t").first()
   ).toBeVisible();
+  // Reload only once the streamed answer is persisted too; reloading mid-stream legitimately drops it.
   await page.waitForFunction(() => {
     const raw = window.localStorage.getItem("ollamable.conversations");
-    return raw?.includes("Create a persisted conversation title from this prompt.");
+    return (
+      raw?.includes("Create a persisted conversation title from this prompt.") &&
+      raw.includes("This is a streamed answer from the mocked Ollama endpoint.")
+    );
   });
 
   await page.reload();

@@ -1,0 +1,87 @@
+{
+  "epic": "compaction-tool",
+  "created_at": "2026-10-02T10:40:00Z",
+  "prior_learnings": [
+    "vitest-tsc-new-test-files-need\tVitest+tsc: new test files need explicit vitest imports to avoid the missing-globals tsc gap"
+  ],
+  "similar_features": {
+    "builtin_tools": {
+      "executor_interface": "server/tool-executor.ts:5-14; template server/tools/curl.ts:9-46 (id kebab-case, name snake_case, inputSchema JSON string)",
+      "dispatcher_validation": "ToolDispatcher.execute validates args with Ajv (server/tool-executor.ts:32-61); failures THROW -> outer catch -> chat.error (ws-handler.ts:451-459), not an error tool_result",
+      "static_registry": "server/index.ts:36-38 (WebSearch, Curl) served by GET /tools at :102-107",
+      "connection_registry": "server/ws-handler.ts:86-90; register compact_context BEFORE McpBridge construction (reservedNames)",
+      "auth_checks": "ws-handler.ts:335-350 enabled-name, canHandle, id match -> throw",
+      "client_activation": "fetchTools src/lib/ollama.ts:53-61 -> use-backend-catalog.ts:308-322 -> ensureConversationTools chat.ts:226-247; sent tools = availableTools filtered by activeToolIds (use-chat-generation.ts:61-63)",
+      "tour_pitfall": "tourToolId = builtinTools[0] (tools-section.tsx:67); tour looks up web_search by name; register compact_context after web-search and curl"
+    },
+    "sidebar_pref": {
+      "state": "SidebarState src/lib/chat.ts:29 type, :57 defaults; loadSidebarState merges defaults (:60-67)",
+      "ui": "settings-sidebar.tsx:253 <Preference name=\"showTokens\"> (Preference is typed over boolean keys)",
+      "persistence": "use-sidebar-state.ts:30-49 localStorage ollamable.sidebarState; persistence.ts read/write guards",
+      "remembered_window": "Record<string, number> keyed by modelIdentity(provider,name) (src/lib/model-identity.ts) in SidebarState; patch replaces the whole record"
+    },
+    "model_meta": {
+      "route": "server/index.ts:59-100 POST /models/show (readJsonBody, HttpInputError 400)",
+      "router": "llm-router.ts:134-147 showModelMeta throws for non-ollama; resolveProvider :178-196",
+      "ollama": "ollama-client.ts:62-79 withNetworkDeadline fetch ${baseUrl}/show; baseUrl ends with /api; parameters is raw Modelfile text",
+      "client": "src/lib/ollama.ts:67-126 fetchModelMeta; template effect with cancelled flag request-preview-extras.tsx:51-91"
+    },
+    "step_kinds": {
+      "types": "server/types.ts:19-26, src/types/chat.ts:1-8 (duplicated by design)",
+      "validation": "server/request-validation.ts STEP_KINDS set; steps need id/kind/content/title/createdAt strings",
+      "formatters": "shared/ollama-format.ts:45-91 and shared/openai-format.ts:192-276 silently DROP unknown kinds",
+      "transcript": "src/lib/transcript.ts isVisibleTranscriptStep :3-12 (whitelist), findResponseStartIndex :71-81 (stops at user/system/tool_result), findLastDeletableStepIndex :92-99, deleteLastExchangeCutIndex :107-126, STEP_TOUR_TARGETS :138-145",
+      "rendering": "src/components/transcript-step.tsx branches on kind (:64,:91,:95-139,:158-195,:208); step-card.tsx getStepBackgroundColor :85-110",
+      "title": "inferTitle chat.ts:143-150; continueFrom retitles only when !titleEdited (chat-workspace.tsx:219)",
+      "load": "ensureSystemPromptStep chat.ts:181-211 rebuilds [system, ...others], preserves unknown fields"
+    },
+    "preview": {
+      "json_dialog": "request-json-dialog.tsx:42-61 buildOpenAIRequestBody({steps}) even for Ollama; needs window/family props from chat-workspace.tsx:486-494",
+      "token_view": "request-preview-extras.tsx:103 toOllamaFilteredMessages(steps), :111 useReconciliation; token-view.ts:411-413, :659-692 slices steps.slice(0, target.index); findLastUsageStep :427-438 assistant-only"
+    },
+    "fork_flow": {
+      "create": "use-conversations.ts:103-110 addConversation; exposes setConversations/setSelectedConversationId (:141-146); sidebar visibility :23",
+      "send": "continueFrom chat-workspace.tsx:212-226 closes over selectedConversation -> fork must call streamConversationResponse(forkObj) directly after enqueueing setConversations",
+      "chat_done": "backend-client.ts:145-148 resolves msg.steps only; StreamRequest :82-96 and chat.send :177-190 list fields explicitly",
+      "generation": "use-chat-generation.ts:42 stopStreamRef single generation; start fork only after original appendResponseSteps"
+    },
+    "usage": {
+      "ollama": "ollama-client.ts:226-233 prompt_eval_count/eval_count",
+      "openai": "openai-client.ts:105-135 body (no stream_options yet), :222-236 lastUsage",
+      "retain": "response-usage.ts:5-15 puts usage on first assistant step else steps[0] else synthesized meta -> scan ALL kinds for last usage"
+    }
+  },
+  "architecture": {
+    "paradigm": "modular monolith; two TS projects (tsconfig.json excludes server/, tsconfig.server.json includes server/** + shared/**); shared/ importable by both, imports only shared/, structural FormatStep types, .js suffixes",
+    "data_flow": "chat-workspace continueFrom -> useChatGeneration.streamConversationResponse -> backendClient.startStream (chat.send) -> ws-handler validateChatRequest -> handleChatSend loop -> router.streamResponse -> ollama/openai client formatters -> chat.delta/chat.steps/chat.done -> appendResponseSteps -> use-conversations persistence",
+    "transform_hook": "ws-handler.ts:302 pass steps: applyContextPlacement(steps, {note,family}) into router.streamResponse; never transform the accumulator (:285, :449)",
+    "runtime_route": "add LlmRouter.runtimeInfo next to showModelMeta returning {loaded:false} for non-ollama; GET ${baseUrl}/ps via withNetworkDeadline; route registered after access policy in server/index.ts",
+    "tool_count": "toolCallCount incremented only during execution (:387); rejected compact_context calls must increment explicitly",
+    "frontend_arch_doc": "docs/frontend-architecture.md does not exist; boundary guards unimplemented"
+  },
+  "testing": {
+    "commands": {
+      "unit": "npx vitest run (tests/unit, jsdom, @/ alias)",
+      "integration": "npx vitest run -c vitest.server.config.ts (tests/integration, node, relative .js imports, no @/ alias)",
+      "lint": "npm run lint (--max-warnings 0)",
+      "typecheck": "npm run typecheck",
+      "release_gate": "npm test (isolated temp copy; do not run in-place while dev server is up)",
+      "e2e": "npm run test:e2e (scratch copy; PLAYWRIGHT_EXECUTABLE_PATH=/opt/playwright-browsers/chromium_headless_shell-1243/chrome-headless-shell-linux-arm64/chrome-headless-shell)"
+    },
+    "templates": {
+      "ws_handler": "tests/integration/ws-handler.test.ts:20-57 vi.mock ollama-client streamOllamaResponse, real ws server, new ConnectionHandler(ws, undefined, limits)",
+      "react": "tests/unit/chat-workspace.test.tsx vi.hoisted + vi.mock use-websocket/backend-client, ThemeRegistry wrapper",
+      "hook": "tests/unit/use-sidebar-state.test.tsx renderHook + localStorage.clear()",
+      "http": "tests/integration/http-server.test.ts spawns scripts/start.mjs PORT=0",
+      "property": "fast-check ^4 in ollama-format-contract.test.ts",
+      "live_gate": "tests/integration/tokenizer-live-gate.ts checkLiveGate + ctx.skip; default model qwen3:1.7b; OLLAMA_URL=http://host.lima.internal:11434/api in this VM"
+    },
+    "gotchas": [
+      "explicit vitest imports in every test file (tsc stage)",
+      "vitest pinned 3.x (Stryker)",
+      "release gate stage 1 scripts/check-project-records.mjs requires epic-state.json + stories.json for every specs/epic-* dir and a matching BACKLOG epic entry (user's untracked epic-frontend-architecture-maintainability lacks both)",
+      "VM npm installs drop darwin binaries: npm install --os=darwin --cpu=arm64 --no-audit --no-fund after dependency changes",
+      "test titles cite AC IDs; data-testid kebab-case"
+    ]
+  }
+}

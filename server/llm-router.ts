@@ -5,8 +5,8 @@ import { withNetworkDeadline } from "./network-deadline.js";
  */
 
 import type { ProviderConfig } from "./provider-config.js";
-import type { ConversationStep, ReasoningEffort, ToolDefinition } from "./types.js";
-import { fetchOllamaModelMeta, streamOllamaResponse } from "./ollama-client.js";
+import type { ConversationStep, ModelRuntimeInfo, ReasoningEffort, ToolDefinition } from "./types.js";
+import { fetchOllamaModelMeta, fetchOllamaRuntime, streamOllamaResponse } from "./ollama-client.js";
 import { fetchOpenAIModels, streamOpenAIResponse } from "./openai-client.js";
 import { tokenize, type TokenizeResult } from "./tokenizer.js";
 
@@ -144,6 +144,21 @@ export class LlmRouter {
     }
 
     return fetchOllamaModelMeta(config.baseUrl, modelName);
+  }
+
+  /**
+   * Reports whether `modelName` is currently loaded and with what window.
+   * Only Ollama can answer (via `GET /api/ps`, which never loads a model);
+   * every other provider type is `{ loaded: false, metadata: false }`; `metadata`
+   * tells callers whether `showModelMeta` can answer, so they skip it when not.
+   */
+  async runtimeInfo(
+    provider: string | undefined,
+    modelName: string
+  ): Promise<ModelRuntimeInfo> {
+    const config = this.resolveProvider(provider, modelName);
+    if (config.type !== "ollama") return { loaded: false, metadata: false };
+    return { ...(await fetchOllamaRuntime(config.baseUrl, modelName)), metadata: true };
   }
 
   /**

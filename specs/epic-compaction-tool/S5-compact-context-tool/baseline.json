@@ -1,0 +1,24 @@
+{
+  "story_id": "S5",
+  "captured_at": "2026-10-02T14:08:00Z",
+  "baseline": {
+    "status": "PASS",
+    "unit": {
+      "command": "npx vitest run",
+      "files": 33,
+      "passed": 590,
+      "failed": 0,
+      "skipped": 0
+    },
+    "integration": {
+      "command": "npx vitest run -c vitest.server.config.ts",
+      "files": 23,
+      "passed": 378,
+      "failed": 0,
+      "skipped": 2
+    },
+    "lint": "clean",
+    "typecheck": "clean"
+  },
+  "notes": "Snapshot includes S1-S4 uncommitted working-tree changes."
+}

@@ -251,6 +251,7 @@ export function SettingsSidebar({
                 <Stack sx={{ mt: 0.5 }}>
                   <Preference label="Render markdown" name="renderMarkdown" state={sidebarState} onUpdate={onUpdateSidebar} />
                   <Preference label="Show tokens" name="showTokens" state={sidebarState} onUpdate={onUpdateSidebar} />
+                  <Preference label="Show context meter" name="showContextMeter" state={sidebarState} onUpdate={onUpdateSidebar} />
                   <Preference label="Show examples" name="showExamples" state={sidebarState} onUpdate={onUpdateSidebar} />
                   <Preference label="Show tour" name="showTour" state={sidebarState} onUpdate={onUpdateSidebar} />
 

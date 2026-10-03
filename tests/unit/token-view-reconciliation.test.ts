@@ -22,6 +22,7 @@ import {
   turnHasToolCall,
   useTokenizedMessages,
   useReconciliation,
+  placementForTurn,
 } from "@/src/lib/token-view";
 
 function step(overrides: Partial<ConversationStep> & { kind: ConversationStep["kind"] }): ConversationStep {
@@ -444,5 +445,78 @@ describe("useReconciliation", () => {
 
     await waitFor(() => expect(result.current.status).toBe("error"));
     expect(result.current.reason).toBe(RECONCILIATION_FAILED_REASON);
+  });
+});
+
+describe("useReconciliation reproduces the note the request was sent with", () => {
+  const compact = [{ name: "compact_context" }];
+  const history = [
+    step({ kind: "user", content: "first" }),
+    step({ kind: "assistant", content: "answer", usage: { inputTokens: 100, outputTokens: 20 } }),
+    step({ kind: "user", content: "second" }),
+    step({ kind: "assistant", content: "answer two", usage: { inputTokens: 130, outputTokens: 10 } }),
+  ];
+  const tokenizeText = async (text: string) => text.split("");
+
+  it("uses the persisted window source, not the current one, for the target turn", async () => {
+    const sent = { activeTools: compact, contextWindow: { tokens: 8192, source: "estimated" as const } };
+    const current = { activeTools: compact, contextWindow: { tokens: 4096, source: "runtime" as const } };
+    const expectedCount = toOllamaFilteredMessages(history.slice(0, 3), sent).reduce((n, m) => n + m.content.length, 0);
+    const currentCount = toOllamaFilteredMessages(history.slice(0, 3), current).reduce((n, m) => n + m.content.length, 0);
+    expect(expectedCount).not.toBe(currentCount);
+
+    const { result } = renderHook(() =>
+      useReconciliation(history, tokenizeText, true, undefined, undefined, {
+        ...current,
+        requestContexts: [{ startIndex: 2, compactEnabled: true, contextWindow: sent.contextWindow }],
+      })
+    );
+    await waitFor(() => expect(result.current.status).toBe("ready"));
+    expect(result.current).toMatchObject({ status: "ready", contentTokenCount: expectedCount });
+  });
+
+  it("reproduces a note-less request after compact_context was enabled later", async () => {
+    const expectedCount = toOllamaFilteredMessages(history.slice(0, 3)).reduce((n, m) => n + m.content.length, 0);
+    const { result } = renderHook(() =>
+      useReconciliation(history, tokenizeText, true, undefined, undefined, {
+        activeTools: compact,
+        requestContexts: [{ startIndex: 2, compactEnabled: false }],
+      })
+    );
+    await waitFor(() => expect(result.current.status).toBe("ready"));
+    expect(result.current).toMatchObject({ contentTokenCount: expectedCount });
+  });
+
+  it("falls back to the current inputs when no record was persisted (legacy conversations)", async () => {
+    const current = { activeTools: compact, contextWindow: { tokens: 4096, source: "runtime" as const } };
+    const expectedCount = toOllamaFilteredMessages(history.slice(0, 3), current).reduce((n, m) => n + m.content.length, 0);
+    const { result } = renderHook(() => useReconciliation(history, tokenizeText, true, undefined, undefined, current));
+    await waitFor(() => expect(result.current.status).toBe("ready"));
+    expect(result.current).toMatchObject({ contentTokenCount: expectedCount });
+  });
+});
+
+describe("placementForTurn record selection (epic-compaction-tool S4)", () => {
+  const current = { activeTools: [], family: "current" };
+  const record = (startIndex: number) => ({ startIndex, compactEnabled: true, modelFamily: `r${startIndex}` });
+  const placement = { ...current, requestContexts: [record(2), record(7), record(4)] };
+
+  it.each([
+    [3, "r2"],
+    [4, "r4"],
+    [6, "r4"],
+    [7, "r7"],
+    [9, "r7"],
+  ])("picks the latest record at or before target %i", (target, family) => {
+    expect(placementForTurn(placement, target)?.family).toBe(family);
+  });
+
+  it("falls back to the passed placement when every record starts after the target", () => {
+    expect(placementForTurn(placement, 1)).toBe(placement);
+  });
+
+  it("ignores a later failed request's record when reconciling an earlier turn", () => {
+    const withLater = { ...current, requestContexts: [record(2), record(10)] };
+    expect(placementForTurn(withLater, 5)?.family).toBe("r2");
   });
 });

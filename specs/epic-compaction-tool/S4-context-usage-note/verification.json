@@ -1,0 +1,136 @@
+{
+  "story_id": "S4",
+  "authored_by": "story-planner",
+  "authored_at": "2026-10-02T11:00:00Z",
+  "questions": [
+    {
+      "question_id": "VQ-S4-001",
+      "phase": "pre-impl",
+      "category": "QUALITY",
+      "question": "Do `buildContextUsageNote` and `applyContextPlacement` contain any vacuous path (note text ignoring inputs, placement ignoring the family, frozen index) or silently degrade when `modelFamily`/`usedTokens` is un-injected? State-discriminating: `grep -c \"export function applyContextPlacement\" shared/context-usage.ts` is 0 pre-impl and 1 post-impl."
+    },
+    {
+      "question_id": "VQ-S4-002",
+      "phase": "pre-impl",
+      "category": "ARCHITECTURE",
+      "question": "Does S4 comply with boundary rule 5: `applyContextPlacement` returns a new array and is applied only to the per-invocation copy passed to `router.streamResponse` in `server/ws-handler.ts`, while `steps`, `chat.delta`, `chat.steps`, `chat.done` stay untransformed? Cite where the copy is made."
+    },
+    {
+      "question_id": "VQ-S4-003",
+      "phase": "pre-impl",
+      "category": "ARCHITECTURE",
+      "question": "Could `context-usage` be deleted and rewritten without modifying any file outside its `dependencies_allowed` list? If not, which cross-module dependencies exist (tool-loop, preview-parity, transport-client) and do they flow through the S-PLACEMENT seam contract?"
+    },
+    {
+      "question_id": "VQ-S4-004",
+      "phase": "pre-impl",
+      "category": "TEST",
+      "question": "Are there unit tests for note formatting (locale independence via a non-en-US locale run), the three `source` variants, a property test that `applyContextPlacement` never mutates input and preserves all non-note steps in order, an integration test with a mocked provider over multiple invocations, and a preview-parity test equating dialog / `toOllamaFilteredMessages` / server messages? Verify `grep -rln \"buildContextUsageNote\" tests` (none pre-impl)."
+    },
+    {
+      "question_id": "VQ-S4-005",
+      "phase": "pre-impl",
+      "category": "SPEC",
+      "question": "Seam contract S-PLACEMENT: does `buildContextUsageNote({ usedTokens?, windowTokens, source })` have an exact signature and does `applyContextPlacement(steps, { note?, family? })` return steps with the note at the wire position named by placement data for every family in the data plus absent family? Cite the test asserting this over all families."
+    },
+    {
+      "question_id": "VQ-S4-006",
+      "phase": "pre-impl",
+      "category": "BEST_PRACTICES",
+      "question": "Is the note rendering robust at boundaries (usedTokens 0, usedTokens > windowTokens, windowTokens 0, non-finite numbers) with no NaN/Infinity in the text, and does `contextPercent` rounding match the number embedded in the note?"
+    },
+    {
+      "question_id": "VQ-S4-007",
+      "phase": "pre-impl",
+      "category": "SPEC",
+      "ac_id": "AC-NOTE-1",
+      "question": "Does the implementation satisfy AC-NOTE-1: \"`buildContextUsageNote({ usedTokens: 6120, windowTokens: 8192, source: \"runtime\" })` MUST return a string containing `6,120`, `8,192`, `75%` and the literal `compact_context`, independent of the process locale, where `75` equals `contextPercent(6120, 8192)`.\"? Demand evidence of (a) the production code (file:line), (b) the test(s) that exercise this AC end-to-end through the real producer path, and (c) confirmation the tests are not pure mock-spy proxies (assertions are on observable output, not on call counts alone)."
+    },
+    {
+      "question_id": "VQ-S4-008",
+      "phase": "pre-impl",
+      "category": "SPEC",
+      "ac_id": "AC-NOTE-2",
+      "question": "Does the implementation satisfy AC-NOTE-2: \"`buildContextUsageNote` without `usedTokens` MUST return a string containing `compact_context`, no digit and no `%`; and the first invocation of a request whose incoming steps carry no `usage` MUST receive that number-free note.\"? Demand evidence of (a) the production code (file:line), (b) the test(s) that exercise this AC end-to-end through the real producer path, and (c) confirmation the tests are not pure mock-spy proxies (assertions are on observable output, not on call counts alone)."
+    },
+    {
+      "question_id": "VQ-S4-009",
+      "phase": "pre-impl",
+      "category": "SPEC",
+      "ac_id": "AC-NOTE-3",
+      "question": "Does the implementation satisfy AC-NOTE-3: \"When `compact_context` is among the request's enabled tools, every model invocation of the tool loop (mocked provider) MUST receive the usage note at the message index `applyContextPlacement` yields for the request's `modelFamily`, including the default for an absent `modelFamily`.\"? Demand evidence of (a) the production code (file:line), (b) the test(s) that exercise this AC end-to-end through the real producer path, and (c) confirmation the tests are not pure mock-spy proxies (assertions are on observable output, not on call counts alone)."
+    },
+    {
+      "question_id": "VQ-S4-010",
+      "phase": "pre-impl",
+      "category": "SPEC",
+      "ac_id": "AC-NOTE-4",
+      "question": "Does the implementation satisfy AC-NOTE-4: \"When `compact_context` is not among the request's enabled tools, no model invocation MUST receive a usage note.\"? Demand evidence of (a) the production code (file:line), (b) the test(s) that exercise this AC end-to-end through the real producer path, and (c) confirmation the tests are not pure mock-spy proxies (assertions are on observable output, not on call counts alone)."
+    },
+    {
+      "question_id": "VQ-S4-011",
+      "phase": "pre-impl",
+      "category": "SPEC",
+      "ac_id": "AC-NOTE-5",
+      "question": "Does the implementation satisfy AC-NOTE-5: \"On the second and later invocations within one tool loop, the note's `usedTokens` MUST equal `inputTokens + outputTokens` of the previous invocation's response.\"? Demand evidence of (a) the production code (file:line), (b) the test(s) that exercise this AC end-to-end through the real producer path, and (c) confirmation the tests are not pure mock-spy proxies (assertions are on observable output, not on call counts alone)."
+    },
+    {
+      "question_id": "VQ-S4-012",
+      "phase": "pre-impl",
+      "category": "SPEC",
+      "ac_id": "AC-NOTE-6",
+      "question": "Does the implementation satisfy AC-NOTE-6: \"For a conversation with `compact_context` enabled, the request JSON preview's `messages` MUST contain the identical usage note string at the identical index as the messages the server sends to the mocked provider for the same steps, and the transcript MUST NOT render the note as a step.\"? Demand evidence of (a) the production code (file:line), (b) the test(s) that exercise this AC end-to-end through the real producer path, and (c) confirmation the tests are not pure mock-spy proxies (assertions are on observable output, not on call counts alone)."
+    },
+    {
+      "question_id": "VQ-S4-013",
+      "phase": "pre-impl",
+      "category": "SPEC",
+      "ac_id": "AC-NOTE-7",
+      "question": "Does the implementation satisfy AC-NOTE-7: \"`buildContextUsageNote` with `source: \"assumed\"` MUST contain the used token count but neither the window nor a `%`; with `source: \"estimated\"` it MUST contain the word `approximately`.\"? Demand evidence of (a) the production code (file:line), (b) the test(s) that exercise this AC end-to-end through the real producer path, and (c) confirmation the tests are not pure mock-spy proxies (assertions are on observable output, not on call counts alone)."
+    },
+    {
+      "question_id": "VQ-S4-014",
+      "phase": "pre-impl",
+      "category": "SPEC",
+      "ac_id": "AC-NOTE-8",
+      "question": "Does the implementation satisfy AC-NOTE-8: \"For the same conversation on an Ollama model, the outgoing-message list returned by `toOllamaFilteredMessages` MUST equal the messages the server sends to the mocked provider, and `useReconciliation`'s preceding messages MUST include the note.\"? Demand evidence of (a) the production code (file:line), (b) the test(s) that exercise this AC end-to-end through the real producer path, and (c) confirmation the tests are not pure mock-spy proxies (assertions are on observable output, not on call counts alone)."
+    },
+    {
+      "question_id": "VQ-S4-015",
+      "phase": "pre-impl",
+      "category": "SPEC",
+      "ac_id": "AC-NOTE-9",
+      "question": "Does the implementation satisfy AC-NOTE-9: \"No step in any `chat.delta`, `chat.steps` or `chat.done` of a request MUST contain the usage note text or be a step produced by `applyContextPlacement`, and `applyContextPlacement` MUST NOT mutate its input array (the input is deep-equal before and after the call).\"? Demand evidence of (a) the production code (file:line), (b) the test(s) that exercise this AC end-to-end through the real producer path, and (c) confirmation the tests are not pure mock-spy proxies (assertions are on observable output, not on call counts alone)."
+    },
+    {
+      "question_id": "VQ-S4-016",
+      "phase": "post-impl",
+      "category": "ARCHITECTURE",
+      "question": "Is the per-invocation copy the only thing handed to router.streamResponse? Check server/ws-handler.ts: `invocationSteps = placeStepsForModel(steps, ...)` is built per loop iteration from the untouched accumulator `steps`, and `steps = [...steps, ...responseSteps, ...toolResultSteps]` never receives the copy. Confirm tests/integration/ws-handler-context-note.test.ts asserts that chat.delta/chat.steps/chat.done contain no note and no step with id 'context-usage-note'."
+    },
+    {
+      "question_id": "VQ-S4-017",
+      "phase": "post-impl",
+      "category": "SPEC",
+      "question": "The server loop tracks usedTokens explicitly: after each invocation `usedTokens = lastUsedTokens(responseSteps)` (undefined when that response reported none), so a response without usage yields a number-free note instead of a stale figure from older steps. Is this the intended reading of AC-NOTE-5 / design decision 7, and does the 'previous invocation reported no usage' test pin it?"
+    },
+    {
+      "question_id": "VQ-S4-018",
+      "phase": "post-impl",
+      "category": "TEST",
+      "question": "No server-level test sends a `compaction` step over the wire, because server/request-validation.ts STEP_KINDS does not accept it until S6. Is the compaction mapping covered at unit level (tests/unit/context-usage-note.test.ts, request-preview-context-note.test.tsx) and does S6 add the over-the-wire case through ws-handler?"
+    },
+    {
+      "question_id": "VQ-S4-019",
+      "phase": "post-impl",
+      "category": "BEST_PRACTICES",
+      "question": "applyContextPlacement throws on a placement CONTEXT_PLACEMENT cannot currently yield (note != trailing-user, summary != user) instead of degrading. Is the throw reachable from production data (it must not be: the data has no exceptions), and would a future exception row for a rejected placement surface in the tool loop as a chat.error rather than as silently wrong wire data?"
+    },
+    {
+      "question_id": "VQ-S4-020",
+      "phase": "post-impl",
+      "category": "QUALITY",
+      "question": "Preview parity relies on every consumer calling the shared recipe (placeStepsForModel via toOllamaFilteredMessages/placementInputForPreview, request-json-dialog.tsx, request-preview-extras.tsx, useReconciliation). Is there any remaining caller of toOllamaMessages/buildOpenAIRequestBody on conversation steps in src/ that bypasses it? Also: chat.send fields come from the same useContextWindow resolution as the meter (chat-workspace.tsx contextRequestRef), enabled by `showContextMeter || compact_context active`; is a send issued before the first resolution completes treated as an assumed window (used tokens only) on the server?"
+    }
+  ]
+}

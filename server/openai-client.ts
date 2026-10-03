@@ -108,6 +108,8 @@ export async function streamOpenAIResponse(args: {
   const body: Record<string, unknown> = {
     model,
     stream: true,
+    // Without this, OpenAI-compatible streams report no usage and the context fill is unknown.
+    stream_options: { include_usage: true },
     messages: toOpenAIMessages(steps),
   };
 

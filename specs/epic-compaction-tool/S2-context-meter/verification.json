@@ -1,0 +1,117 @@
+{
+  "story_id": "S2",
+  "authored_by": "story-planner",
+  "authored_at": "2026-10-02T11:00:00Z",
+  "questions": [
+    {
+      "question_id": "VQ-S2-001",
+      "phase": "pre-impl",
+      "category": "QUALITY",
+      "question": "Does `src/components/context-meter.tsx` contain any vacuous path (frozen percentage, hard-coded level, tautological `data-level`) or a dependency (resolved window, fill) that silently renders 0%/ok when un-injected? State-discriminating: `grep -c \"data-testid=\\\"context-meter\\\"\" src/components/context-meter.tsx` is 0/file-absent pre-impl and >=1 post-impl."
+    },
+    {
+      "question_id": "VQ-S2-002",
+      "phase": "pre-impl",
+      "category": "ARCHITECTURE",
+      "question": "Does S2 comply with architecture.md: presentational meter component fed by the composition root or a hook, percentage from the shared `contextPercent` only, no meter logic under `server/` (`grep -rn \"computeContextFill\\|showContextMeter\" server/` returns nothing), and no component importing another component's internals?"
+    },
+    {
+      "question_id": "VQ-S2-003",
+      "phase": "pre-impl",
+      "category": "ARCHITECTURE",
+      "question": "Could `meter-ui` be deleted and rewritten without modifying any file outside its `dependencies_allowed` list? If not, which cross-module dependencies exist (sidebar-prefs, context-window, backend-http-client) and do they flow through declared seam contracts (S-WINDOW)?"
+    },
+    {
+      "question_id": "VQ-S2-004",
+      "phase": "pre-impl",
+      "category": "TEST",
+      "question": "Are there component tests covering visibility toggle, grouping format, none-yet/unknown display, level thresholds at the 79/80/99/100 percent boundaries (property over fill/window), source labels, and a test that drives a real `chat.done` through the hook path to confirm the re-query of `/models/runtime`? Verify `grep -rln \"context-meter\" tests src --include=*.test.*` (none pre-impl)."
+    },
+    {
+      "question_id": "VQ-S2-005",
+      "phase": "pre-impl",
+      "category": "SPEC",
+      "question": "Does the meter honour the S-WINDOW contract it consumes from S1 (source word shown only for estimated/assumed, `stale` only for runtime+stale) and never display a window-size control, per the spec exclusion of window configuration?"
+    },
+    {
+      "question_id": "VQ-S2-006",
+      "phase": "pre-impl",
+      "category": "BEST_PRACTICES",
+      "question": "Is the meter accessible and robust: level conveyed by more than colour (text/`data-level`), theme tokens for ok/warn/error defined in both light and dark themes, no division-by-zero or NaN/Infinity rendering for window 0, fill > window, or huge values?"
+    },
+    {
+      "question_id": "VQ-S2-007",
+      "phase": "pre-impl",
+      "category": "SPEC",
+      "ac_id": "AC-UX-1",
+      "question": "Does the implementation satisfy AC-UX-1: \"With `showContextMeter` false, `[data-testid=\"context-meter\"]` MUST NOT be present in the DOM.\"? Demand evidence of (a) the production code (file:line), (b) the test(s) that exercise this AC end-to-end through the real producer path, and (c) confirmation the tests are not pure mock-spy proxies (assertions are on observable output, not on call counts alone)."
+    },
+    {
+      "question_id": "VQ-S2-008",
+      "phase": "pre-impl",
+      "category": "SPEC",
+      "ac_id": "AC-UX-2",
+      "question": "Does the implementation satisfy AC-UX-2: \"With `showContextMeter` true and a known fill, the meter MUST display the fill formatted with `en-US` grouping and the percentage returned by `contextPercent` followed by `%`; with fill `none-yet` it MUST display `0` tokens and `0%`.\"? Demand evidence of (a) the production code (file:line), (b) the test(s) that exercise this AC end-to-end through the real producer path, and (c) confirmation the tests are not pure mock-spy proxies (assertions are on observable output, not on call counts alone)."
+    },
+    {
+      "question_id": "VQ-S2-009",
+      "phase": "pre-impl",
+      "category": "SPEC",
+      "ac_id": "AC-UX-3",
+      "question": "Does the implementation satisfy AC-UX-3: \"With `showContextMeter` true and an unknown fill, the meter MUST display `\u2014` in place of the token count and percentage.\"? Demand evidence of (a) the production code (file:line), (b) the test(s) that exercise this AC end-to-end through the real producer path, and (c) confirmation the tests are not pure mock-spy proxies (assertions are on observable output, not on call counts alone)."
+    },
+    {
+      "question_id": "VQ-S2-010",
+      "phase": "pre-impl",
+      "category": "SPEC",
+      "ac_id": "AC-UX-4",
+      "question": "Does the implementation satisfy AC-UX-4: \"The meter MUST display the new fill after a `chat.done` whose steps carry `usage`, and MUST re-query `/models/runtime` after that `chat.done`, without a page reload.\"? Demand evidence of (a) the production code (file:line), (b) the test(s) that exercise this AC end-to-end through the real producer path, and (c) confirmation the tests are not pure mock-spy proxies (assertions are on observable output, not on call counts alone)."
+    },
+    {
+      "question_id": "VQ-S2-011",
+      "phase": "pre-impl",
+      "category": "SPEC",
+      "ac_id": "AC-UX-5",
+      "question": "Does the implementation satisfy AC-UX-5: \"The meter's `data-level` attribute MUST be `ok` below 80 %, `warn` from 80 % up to below 100 %, and `error` at or above 100 %.\"? Demand evidence of (a) the production code (file:line), (b) the test(s) that exercise this AC end-to-end through the real producer path, and (c) confirmation the tests are not pure mock-spy proxies (assertions are on observable output, not on call counts alone)."
+    },
+    {
+      "question_id": "VQ-S2-012",
+      "phase": "pre-impl",
+      "category": "SPEC",
+      "ac_id": "AC-UX-6",
+      "question": "Does the implementation satisfy AC-UX-6: \"The value of `showContextMeter` MUST survive a page reload.\"? Demand evidence of (a) the production code (file:line), (b) the test(s) that exercise this AC end-to-end through the real producer path, and (c) confirmation the tests are not pure mock-spy proxies (assertions are on observable output, not on call counts alone)."
+    },
+    {
+      "question_id": "VQ-S2-013",
+      "phase": "pre-impl",
+      "category": "SPEC",
+      "ac_id": "AC-UX-7",
+      "question": "Does the implementation satisfy AC-UX-7: \"When the resolved window's source is `estimated` or `assumed`, the meter MUST display that word; when it is `runtime` with `stale: true`, the meter MUST display `stale`.\"? Demand evidence of (a) the production code (file:line), (b) the test(s) that exercise this AC end-to-end through the real producer path, and (c) confirmation the tests are not pure mock-spy proxies (assertions are on observable output, not on call counts alone)."
+    },
+    {
+      "question_id": "VQ-S2-014",
+      "phase": "pre-impl",
+      "category": "SPEC",
+      "ac_id": "AC-STRUCT-2",
+      "question": "Does the implementation satisfy AC-STRUCT-2: \"`src/lib/context-window.ts` MUST export `resolveContextWindow` and `computeContextFill`, and `grep -rn \"computeContextFill\\|showContextMeter\" server/` MUST return no matches.\"? Demand evidence of (a) the production code (file:line), (b) the test(s) that exercise this AC end-to-end through the real producer path, and (c) confirmation the tests are not pure mock-spy proxies (assertions are on observable output, not on call counts alone)."
+    },
+    {
+      "question_id": "VQ-S2-015",
+      "phase": "post-impl",
+      "category": "QUALITY",
+      "question": "use-context-window.ts gates every fetch on `enabled`: with the meter off, nothing re-queries /models/runtime after chat.done, so rememberedContextWindows is not refreshed while hidden. Confirm this is acceptable for AC-CTX-1 (the obligation applies to resolves that happen) and that turning the meter on triggers an immediate resolve (src/lib/use-context-window.ts effect deps include `enabled`)."
+    },
+    {
+      "question_id": "VQ-S2-016",
+      "phase": "post-impl",
+      "category": "QUALITY",
+      "question": "While the first observation for a model is pending, useContextWindow returns window/fill undefined and the meter shows '\u2014' with no data-level; when the model is not yet discovered (selectedModel undefined) it resolves immediately to remembered/assumed and may relabel after discovery. Is this flash acceptable, and is the stale-response discard (cancelled flag, key-matched observation) covered by tests/unit/use-context-window.test.tsx?"
+    },
+    {
+      "question_id": "VQ-S2-017",
+      "phase": "post-impl",
+      "category": "ARCHITECTURE",
+      "question": "The chat.done signal is exposed as `completedCount` from use-chat-generation.ts (modified outside the meter files, within scope 'post-chat.done runtime refresh'). It increments only on successful completion of the current generation, not on abort/error/superseded streams. Verify chat-workspace.tsx edits stay thin (import, hook call, one conditional render)."
+    }
+  ]
+}

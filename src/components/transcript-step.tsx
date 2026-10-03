@@ -11,6 +11,7 @@ import ReplayOutlinedIcon from "@mui/icons-material/ReplayOutlined";
 import type { ConversationStep } from "@/src/types/chat";
 import { StepCard, getStepBackgroundColor } from "@/src/components/step-card";
 import { TokenViewStepContent } from "@/src/components/token-view-step-content";
+import { compactionHarnessForkId } from "@/src/lib/fork";
 import { formatStepFooterMeta, formatStepHeader, prettyPrintJson, type TranscriptItem } from "@/src/lib/transcript";
 
 const MARKDOWN_SX = { lineHeight: 1.7, color: "text.primary", "& pre": { fontFamily: "monospace", whiteSpace: "pre-wrap", backgroundColor: "var(--surface-inset)", p: 1.5, borderRadius: 1, overflow: "auto" }, "& code": { fontFamily: "monospace", fontSize: "0.9em" }, "& p:first-of-type": { mt: 0 }, "& p:last-of-type": { mb: 0 }, "& table": { borderCollapse: "collapse", width: "100%", my: 1 }, "& th, & td": { border: "1px solid", borderColor: "divider", px: 1.5, py: 0.75, textAlign: "left" }, "& th": { backgroundColor: "var(--surface-inset)", fontWeight: 600 } };
@@ -35,6 +36,9 @@ export interface TranscriptStepProps {
   onResend: () => void;
   onRegenerate: () => void;
   onDeleteLastExchange: () => void;
+  /** Title of the conversation a compaction harness step points at; absent when that conversation no longer exists. */
+  compactionForkTitle?: string;
+  onOpenConversation?: (conversationId: string) => void;
 }
 
 /** One transcript entry: a chat message, or protocol activity (reasoning, tool call, tool result, server event). */
@@ -57,11 +61,15 @@ export function TranscriptStep({
   onResend,
   onRegenerate,
   onDeleteLastExchange,
+  compactionForkTitle,
+  onOpenConversation,
 }: TranscriptStepProps) {
   const theme = useTheme();
   const { step, dataTour, toolCalls, cumulativeToolCalls } = item;
   const hasToolCalls = toolCalls.length > 0;
   const isProse = step.kind === "assistant" || step.kind === "user" || step.kind === "reasoning";
+
+  const forkConversationId = compactionHarnessForkId(step);
 
   const deleteAction = isLastDeletable ? (
     <IconButton
@@ -88,7 +96,7 @@ export function TranscriptStep({
       dataTour={dataTour}
       expanded={Boolean(step.expanded)}
       onToggle={onToggle}
-      onInspect={step.kind !== "meta" && step.kind !== "reasoning" ? onInspect : undefined}
+      onInspect={step.kind !== "meta" && step.kind !== "reasoning" && step.kind !== "compaction" ? onInspect : undefined}
       headerLabel={hasToolCalls ? "tool call requests" : formatStepHeader(step)}
       footerMeta={footerMeta(step, toolCalls.length, cumulativeToolCalls)}
       bgColor={hasToolCalls ? getStepBackgroundColor("tool_call", theme) : undefined}
@@ -131,7 +139,27 @@ export function TranscriptStep({
         ) : undefined
       }
     >
-      {step.metaEvent?.data ? (
+      {forkConversationId !== undefined ? (
+        <Typography variant="body1" data-testid="compaction-harness-event" sx={{ lineHeight: 1.7, color: "text.primary" }}>
+          {compactionForkTitle !== undefined && onOpenConversation ? (
+            <>
+              Context compacted by the app &mdash; continued in{" "}
+              <Button
+                variant="text"
+                size="small"
+                onClick={() => onOpenConversation(forkConversationId)}
+                aria-label="Open forked conversation"
+                data-testid="compaction-fork-link"
+                sx={{ textTransform: "none", verticalAlign: "baseline", p: 0, minWidth: 0 }}
+              >
+                &ldquo;{compactionForkTitle}&rdquo;
+              </Button>
+            </>
+          ) : (
+            step.content
+          )}
+        </Typography>
+      ) : step.metaEvent?.data ? (
         <Typography variant="body2" sx={{ mb: 1, fontFamily: "monospace", whiteSpace: "pre-wrap", color: "text.secondary" }}>
           {JSON.stringify(step.metaEvent.data, null, 2)}
         </Typography>
@@ -155,7 +183,7 @@ export function TranscriptStep({
           ))}
         </Stack>
       ) : null}
-      {step.kind === "tool_call" ? null : isEditing ? (
+      {step.kind === "tool_call" || forkConversationId !== undefined ? null : isEditing ? (
         <Stack spacing={1.5}>
           <TextField
             label="Edit message"
@@ -182,7 +210,7 @@ export function TranscriptStep({
         </Stack>
       ) : (showTokens && isProse) ? (
         <TokenViewStepContent step={step} tokenizeText={tokenizeText} cacheKeySuffix={cacheKeySuffix} />
-      ) : (isProse && renderMarkdown) ? (
+      ) : ((isProse || step.kind === "compaction") && renderMarkdown) ? (
         <Box sx={MARKDOWN_SX}>
           <Markdown remarkPlugins={[remarkGfm]}>{step.content.replace(/^\n+|\n+$/g, "")}</Markdown>
         </Box>

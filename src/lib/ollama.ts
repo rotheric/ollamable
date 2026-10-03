@@ -1,4 +1,5 @@
 import type {
+  ModelRuntime,
   OllamaModel,
   OllamaModelMeta,
   ToolDefinition,
@@ -124,4 +125,47 @@ export async function fetchModelMeta(model: OllamaModel): Promise<OllamaModelMet
     modelInfo: data.model_info,
     capabilities: data.capabilities,
   };
+}
+
+/**
+ * Fetch the loaded window of a model from the backend. Reads only what is already
+ * resident; never loads a model. Non-Ollama providers report `{ loaded: false, metadata: false }`.
+ */
+export async function fetchModelRuntime(model: OllamaModel): Promise<ModelRuntime> {
+  const response = await fetch(`${backendHttpUrl()}/models/runtime`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ model: model.name, provider: model.provider }),
+  });
+
+  if (!response.ok) {
+    const body = (await response.json().catch(() => ({}))) as { error?: string };
+    throw new Error(body.error ?? `Backend /models/runtime failed: ${response.status}`);
+  }
+
+  const data = (await response.json()) as { loaded?: unknown; metadata?: unknown; contextLength?: unknown };
+  const metadata = data.metadata === true;
+  const contextLength = data.contextLength;
+  if (data.loaded === true && typeof contextLength === "number" && Number.isInteger(contextLength) && contextLength > 0) {
+    return { loaded: true, metadata, contextLength };
+  }
+  return { loaded: false, metadata };
+}
+
+/**
+ * Model metadata for window resolution, or `undefined` when the backend has none.
+ * `runtime.metadata === false` (every OpenAI-compatible model) skips `/models/show`
+ * entirely, as it would only answer HTTP 500 and show up as a console error. A failed
+ * lookup is an expected outcome, so it is not logged.
+ */
+export async function fetchModelMetaIfAvailable(
+  model: OllamaModel,
+  runtime?: Pick<ModelRuntime, "metadata">
+): Promise<OllamaModelMeta | undefined> {
+  if (runtime && !runtime.metadata) return undefined;
+  try {
+    return await fetchModelMeta(model);
+  } catch {
+    return undefined;
+  }
 }

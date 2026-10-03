@@ -1,0 +1,78 @@
+{
+  "story_id": "S6",
+  "status": "done",
+  "remediation_rounds": 2,
+  "files_created": [
+    "src/lib/fork.ts",
+    "tests/unit/fork.test.ts",
+    "tests/unit/chat-workspace-fork.test.tsx",
+    "tests/integration/ws-handler-fork.test.ts"
+  ],
+  "files_modified": [
+    "server/types.ts",
+    "src/types/chat.ts",
+    "server/request-validation.ts",
+    "src/lib/use-chat-generation.ts",
+    "src/lib/use-conversations.ts",
+    "src/lib/transcript.ts",
+    "src/components/chat-workspace.tsx",
+    "src/components/transcript.tsx",
+    "src/components/transcript-step.tsx",
+    "src/components/step-card.tsx",
+    "tests/unit/use-chat-generation.test.tsx",
+    "tests/integration/request-validation.test.ts"
+  ],
+  "implementation_summary": "StepKind 'compaction' added on both sides and in STEP_KINDS; Conversation.forkedFrom added. onCompaction payload is stashed in streamConversationResponse; only after stopStreamRef ownership is confirmed and the original's chat.done steps are applied does the hook build the fork (pure buildFork in src/lib/fork.ts), hand it to onFork (addForkedConversation: prepend + select) and void-call streamConversationResponse(fork, {withoutCompactContext, contextRequest}) so the fork takes stopStreamRef before the original's finally (no clear, no extra settledCount bump). Fork = original's system steps + one compaction step, inherited settings/tools, '<title> (compacted)', titleEdited true, empty requestContexts. Sidebar shows user-or-compaction conversations; transcript treats compaction as a visible turn boundary; compaction card (theme-token background, header 'written by <model> via compact_context', no inspect action) with back-link above it.",
+  "decisions": [
+    "findLastDeletableStepIndex does not treat compaction as deletable (it is a boundary in findResponseStartIndex/deleteLastExchangeCutIndex only) so AC-FORK-12 holds and a compaction-only fork has nothing to delete.",
+    "Fork built from the send-time conversation snapshot (title/settings at send).",
+    "Fork's first send gets the context fields captured at the original's send, passed explicitly; tools filtered by name for that request only, the fork's activeToolIds still include compact_context for the next user send.",
+    "compaction content = summary + optional '\\n\\nRemaining work:\\n' section; rendered via markdown branch when enabled (react-markdown, no raw HTML).",
+    "Back-link: Transcript props forkOrigin/onOpenConversation (chat-workspace edits thin); plain text when the original was deleted.",
+    "Fork orchestration is not awaited by the original's promise chain."
+  ],
+  "tests_added": {
+    "unit": 24,
+    "integration": 9,
+    "property": 1
+  },
+  "test_counts": {
+    "baseline": 1003,
+    "final": 1036
+  },
+  "baseline": {
+    "unit": 593,
+    "integration": 410,
+    "integration_skipped": 2,
+    "lint": "clean",
+    "typecheck": "clean"
+  },
+  "final": {
+    "unit": 617,
+    "integration": 419,
+    "integration_skipped": 2,
+    "lint": "clean",
+    "typecheck": "clean"
+  },
+  "mocks": [],
+  "modules_touched": [
+    "fork-flow",
+    "transcript-model",
+    "compaction-card-ui",
+    "wire-types",
+    "transport-client",
+    "context-window",
+    "runtime-route"
+  ],
+  "caveats": [
+    "AC-STRUCT-3 release gate not run here (lead runs it).",
+    "Fork inherits send-time settings if the user edits the original while compaction streams.",
+    "AC-STRUCT-3 release-gate part verified at epic AC-closure (lead runs the release gate)"
+  ],
+  "retrospective": {
+    "skipped": true,
+    "reason": "clean_run"
+  },
+  "final_outcome": "accepted",
+  "completed_at": "2026-10-02T12:55:52Z"
+}

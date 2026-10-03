@@ -5,6 +5,7 @@ import { Joyride } from "react-joyride";
 import { Alert, Box, Dialog, DialogContent, DialogTitle, Typography } from "@mui/material";
 import type { Conversation, ToolDefinition } from "@/src/types/chat";
 import { Composer } from "@/src/components/composer";
+import { ContextMeter } from "@/src/components/context-meter";
 import { ConversationSidebar } from "@/src/components/conversation-sidebar";
 import { APP_BAR_HEIGHT, RIGHT_SIDEBAR_WIDTH, SIDEBAR_COLLAPSED_WIDTH, SIDEBAR_WIDTH } from "@/src/components/layout";
 import { ModelMetaDialog, useModelMeta } from "@/src/components/model-meta-dialog";
@@ -20,7 +21,9 @@ import { usePersistenceStatus } from "@/src/lib/persistence";
 import { tourSteps } from "@/src/lib/tour-data";
 import { deleteLastExchangeCutIndex, findResponseStartIndex } from "@/src/lib/transcript";
 import { useBackendCatalog } from "@/src/lib/use-backend-catalog";
-import { useChatGeneration } from "@/src/lib/use-chat-generation";
+import { useChatGeneration, type ContextRequestFields } from "@/src/lib/use-chat-generation";
+import { isCompactContextEnabled } from "@/shared/context-usage";
+import { useContextWindow } from "@/src/lib/use-context-window";
 import { useConversations } from "@/src/lib/use-conversations";
 import { useSidebarState } from "@/src/lib/use-sidebar-state";
 import { useTour } from "@/src/lib/use-tour";
@@ -43,6 +46,7 @@ export function ChatWorkspace() {
     sidebarState,
     setSidebarState,
     updateSidebar,
+    rememberContextWindow,
     isSubsectionOpen,
     toggleSubsection,
     toggleRightSection,
@@ -64,6 +68,7 @@ export function ChatWorkspace() {
     selectedConversation,
     updateConversation,
     addConversation,
+    addForkedConversation,
     deleteConversation,
     reorderConversations,
   } = useConversations(tools);
@@ -87,7 +92,18 @@ export function ChatWorkspace() {
 
   const { send: wsSend, connected: wsConnected } = useWebSocket(WS_URL, handleWsMessage, () => backendClientRef.current.connectionClosed());
 
-  const { streaming, stoppedConversationId, streamConversationResponse, stopGeneration, resumeGeneration } =
+  const activeTools = useMemo(
+    () =>
+      selectedConversation?.availableTools.filter((tool) =>
+        selectedConversation.activeToolIds.includes(tool.id)
+      ) ?? [],
+    [selectedConversation]
+  );
+  const compactContextActive = isCompactContextEnabled(activeTools);
+  // Filled below from the one context-window resolution (the meter's); read when a request is sent.
+  const contextRequestRef = useRef<(conversation: Conversation) => ContextRequestFields>(() => ({}));
+
+  const { streaming, settledCount, stoppedConversationId, streamConversationResponse, stopGeneration, resumeGeneration } =
     useChatGeneration({
       backendClient: backendClientRef.current,
       send: wsSend,
@@ -96,6 +112,8 @@ export function ChatWorkspace() {
       updateConversation,
       defaultExpanded,
       setError,
+      getContextRequest: (conversation) => contextRequestRef.current(conversation),
+      onFork: addForkedConversation,
     });
 
   const modelMeta = useModelMeta();
@@ -104,13 +122,23 @@ export function ChatWorkspace() {
     () => findModel(availableModels, selectedConversation?.model, selectedConversation?.provider),
     [availableModels, selectedConversation?.model, selectedConversation?.provider]
   );
-  const activeTools = useMemo(
-    () =>
-      selectedConversation?.availableTools.filter((tool) =>
-        selectedConversation.activeToolIds.includes(tool.id)
-      ) ?? [],
-    [selectedConversation]
-  );
+  const contextWindow = useContextWindow({
+    // The same resolution feeds the meter, the usage note's window in chat.send and the request preview.
+    enabled: sidebarState.showContextMeter || compactContextActive,
+    conversation: selectedConversation,
+    model: selectedModel,
+    remembered: sidebarState.rememberedContextWindows,
+    rememberContextWindow,
+    settledCount,
+  });
+  contextRequestRef.current = (conversation) =>
+    conversation.id === selectedConversation?.id
+      ? {
+          contextWindow: contextWindow.window?.tokens,
+          contextWindowSource: contextWindow.window?.source,
+          modelFamily: selectedModel?.family,
+        }
+      : {};
 
   // Computed token boundaries for the token view: all separator/whitespace/
   // boundary logic lives in src/lib/token-view.ts — this only wires
@@ -316,6 +344,10 @@ export function ChatWorkspace() {
     });
   }
 
+  const forkOriginConversation = selectedConversation?.forkedFrom
+    ? conversations.find((conversation) => conversation.id === selectedConversation.forkedFrom?.conversationId)
+    : undefined;
+  const forkOrigin = forkOriginConversation && { id: forkOriginConversation.id, title: forkOriginConversation.title };
   const canResume = !streaming
     && stoppedConversationId != null
     && selectedConversation != null
@@ -433,7 +465,13 @@ export function ChatWorkspace() {
                 onDeleteLastExchange={handleDeleteLastExchange}
                 onResume={handleResume}
                 onNavigateToTool={navigateToTool}
+                forkOrigin={forkOrigin}
+                onOpenConversation={setSelectedConversationId}
+                findConversationTitle={(id) => conversations.find((conversation) => conversation.id === id)?.title}
               />
+              {sidebarState.showContextMeter ? (
+                <ContextMeter fill={contextWindow.fill} window={contextWindow.window} wide={bothSidebarsOpen} />
+              ) : null}
               <Composer
                 value={composerValue}
                 onChange={setComposerValue}
@@ -489,6 +527,7 @@ export function ChatWorkspace() {
         conversation={selectedConversation}
         model={selectedModel}
         activeTools={activeTools}
+        contextWindow={contextWindow.window}
         showTokens={sidebarState.showTokens}
         tokenizeText={tokenizeStepText}
       />

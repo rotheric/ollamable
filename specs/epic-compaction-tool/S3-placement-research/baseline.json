@@ -1,0 +1,11 @@
+{
+  "story_id": "S3",
+  "captured_at": "2026-10-02T13:03:00Z",
+  "baseline": {
+    "status": "PASS",
+    "unit": { "command": "npx vitest run", "files": 30, "passed": 523, "failed": 0, "skipped": 0 },
+    "integration": { "command": "npx vitest run -c vitest.server.config.ts", "files": 22, "passed": 370, "failed": 0, "skipped": 2 },
+    "lint": "clean",
+    "typecheck": "clean"
+  }
+}

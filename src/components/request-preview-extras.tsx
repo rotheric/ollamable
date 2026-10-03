@@ -16,9 +16,9 @@
  * token-view-step-content.tsx was (S2): to bound that file's growth.
  */
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Alert, Box, Divider, Stack, Typography } from "@mui/material";
-import type { ConversationStep, OllamaModel } from "@/src/types/chat";
+import type { ConversationStep, OllamaModel, RequestContextRecord, ToolDefinition } from "@/src/types/chat";
 import { fetchModelMeta } from "@/src/lib/ollama";
 import { modelIdentity } from "@/src/lib/model-identity";
 import {
@@ -28,6 +28,7 @@ import {
   toOllamaFilteredMessages,
   useReconciliation,
   useTokenizedMessages,
+  type PreviewPlacement,
   type TokenizeCache,
 } from "@/src/lib/token-view";
 
@@ -39,11 +40,17 @@ export interface RequestPreviewExtrasProps {
   open: boolean;
   steps: ConversationStep[];
   model?: OllamaModel;
+  /** The request's enabled tools: the usage note is previewed only while `compact_context` is among them. */
+  activeTools?: ToolDefinition[];
+  /** The resolved window the note would state (same resolution as the meter). */
+  contextWindow?: PreviewPlacement["contextWindow"];
+  /** What each sent request's usage note was built from; reconciliation reproduces the note it saw. */
+  requestContexts?: ReadonlyArray<RequestContextRecord>;
   /** backend-client.tokenize() bound to the conversation's current model (chat-workspace.tsx's tokenizeStepText). */
   tokenizeText?: (text: string) => Promise<string[]>;
 }
 
-export function RequestPreviewExtras({ open, steps, model, tokenizeText }: RequestPreviewExtrasProps) {
+export function RequestPreviewExtras({ open, steps, model, activeTools, contextWindow, requestContexts, tokenizeText }: RequestPreviewExtrasProps) {
   const [template, setTemplate] = useState<string | undefined>(undefined);
   const [templateError, setTemplateError] = useState("");
   const [templateAbsent, setTemplateAbsent] = useState(false);
@@ -100,7 +107,14 @@ export function RequestPreviewExtras({ open, steps, model, tokenizeText }: Reque
   if (!tokenizeCacheRef.current) tokenizeCacheRef.current = new Map();
   const tokenizeCache = tokenizeCacheRef.current;
 
-  const outgoingMessages = toOllamaFilteredMessages(steps);
+  // Same transform as the server's per-invocation copy, so the list shown is the list sent.
+  const family = model?.family;
+  const placement = useMemo<PreviewPlacement>(
+    () => ({ activeTools, contextWindow, family, requestContexts }),
+    [activeTools, contextWindow, family, requestContexts]
+  );
+  // The next request: current inputs (requestContexts is consulted only for historical turns).
+  const outgoingMessages = toOllamaFilteredMessages(steps, placement);
   const { messages: tokenizedMessages, failed: outgoingTokenizeFailed } = useTokenizedMessages(
     outgoingMessages,
     tokenizeText,
@@ -108,7 +122,7 @@ export function RequestPreviewExtras({ open, steps, model, tokenizeText }: Reque
     modelIdentity(model?.provider, model?.name),
     tokenizeCache
   );
-  const reconciliation = useReconciliation(steps, tokenizeText, open, modelIdentity(model?.provider, model?.name), tokenizeCache);
+  const reconciliation = useReconciliation(steps, tokenizeText, open, modelIdentity(model?.provider, model?.name), tokenizeCache, placement);
 
   return (
     <Stack spacing={2} sx={{ mb: 2 }} data-testid="request-preview-extras">

@@ -27,6 +27,8 @@ export interface SidebarState {
   clientSectionOpen: boolean;
   renderMarkdown: boolean;
   showTokens: boolean;
+  /** Show the context meter (tokens used and percentage of the context window) above the composer */
+  showContextMeter: boolean;
   showTour: boolean;
   showExamples: boolean;
   /** Collapse reasoning steps by default */
@@ -39,6 +41,8 @@ export interface SidebarState {
   collapseServerMessages: boolean;
   /** Hide the system prompt text field */
   hideSystemPrompt: boolean;
+  /** Last live context window observed per `modelIdentity(provider, model)`; survives reloads. */
+  rememberedContextWindows: Record<string, number>;
   /** Per-subsection collapse: key = "builtin" | "mcp-{serverName}" | provider name */
   subsections: Record<string, boolean>;
 }
@@ -55,6 +59,7 @@ export const DEFAULT_SIDEBAR_STATE: SidebarState = {
   clientSectionOpen: false,
   renderMarkdown: true,
   showTokens: false,
+  showContextMeter: false,
   showTour: true,
   showExamples: true,
   collapseReasoning: false,
@@ -62,14 +67,28 @@ export const DEFAULT_SIDEBAR_STATE: SidebarState = {
   collapseTools: true,
   collapseServerMessages: false,
   hideSystemPrompt: false,
+  rememberedContextWindows: {},
   subsections: {},
 };
+
+/** Keeps only positive-integer windows so a hand-edited or stale value cannot poison resolution. */
+function sanitizeRememberedWindows(value: unknown): Record<string, number> {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) return {};
+  return Object.fromEntries(
+    Object.entries(value).filter(([, tokens]) => typeof tokens === "number" && Number.isInteger(tokens) && tokens > 0)
+  ) as Record<string, number>;
+}
 
 export function loadSidebarState(): SidebarState {
   const raw = readStorage(SIDEBAR_STATE_KEY);
   if (!raw) return { ...DEFAULT_SIDEBAR_STATE };
   try {
-    return { ...DEFAULT_SIDEBAR_STATE, ...JSON.parse(raw) };
+    const stored = JSON.parse(raw) as Partial<SidebarState>;
+    return {
+      ...DEFAULT_SIDEBAR_STATE,
+      ...stored,
+      rememberedContextWindows: sanitizeRememberedWindows(stored.rememberedContextWindows),
+    };
   } catch {
     return { ...DEFAULT_SIDEBAR_STATE };
   }

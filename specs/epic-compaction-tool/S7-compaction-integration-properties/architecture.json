@@ -1,0 +1,29 @@
+{
+  "module_name": "compaction-integration-properties",
+  "purpose": "Verification-only integration story: property tests over the assembled compaction flows (tool loop x context-usage; tool loop budgets and compaction emission; client event interleavings across transport-client and fork-flow) against the real S4/S5/S6 producers, with only provider/backend streams doubled.",
+  "public_api": [],
+  "private_files": [
+    "tests/integration/ws-handler-compaction-properties.test.ts",
+    "tests/unit/use-chat-generation-fork-properties.test.tsx"
+  ],
+  "owned_data": [],
+  "dependencies_allowed": [
+    "tool-loop",
+    "context-usage",
+    "transport-client",
+    "fork-flow"
+  ],
+  "dependencies_forbidden": [],
+  "external_ports": [],
+  "events_emitted": [],
+  "events_consumed": [],
+  "test_targets": [
+    "tests/integration/ws-handler-compaction-properties.test.ts",
+    "tests/unit/use-chat-generation-fork-properties.test.tsx"
+  ],
+  "is_integration_story": true,
+  "seam": {
+    "cross_story": false,
+    "consumed_by": []
+  }
+}

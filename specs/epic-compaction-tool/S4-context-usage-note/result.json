@@ -1,0 +1,84 @@
+{
+  "story_id": "S4",
+  "status": "done",
+  "remediation_rounds": 1,
+  "files_created": [
+    "tests/unit/context-usage-note.test.ts",
+    "tests/unit/request-preview-context-note.test.tsx",
+    "tests/integration/ws-handler-context-note.test.ts"
+  ],
+  "files_modified": [
+    "shared/context-usage.ts",
+    "server/ws-handler.ts",
+    "server/types.ts",
+    "src/lib/backend-client.ts",
+    "src/lib/use-chat-generation.ts",
+    "src/lib/use-context-window.ts",
+    "src/lib/context-window.ts",
+    "src/lib/token-view.ts",
+    "src/components/chat-workspace.tsx",
+    "src/components/request-json-dialog.tsx",
+    "src/components/request-preview-extras.tsx",
+    "tests/unit/backend-client-chat.test.ts",
+    "tests/unit/chat-workspace-context-meter.test.tsx"
+  ],
+  "implementation_summary": "shared/context-usage.ts gains buildContextUsageNote, applyContextPlacement (collate semantics, new array, compaction mapped structurally), lastUsedTokens and placeStepsForModel (the one recipe used everywhere). ws-handler builds a per-invocation placed copy for every router.streamResponse call (always, so compaction maps), with a note only when compact_context is an enabled tool name; usedTokens starts at the last usage in incoming steps and is replaced by each response's usage. Client: chat.send now serialises contextWindow/contextWindowSource/modelFamily from the same useContextWindow resolution as the meter, which now also fetches while compact_context is active. The JSON preview, toOllamaFilteredMessages, useReconciliation and request-preview-extras apply the same recipe with the note rebuilt from the steps before the target.",
+  "decisions": [
+    "Collate: note goes onto the last wire step (skipping meta/reasoning/blank system) when user-role, else a separate synthetic user step (id 'context-usage-note') at the end.",
+    "A compaction step maps to a user step; an immediately following user or compaction step is collated onto it with a blank line. Ordinary adjacent user steps are left alone.",
+    "Placements CONTEXT_PLACEMENT cannot yield are not implemented: applyContextPlacement throws for them; an optional `placement` option makes family-exception lookup testable.",
+    "Server note window: no contextWindow/source in chat.send means source 'assumed' (used tokens only). A response without usage gives a number-free note for the next invocation rather than a stale older figure.",
+    "Note wording is a parenthesised 'Automatic note from the app, not written by the user.' lead so it reads as a final paragraph of the user's message.",
+    "Client contextRequestRef supplies fields only for the selected conversation; modelFamily = selectedModel.family (the /models/show details.family value OllamaModel carries) is sent whenever known.",
+    "computeContextFill reuses lastUsedTokens (one usage-scan implementation)."
+  ],
+  "tests_added": {
+    "unit": 41,
+    "integration": 8,
+    "property": 5
+  },
+  "test_counts": {
+    "baseline": 906,
+    "final": 955
+  },
+  "baseline": {
+    "unit": 534,
+    "integration": 370,
+    "integration_skipped": 2,
+    "lint": "clean",
+    "typecheck": "clean"
+  },
+  "final": {
+    "unit": 575,
+    "integration": 378,
+    "integration_skipped": 2,
+    "lint": "clean",
+    "typecheck": "clean"
+  },
+  "mocks": [],
+  "modules_touched": [
+    "context-usage",
+    "tool-loop",
+    "transport-client",
+    "preview-parity",
+    "fork-flow",
+    "wire-types",
+    "context-window"
+  ],
+  "caveats": [
+    "No over-the-wire test of a compaction step: STEP_KINDS rejects it until S6; compaction mapping is covered at unit level.",
+    "A send issued before the first window resolution completes carries no window and the note states used tokens only."
+  ],
+  "retrospective": {
+    "skipped": false,
+    "harder_than_needed": "The note's window had to be reconciled with a client that may not have resolved it yet; the brief did not say what the server should assume, so 'no window means assumed' was chosen. Also, validateChatRequest rejects the not-yet-registered compaction kind, which blocks an end-to-end test of the always-called mapping until S6.",
+    "surprised_by": "A property test over arbitrary doubles found the note printing 'Infinity%' for denormal windows; the percentage and window need explicit finiteness guards.",
+    "scope": "project_specific",
+    "outcome": "planning_only",
+    "commits_made": [],
+    "absorbed_from": [],
+    "lead_clarifications": []
+  },
+  "final_outcome": "accepted",
+  "completed_at": "2026-10-02T12:08:03Z"
+}

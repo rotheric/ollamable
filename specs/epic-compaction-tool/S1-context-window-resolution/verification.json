@@ -1,0 +1,130 @@
+{
+  "story_id": "S1",
+  "authored_by": "story-planner",
+  "authored_at": "2026-10-02T11:00:00Z",
+  "questions": [
+    {
+      "question_id": "VQ-S1-001",
+      "phase": "pre-impl",
+      "category": "QUALITY",
+      "question": "Do `resolveContextWindow`, `computeContextFill` and `fetchModelRuntime` contain any vacuous or placeholder production path (hard-coded return, tautological branch, frozen stand-in window, or a dependency such as the remembered-window store that silently degrades to \"assumed\" when un-injected)? Check state-discriminating: `grep -c \"resolveContextWindow\" src/lib/context-window.ts` is 0 (file absent) before the story and >=1 after; `grep -rn \"num_ctx\" server/ollama-client.ts` must show no `options.num_ctx` assignment before or after."
+    },
+    {
+      "question_id": "VQ-S1-002",
+      "phase": "pre-impl",
+      "category": "ARCHITECTURE",
+      "question": "Does S1 comply with architecture.md: `src/lib/context-window.ts` pure and free of `server/` imports, `/models/runtime` split across `server/index.ts`, `server/llm-router.ts` (`runtimeInfo`) and `server/ollama-client.ts` with provider gates on `ProviderConfig.type` (never provider id), and `shared/context-usage.ts` limited to `contextPercent` (no note builder or placement data from S3/S4)?"
+    },
+    {
+      "question_id": "VQ-S1-003",
+      "phase": "pre-impl",
+      "category": "ARCHITECTURE",
+      "question": "Could `context-window` be deleted and rewritten without modifying any file outside its `dependencies_allowed` list? If not, which cross-module dependencies exist and do they flow through declared seam contracts in architecture.md (S-WINDOW, S-RUNTIME)?"
+    },
+    {
+      "question_id": "VQ-S1-004",
+      "phase": "pre-impl",
+      "category": "TEST",
+      "question": "Are there unit tests for `resolveContextWindow` (all five precedence branches incl. stale remembered window and 8192 assumption), `computeContextFill` (none-yet / unknown / known), a property test over arbitrary step lists, an integration test of `POST /models/runtime` against a stubbed `GET /api/ps`, and a `buildOllamaChatBody` regression test? Verify with `grep -rln \"models/runtime\" tests/` (no match pre-impl, >=1 post-impl)."
+    },
+    {
+      "question_id": "VQ-S1-005",
+      "phase": "pre-impl",
+      "category": "SPEC",
+      "question": "Seam contract S-RUNTIME / S-WINDOW: does `POST /models/runtime` return exactly `{ loaded: boolean, contextLength?: number }` (contextLength a positive integer only when loaded is true), and does `resolveContextWindow` return `{ tokens: positive integer, source: one of \"runtime\"|\"modelfile\"|\"estimated\"|\"assumed\", stale?: boolean }` with `source` membership exactly those four values and `stale` only ever present with source \"runtime\"? Cite the type definitions and the test asserting full membership."
+    },
+    {
+      "question_id": "VQ-S1-006",
+      "phase": "pre-impl",
+      "category": "SECURITY",
+      "question": "Does `validateChatRequest` and `/models/runtime` input handling reject malformed input at the boundary (non-integer/zero/negative `contextWindow`, unknown `contextWindowSource`, empty `modelFamily`, non-string provider/model on `/models/runtime`) without throwing uncaught exceptions or reaching `/api/ps`, and is the `/api/ps` response parsed defensively (missing `context_length`, non-array `models`)?"
+    },
+    {
+      "question_id": "VQ-S1-007",
+      "phase": "pre-impl",
+      "category": "SPEC",
+      "ac_id": "AC-CTX-1",
+      "question": "Does the implementation satisfy AC-CTX-1: \"`resolveContextWindow` MUST return `source: \"runtime\"` with `tokens === contextLength` and no `stale` flag when `/models/runtime` reports `{ loaded: true, contextLength }`, and MUST then update the remembered window for that `provider/model`.\"? Demand evidence of (a) the production code (file:line), (b) the test(s) that exercise this AC end-to-end through the real producer path, and (c) confirmation the tests are not pure mock-spy proxies (assertions are on observable output, not on call counts alone)."
+    },
+    {
+      "question_id": "VQ-S1-008",
+      "phase": "pre-impl",
+      "category": "SPEC",
+      "ac_id": "AC-CTX-2",
+      "question": "Does the implementation satisfy AC-CTX-2: \"When the model is not loaded and a remembered window exists, `resolveContextWindow` MUST return `source: \"runtime\"`, `stale: true` and the remembered value, regardless of `meta.parameters`; the remembered window MUST survive a page reload.\"? Demand evidence of (a) the production code (file:line), (b) the test(s) that exercise this AC end-to-end through the real producer path, and (c) confirmation the tests are not pure mock-spy proxies (assertions are on observable output, not on call counts alone)."
+    },
+    {
+      "question_id": "VQ-S1-009",
+      "phase": "pre-impl",
+      "category": "SPEC",
+      "ac_id": "AC-CTX-3",
+      "question": "Does the implementation satisfy AC-CTX-3: \"When the model is not loaded and no window is remembered, `resolveContextWindow` MUST return `source: \"modelfile\"` with the parsed value when `meta.parameters` contains a `num_ctx` line, else `source: \"estimated\"` with `tokens === <arch>.context_length`.\"? Demand evidence of (a) the production code (file:line), (b) the test(s) that exercise this AC end-to-end through the real producer path, and (c) confirmation the tests are not pure mock-spy proxies (assertions are on observable output, not on call counts alone)."
+    },
+    {
+      "question_id": "VQ-S1-010",
+      "phase": "pre-impl",
+      "category": "SPEC",
+      "ac_id": "AC-CTX-4",
+      "question": "Does the implementation satisfy AC-CTX-4: \"With no runtime or remembered window and `modelMeta` undefined (failed or skipped `/models/show`, including every OpenAI-compatible model) or without a `*.context_length` key, `resolveContextWindow` MUST return `source: \"assumed\"` with `tokens === 8192`, and the frontend MUST NOT log an error for a skipped `/models/show`.\"? Demand evidence of (a) the production code (file:line), (b) the test(s) that exercise this AC end-to-end through the real producer path, and (c) confirmation the tests are not pure mock-spy proxies (assertions are on observable output, not on call counts alone)."
+    },
+    {
+      "question_id": "VQ-S1-011",
+      "phase": "pre-impl",
+      "category": "SPEC",
+      "ac_id": "AC-CTX-5",
+      "question": "Does the implementation satisfy AC-CTX-5: \"`POST /models/runtime` for an Ollama model listed by a stubbed `GET /api/ps` MUST return `{ loaded: true, contextLength }` from that entry, MUST return `{ loaded: false }` for an unlisted model and for any OpenAI-compatible provider, and MUST NOT call `/api/generate`, `/api/chat` or `/api/embed`.\"? Demand evidence of (a) the production code (file:line), (b) the test(s) that exercise this AC end-to-end through the real producer path, and (c) confirmation the tests are not pure mock-spy proxies (assertions are on observable output, not on call counts alone)."
+    },
+    {
+      "question_id": "VQ-S1-012",
+      "phase": "pre-impl",
+      "category": "SPEC",
+      "ac_id": "AC-CTX-6",
+      "question": "Does the implementation satisfy AC-CTX-6: \"The OpenAI-compatible request body built by `server/openai-client.ts` MUST contain `stream_options.include_usage === true` and MUST NOT contain `num_ctx`.\"? Demand evidence of (a) the production code (file:line), (b) the test(s) that exercise this AC end-to-end through the real producer path, and (c) confirmation the tests are not pure mock-spy proxies (assertions are on observable output, not on call counts alone)."
+    },
+    {
+      "question_id": "VQ-S1-013",
+      "phase": "pre-impl",
+      "category": "SPEC",
+      "ac_id": "AC-CTX-7",
+      "question": "Does the implementation satisfy AC-CTX-7: \"`buildOllamaChatBody` MUST NOT set `options.num_ctx` for any `chat.send`, and no UI control MUST set or display the window size.\"? Demand evidence of (a) the production code (file:line), (b) the test(s) that exercise this AC end-to-end through the real producer path, and (c) confirmation the tests are not pure mock-spy proxies (assertions are on observable output, not on call counts alone)."
+    },
+    {
+      "question_id": "VQ-S1-014",
+      "phase": "pre-impl",
+      "category": "SPEC",
+      "ac_id": "AC-CTX-8",
+      "question": "Does the implementation satisfy AC-CTX-8: \"`computeContextFill` MUST return `{ unknown: true }` for a step list that contains an `assistant` step but no step with `usage`.\"? Demand evidence of (a) the production code (file:line), (b) the test(s) that exercise this AC end-to-end through the real producer path, and (c) confirmation the tests are not pure mock-spy proxies (assertions are on observable output, not on call counts alone)."
+    },
+    {
+      "question_id": "VQ-S1-015",
+      "phase": "pre-impl",
+      "category": "SPEC",
+      "ac_id": "AC-CTX-9",
+      "question": "Does the implementation satisfy AC-CTX-9: \"`validateChatRequest` MUST reject a `chat.send` whose `contextWindow` is present but not a positive integer, whose `contextWindowSource` is present but not one of `runtime`, `modelfile`, `estimated`, `assumed`, or whose `modelFamily` is present but empty.\"? Demand evidence of (a) the production code (file:line), (b) the test(s) that exercise this AC end-to-end through the real producer path, and (c) confirmation the tests are not pure mock-spy proxies (assertions are on observable output, not on call counts alone)."
+    },
+    {
+      "question_id": "VQ-S1-016",
+      "phase": "post-impl",
+      "category": "QUALITY",
+      "question": "Does `recordRuntimeWindow` remember only live windows (source runtime, no stale) and return the same record reference when nothing changes, so `useSidebarState.rememberContextWindow` never persists a stale/estimated/assumed value as if it were observed? See src/lib/context-window.ts, src/lib/use-sidebar-state.ts; tests in tests/unit/context-window.test.ts and tests/unit/use-sidebar-state.test.tsx."
+    },
+    {
+      "question_id": "VQ-S1-017",
+      "phase": "post-impl",
+      "category": "SECURITY",
+      "question": "Is `fetchOllamaRuntime` (server/ollama-client.ts) defensive against a malformed `/api/ps` body (non-array `models`, non-object entries, missing/zero/fractional/string `context_length`) and does it match untagged model names to `:latest` entries only? Evidence: tests/integration/models-runtime.test.ts 'fetchOllamaRuntime parsing'."
+    },
+    {
+      "question_id": "VQ-S1-018",
+      "phase": "post-impl",
+      "category": "SPEC",
+      "question": "Does `loadSidebarState` sanitise `rememberedContextWindows` (drops non-positive-integer entries, non-object values) while still merging defaults for preferences stored before this field existed? Evidence: src/lib/chat.ts sanitizeRememberedWindows; tests/unit/use-sidebar-state.test.tsx and tests/unit/chat.test.ts."
+    },
+    {
+      "question_id": "VQ-S1-019",
+      "phase": "post-impl",
+      "category": "SPEC",
+      "question": "computeContextFill treats a step whose usage lacks both inputTokens and outputTokens (e.g. OpenAI client's stopReason-only usage when the provider reports no counts) as NOT carrying usage, so the fill is `unknown` rather than 0. Is this consistent with AC-CTX-8 and the Terminology definition of fill? Evidence: tests/unit/context-window.test.ts."
+    }
+  ]
+}

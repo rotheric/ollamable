@@ -1,0 +1,58 @@
+{
+  "module_name": "meter-ui",
+  "purpose": "Toggleable context meter: presents tokens used and percentage of the resolved context window with provenance labels; resolves the window in a hook and refreshes it after each chat.done.",
+  "public_api": [
+    {
+      "name": "ContextMeter",
+      "signature": "(props: { fill: ContextFill | undefined; window: Pick<ResolvedContextWindow,'source'|'stale'> | undefined; wide: boolean }) => JSX.Element",
+      "description": "Presentational. data-testid=context-meter, data-level ok|warn|error (absent while unknown/loading). Renders '<n> tokens \u00b7 <p>%', '\u2014' when unknown, provenance word for estimated/assumed/stale. Never renders the window size."
+    },
+    {
+      "name": "useContextWindow",
+      "signature": "(deps: { enabled: boolean; conversation: Conversation|null|undefined; model: OllamaModel|undefined; remembered: Record<string,number>; rememberContextWindow: (provider, model, resolved) => void; completedCount: number }) => { window: ResolvedContextWindow|undefined; fill: ContextFill|undefined }",
+      "description": "Fetches /models/runtime (then metadata once per model, only when runtime reports metadata) when enabled, on model change and after each chat.done; resolves via resolveContextWindow; calls rememberContextWindow after every resolve; discards superseded responses."
+    },
+    {
+      "name": "SidebarState.showContextMeter",
+      "signature": "boolean (default false)",
+      "description": "Persisted preference, toggled by a 'Show context meter' row in the Client settings section."
+    },
+    {
+      "name": "useChatGeneration().completedCount",
+      "signature": "number",
+      "description": "Incremented once per generation that ends in chat.done."
+    }
+  ],
+  "private_files": [],
+  "owned_data": [
+    "showContextMeter preference"
+  ],
+  "dependencies_allowed": [
+    "context-window",
+    "context-usage",
+    "sidebar-prefs",
+    "backend-http-client",
+    "layout"
+  ],
+  "dependencies_forbidden": [
+    "server/**"
+  ],
+  "external_ports": [
+    "POST /models/runtime",
+    "POST /models/show (only when runtime.metadata)"
+  ],
+  "events_emitted": [],
+  "events_consumed": [
+    "chat.done (via useChatGeneration completedCount)"
+  ],
+  "test_targets": [
+    "tests/unit/context-meter.test.tsx",
+    "tests/unit/use-context-window.test.tsx",
+    "tests/unit/chat-workspace-context-meter.test.tsx"
+  ],
+  "seam": {
+    "consumes": "S-WINDOW",
+    "cross_story": false,
+    "consumed_by": []
+  }
+}

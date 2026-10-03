@@ -1,0 +1,2449 @@
+{
+  "epic_name": "compaction-tool",
+  "status": "done",
+  "phase": "COMPLETE",
+  "created_at": "2026-10-02T10:21:02Z",
+  "updated_at": "2026-10-02T18:06:56Z",
+  "pre_existing_dirty_files": [
+    ".claude/settings.json",
+    "specs/epic-compaction-tool/acceptance-criteria.md",
+    "specs/epic-compaction-tool/spec.md",
+    "specs/epic-frontend-architecture-maintainability/acceptance-criteria.md",
+    "specs/epic-frontend-architecture-maintainability/spec.md"
+  ],
+  "completed_stories": [
+    "S1",
+    "S2",
+    "S3",
+    "S4",
+    "S5",
+    "S6",
+    "S7",
+    "S8"
+  ],
+  "escalated_stories": [],
+  "phase_history": [
+    {
+      "phase": "SPEC_VALIDATED",
+      "timestamp": "2026-10-02T10:21:02Z",
+      "trigger": "validation_passed"
+    },
+    {
+      "phase": "IMPLEMENTING",
+      "timestamp": "2026-10-02T10:27:54Z",
+      "trigger": "planning_complete"
+    },
+    {
+      "phase": "COMPLETE",
+      "timestamp": "2026-10-02T18:06:56Z",
+      "trigger": "all_stories_done_interlock_clear"
+    }
+  ],
+  "plugin_sha": "unknown",
+  "consumer_sha": "86b12a08e0004f3d3c02e2bc339d7e323d55a5fe",
+  "models": {
+    "lead": "opus",
+    "examiner": "haiku",
+    "implementer": "sonnet"
+  },
+  "gate_runs": [
+    {
+      "gate_id": "spec_adversary_review",
+      "outcome": "fired_remediated"
+    },
+    {
+      "gate_id": "mutation",
+      "outcome": "fired_remediated",
+      "detail": "Epic-introduced real gaps closed (~110 tests); 5 FR-B1 order-sensitive modules remediated on user request (100 tests; all now passed, residuals equivalent/side-effect-only); 14 other modules ACCEPTed by Decider as pre-existing residuals (mutation_gate_residuals)."
+    },
+    {
+      "gate_id": "e2e",
+      "outcome": "fired_remediated",
+      "detail": "1 flaky Playwright test (app.spec.ts persists-conversations: reloaded before the streamed answer was persisted) fixed test-only; 52/52 pass in an isolated copy; other release-gate stages green"
+    },
+    {
+      "gate_id": "pre_commit_review",
+      "outcome": "fired_remediated",
+      "detail": "Opus (resumable) 6 structural findings fixed (doc drift x4, single harness-step parser, single context-window source list); Codex clean",
+      "structural_findings": {
+        "surfaced": 6,
+        "acted": 6,
+        "disclosed_unacted": 0
+      }
+    }
+  ],
+  "ownership_ledger_path": "ownership-ledger.json",
+  "reviewer_agent_id": "a98f0c6ae58d1ed70",
+  "manual_validation": [
+    {
+      "ac_id": "MV-1",
+      "status": "satisfied",
+      "owner": "Markus",
+      "blocked_on": "AC-RES-3",
+      "evidence": "User reviewed and accepted the recorded probe findings in docs/research/compaction-placement.md (Ollama 0.30.8) on 2026-10-02.",
+      "updated_at": "2026-10-02T15:44:06Z"
+    }
+  ],
+  "ac_closure": [
+    {
+      "ac_id": "AC-CTX-1",
+      "status": "met",
+      "evidence": "Verified YES by verification examiners for S1 (behavioral tests through real producer paths); unit 640 / integration 430 green; release gate green.",
+      "closure_basis": "evidence"
+    },
+    {
+      "ac_id": "AC-CTX-2",
+      "status": "met",
+      "evidence": "Verified YES by verification examiners for S1 (behavioral tests through real producer paths); unit 640 / integration 430 green; release gate green.",
+      "closure_basis": "evidence"
+    },
+    {
+      "ac_id": "AC-CTX-3",
+      "status": "met",
+      "evidence": "Verified YES by verification examiners for S1 (behavioral tests through real producer paths); unit 640 / integration 430 green; release gate green.",
+      "closure_basis": "evidence"
+    },
+    {
+      "ac_id": "AC-CTX-4",
+      "status": "met",
+      "evidence": "Verified YES by verification examiners for S1 (behavioral tests through real producer paths); unit 640 / integration 430 green; release gate green.",
+      "closure_basis": "evidence"
+    },
+    {
+      "ac_id": "AC-CTX-5",
+      "status": "met",
+      "evidence": "Verified YES by verification examiners for S1 (behavioral tests through real producer paths); unit 640 / integration 430 green; release gate green.",
+      "closure_basis": "evidence"
+    },
+    {
+      "ac_id": "AC-CTX-6",
+      "status": "met",
+      "evidence": "Verified YES by verification examiners for S1 (behavioral tests through real producer paths); unit 640 / integration 430 green; release gate green.",
+      "closure_basis": "evidence"
+    },
+    {
+      "ac_id": "AC-CTX-7",
+      "status": "met",
+      "evidence": "Verified YES by verification examiners for S1 (behavioral tests through real producer paths); unit 640 / integration 430 green; release gate green.",
+      "closure_basis": "evidence"
+    },
+    {
+      "ac_id": "AC-CTX-8",
+      "status": "met",
+      "evidence": "Verified YES by verification examiners for S1 (behavioral tests through real producer paths); unit 640 / integration 430 green; release gate green. Amended 2026-10-02 (decision B); amended behaviour covered by new tests that fail under the old rule.",
+      "closure_basis": "evidence"
+    },
+    {
+      "ac_id": "AC-CTX-9",
+      "status": "met",
+      "evidence": "Verified YES by verification examiners for S1 (behavioral tests through real producer paths); unit 640 / integration 430 green; release gate green.",
+      "closure_basis": "evidence"
+    },
+    {
+      "ac_id": "AC-UX-1",
+      "status": "met",
+      "evidence": "Verified YES by verification examiners for S2 (behavioral tests through real producer paths); unit 640 / integration 430 green; release gate green.",
+      "closure_basis": "evidence"
+    },
+    {
+      "ac_id": "AC-UX-2",
+      "status": "met",
+      "evidence": "Verified YES by verification examiners for S2 (behavioral tests through real producer paths); unit 640 / integration 430 green; release gate green.",
+      "closure_basis": "evidence"
+    },
+    {
+      "ac_id": "AC-UX-3",
+      "status": "met",
+      "evidence": "Verified YES by verification examiners for S2 (behavioral tests through real producer paths); unit 640 / integration 430 green; release gate green. Amended 2026-10-02 (decision B); amended behaviour covered by new tests that fail under the old rule.",
+      "closure_basis": "evidence"
+    },
+    {
+      "ac_id": "AC-UX-4",
+      "status": "met",
+      "evidence": "Verified YES by verification examiners for S2 (behavioral tests through real producer paths); unit 640 / integration 430 green; release gate green.",
+      "closure_basis": "evidence"
+    },
+    {
+      "ac_id": "AC-UX-5",
+      "status": "met",
+      "evidence": "Verified YES by verification examiners for S2 (behavioral tests through real producer paths); unit 640 / integration 430 green; release gate green.",
+      "closure_basis": "evidence"
+    },
+    {
+      "ac_id": "AC-UX-7",
+      "status": "met",
+      "evidence": "Verified YES by verification examiners for S2 (behavioral tests through real producer paths); unit 640 / integration 430 green; release gate green.",
+      "closure_basis": "evidence"
+    },
+    {
+      "ac_id": "AC-UX-6",
+      "status": "met",
+      "evidence": "Verified YES by verification examiners for S2 (behavioral tests through real producer paths); unit 640 / integration 430 green; release gate green.",
+      "closure_basis": "evidence"
+    },
+    {
+      "ac_id": "AC-RES-1",
+      "status": "met",
+      "evidence": "Verified YES by S3 examiners; document structure asserted by tests/unit/context-placement-decision.test.ts; findings content covered by MV-1 (satisfied).",
+      "closure_basis": "evidence"
+    },
+    {
+      "ac_id": "AC-RES-2",
+      "status": "met",
+      "evidence": "Verified YES by S3 examiners; document structure asserted by tests/unit/context-placement-decision.test.ts; findings content covered by MV-1 (satisfied).",
+      "closure_basis": "evidence"
+    },
+    {
+      "ac_id": "AC-RES-3",
+      "status": "met",
+      "evidence": "Verified YES by S3 examiners; document structure asserted by tests/unit/context-placement-decision.test.ts; findings content covered by MV-1 (satisfied).",
+      "closure_basis": "evidence"
+    },
+    {
+      "ac_id": "AC-RES-4",
+      "status": "met",
+      "evidence": "Verified YES by S3 examiners; document structure asserted by tests/unit/context-placement-decision.test.ts; findings content covered by MV-1 (satisfied).",
+      "closure_basis": "evidence"
+    },
+    {
+      "ac_id": "AC-NOTE-1",
+      "status": "met",
+      "evidence": "Verified YES by verification examiners for S4 (behavioral tests through real producer paths); unit 640 / integration 430 green; release gate green.",
+      "closure_basis": "evidence"
+    },
+    {
+      "ac_id": "AC-NOTE-2",
+      "status": "met",
+      "evidence": "Verified YES by verification examiners for S4 (behavioral tests through real producer paths); unit 640 / integration 430 green; release gate green. Amended 2026-10-02 (decision B); amended behaviour covered by new tests that fail under the old rule.",
+      "closure_basis": "evidence"
+    },
+    {
+      "ac_id": "AC-NOTE-7",
+      "status": "met",
+      "evidence": "Verified YES by verification examiners for S4 (behavioral tests through real producer paths); unit 640 / integration 430 green; release gate green.",
+      "closure_basis": "evidence"
+    },
+    {
+      "ac_id": "AC-NOTE-3",
+      "status": "met",
+      "evidence": "Verified YES by verification examiners for S4 (behavioral tests through real producer paths); unit 640 / integration 430 green; release gate green.",
+      "closure_basis": "evidence"
+    },
+    {
+      "ac_id": "AC-NOTE-4",
+      "status": "met",
+      "evidence": "Verified YES by verification examiners for S4 (behavioral tests through real producer paths); unit 640 / integration 430 green; release gate green.",
+      "closure_basis": "evidence"
+    },
+    {
+      "ac_id": "AC-NOTE-5",
+      "status": "met",
+      "evidence": "Verified YES by verification examiners for S4 (behavioral tests through real producer paths); unit 640 / integration 430 green; release gate green. Amended 2026-10-02 (decision B); amended behaviour covered by new tests that fail under the old rule.",
+      "closure_basis": "evidence"
+    },
+    {
+      "ac_id": "AC-NOTE-6",
+      "status": "met",
+      "evidence": "Verified YES by verification examiners for S4 (behavioral tests through real producer paths); unit 640 / integration 430 green; release gate green.",
+      "closure_basis": "evidence"
+    },
+    {
+      "ac_id": "AC-NOTE-8",
+      "status": "met",
+      "evidence": "Verified YES by verification examiners for S4 (behavioral tests through real producer paths); unit 640 / integration 430 green; release gate green.",
+      "closure_basis": "evidence"
+    },
+    {
+      "ac_id": "AC-NOTE-9",
+      "status": "met",
+      "evidence": "Verified YES by verification examiners for S4 (behavioral tests through real producer paths); unit 640 / integration 430 green; release gate green.",
+      "closure_basis": "evidence"
+    },
+    {
+      "ac_id": "AC-TOOL-1",
+      "status": "met",
+      "evidence": "Verified YES by verification examiners for S5 (behavioral tests through real producer paths); unit 640 / integration 430 green; release gate green.",
+      "closure_basis": "evidence"
+    },
+    {
+      "ac_id": "AC-TOOL-2",
+      "status": "met",
+      "evidence": "Verified YES by verification examiners for S5 (behavioral tests through real producer paths); unit 640 / integration 430 green; release gate green.",
+      "closure_basis": "evidence"
+    },
+    {
+      "ac_id": "AC-TOOL-3",
+      "status": "met",
+      "evidence": "Verified YES by verification examiners for S5, S8 (behavioral tests through real producer paths); unit 640 / integration 430 green; release gate green.",
+      "closure_basis": "evidence"
+    },
+    {
+      "ac_id": "AC-TOOL-5",
+      "status": "met",
+      "evidence": "Verified YES by verification examiners for S5 (behavioral tests through real producer paths); unit 640 / integration 430 green; release gate green.",
+      "closure_basis": "evidence"
+    },
+    {
+      "ac_id": "AC-TOOL-6",
+      "status": "met",
+      "evidence": "Verified YES by verification examiners for S5 (behavioral tests through real producer paths); unit 640 / integration 430 green; release gate green.",
+      "closure_basis": "evidence"
+    },
+    {
+      "ac_id": "AC-TOOL-7",
+      "status": "met",
+      "evidence": "Verified YES by verification examiners for S5 (behavioral tests through real producer paths); unit 640 / integration 430 green; release gate green.",
+      "closure_basis": "evidence"
+    },
+    {
+      "ac_id": "AC-TOOL-8",
+      "status": "met",
+      "evidence": "Verified YES by verification examiners for S5 (behavioral tests through real producer paths); unit 640 / integration 430 green; release gate green.",
+      "closure_basis": "evidence"
+    },
+    {
+      "ac_id": "AC-FORK-1",
+      "status": "met",
+      "evidence": "Verified YES by verification examiners for S6 (behavioral tests through real producer paths); unit 640 / integration 430 green; release gate green.",
+      "closure_basis": "evidence"
+    },
+    {
+      "ac_id": "AC-FORK-2",
+      "status": "met",
+      "evidence": "Verified YES by verification examiners for S6 (behavioral tests through real producer paths); unit 640 / integration 430 green; release gate green.",
+      "closure_basis": "evidence"
+    },
+    {
+      "ac_id": "AC-FORK-3",
+      "status": "met",
+      "evidence": "Verified YES by verification examiners for S6 (behavioral tests through real producer paths); unit 640 / integration 430 green; release gate green.",
+      "closure_basis": "evidence"
+    },
+    {
+      "ac_id": "AC-FORK-4",
+      "status": "met",
+      "evidence": "Verified YES by verification examiners for S6, S8 (behavioral tests through real producer paths); unit 640 / integration 430 green; release gate green.",
+      "closure_basis": "evidence"
+    },
+    {
+      "ac_id": "AC-FORK-5",
+      "status": "met",
+      "evidence": "Verified YES by verification examiners for S6 (behavioral tests through real producer paths); unit 640 / integration 430 green; release gate green.",
+      "closure_basis": "evidence"
+    },
+    {
+      "ac_id": "AC-FORK-6",
+      "status": "met",
+      "evidence": "Verified YES by verification examiners for S6, S8 (behavioral tests through real producer paths); unit 640 / integration 430 green; release gate green.",
+      "closure_basis": "evidence"
+    },
+    {
+      "ac_id": "AC-FORK-7",
+      "status": "met",
+      "evidence": "Verified YES by verification examiners for S6, S8 (behavioral tests through real producer paths); unit 640 / integration 430 green; release gate green.",
+      "closure_basis": "evidence"
+    },
+    {
+      "ac_id": "AC-FORK-8",
+      "status": "met",
+      "evidence": "Verified YES by verification examiners for S6 (behavioral tests through real producer paths); unit 640 / integration 430 green; release gate green.",
+      "closure_basis": "evidence"
+    },
+    {
+      "ac_id": "AC-FORK-9",
+      "status": "met",
+      "evidence": "Verified YES by verification examiners for S6 (behavioral tests through real producer paths); unit 640 / integration 430 green; release gate green.",
+      "closure_basis": "evidence"
+    },
+    {
+      "ac_id": "AC-FORK-10",
+      "status": "met",
+      "evidence": "Verified YES by verification examiners for S6 (behavioral tests through real producer paths); unit 640 / integration 430 green; release gate green.",
+      "closure_basis": "evidence"
+    },
+    {
+      "ac_id": "AC-FORK-11",
+      "status": "met",
+      "evidence": "Verified YES by verification examiners for S6 (behavioral tests through real producer paths); unit 640 / integration 430 green; release gate green.",
+      "closure_basis": "evidence"
+    },
+    {
+      "ac_id": "AC-FORK-12",
+      "status": "met",
+      "evidence": "Verified YES by verification examiners for S6 (behavioral tests through real producer paths); unit 640 / integration 430 green; release gate green.",
+      "closure_basis": "evidence"
+    },
+    {
+      "ac_id": "AC-FORK-13",
+      "status": "met",
+      "evidence": "Verified YES by verification examiners for S8 (behavioral tests through real producer paths); unit 640 / integration 430 green; release gate green.",
+      "closure_basis": "evidence"
+    },
+    {
+      "ac_id": "AC-FORK-14",
+      "status": "met",
+      "evidence": "Verified YES by verification examiners for S8 (behavioral tests through real producer paths); unit 640 / integration 430 green; release gate green.",
+      "closure_basis": "evidence"
+    },
+    {
+      "ac_id": "AC-STRUCT-1",
+      "status": "met",
+      "evidence": "Verified YES by verification examiners for S6 (behavioral tests through real producer paths); unit 640 / integration 430 green; release gate green.",
+      "closure_basis": "evidence"
+    },
+    {
+      "ac_id": "AC-STRUCT-2",
+      "status": "met",
+      "evidence": "Verified YES by verification examiners for S2 (behavioral tests through real producer paths); unit 640 / integration 430 green; release gate green.",
+      "closure_basis": "evidence"
+    },
+    {
+      "ac_id": "AC-STRUCT-3",
+      "status": "met",
+      "evidence": "npm run lint, unit and integration suites and the full release gate (scripts/run-checks.mjs incl. next build + 52 Playwright tests) pass in an isolated copy.",
+      "closure_basis": "evidence"
+    },
+    {
+      "ac_id": "AC-STRUCT-4",
+      "status": "met",
+      "evidence": "Verified YES by verification examiners for S7 (behavioral tests through real producer paths); unit 640 / integration 430 green; release gate green.",
+      "closure_basis": "evidence"
+    },
+    {
+      "ac_id": "AC-STRUCT-5",
+      "status": "met",
+      "evidence": "Verified YES by verification examiners for S7, S8 (behavioral tests through real producer paths); unit 640 / integration 430 green; release gate green.",
+      "closure_basis": "evidence"
+    },
+    {
+      "ac_id": "AC-STRUCT-6",
+      "status": "met",
+      "evidence": "Verified YES by verification examiners for S7, S8 (behavioral tests through real producer paths); unit 640 / integration 430 green; release gate green.",
+      "closure_basis": "evidence"
+    }
+  ],
+  "completed_at": "2026-10-02T18:06:56Z",
+  "mutation_gate_residuals": [
+    {
+      "module": "server/llm-router.ts",
+      "residuals": [
+        {
+          "file": "server/llm-router.ts",
+          "line": 21,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 1 mutant(s) - StringLiteral"
+        },
+        {
+          "file": "server/llm-router.ts",
+          "line": 27,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 4 mutant(s) - ConditionalExpression, LogicalOperator, StringLiteral"
+        },
+        {
+          "file": "server/llm-router.ts",
+          "line": 28,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 1 mutant(s) - StringLiteral"
+        },
+        {
+          "file": "server/llm-router.ts",
+          "line": 67,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 1 mutant(s) - ConditionalExpression"
+        },
+        {
+          "file": "server/llm-router.ts",
+          "line": 70,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 1 mutant(s) - ArrayDeclaration"
+        },
+        {
+          "file": "server/llm-router.ts",
+          "line": 116,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 1 mutant(s) - ConditionalExpression"
+        },
+        {
+          "file": "server/llm-router.ts",
+          "line": 130,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 1 mutant(s) - StringLiteral"
+        },
+        {
+          "file": "server/llm-router.ts",
+          "line": 140,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 2 mutant(s) - BlockStatement, ConditionalExpression"
+        },
+        {
+          "file": "server/llm-router.ts",
+          "line": 142,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 1 mutant(s) - StringLiteral"
+        },
+        {
+          "file": "server/llm-router.ts",
+          "line": 183,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 1 mutant(s) - StringLiteral"
+        },
+        {
+          "file": "server/llm-router.ts",
+          "line": 216,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 1 mutant(s) - ObjectLiteral"
+        },
+        {
+          "file": "server/llm-router.ts",
+          "line": 217,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 2 mutant(s) - BlockStatement, ConditionalExpression"
+        },
+        {
+          "file": "server/llm-router.ts",
+          "line": 218,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 1 mutant(s) - StringLiteral"
+        },
+        {
+          "file": "server/llm-router.ts",
+          "line": 235,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 1 mutant(s) - ArrayDeclaration"
+        },
+        {
+          "file": "server/llm-router.ts",
+          "line": 239,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 1 mutant(s) - ArrowFunction"
+        },
+        {
+          "file": "server/llm-router.ts",
+          "line": 243,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 1 mutant(s) - CallExpression"
+        },
+        {
+          "file": "server/llm-router.ts",
+          "line": 245,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 4 mutant(s) - ConditionalExpression, EqualityOperator, StringLiteral"
+        },
+        {
+          "file": "server/llm-router.ts",
+          "line": 267,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 4 mutant(s) - ConditionalExpression, EqualityOperator, LogicalOperator"
+        },
+        {
+          "file": "server/llm-router.ts",
+          "line": 279,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 1 mutant(s) - BlockStatement"
+        },
+        {
+          "file": "server/llm-router.ts",
+          "line": 280,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 1 mutant(s) - CallExpression"
+        },
+        {
+          "file": "server/llm-router.ts",
+          "line": 281,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 1 mutant(s) - ObjectLiteral"
+        }
+      ],
+      "note": "pre-existing, not introduced by epic-compaction-tool; classification carried over (untriaged in this gate run); Decider ACCEPT 2026-10-03"
+    },
+    {
+      "module": "server/ollama-client.ts",
+      "residuals": [
+        {
+          "file": "server/ollama-client.ts",
+          "line": 39,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 1 mutant(s) - BooleanLiteral"
+        },
+        {
+          "file": "server/ollama-client.ts",
+          "line": 71,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 1 mutant(s) - StringLiteral"
+        },
+        {
+          "file": "server/ollama-client.ts",
+          "line": 72,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 2 mutant(s) - ObjectLiteral, StringLiteral"
+        },
+        {
+          "file": "server/ollama-client.ts",
+          "line": 127,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 1 mutant(s) - ConditionalExpression"
+        },
+        {
+          "file": "server/ollama-client.ts",
+          "line": 128,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 1 mutant(s) - ConditionalExpression"
+        },
+        {
+          "file": "server/ollama-client.ts",
+          "line": 134,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 1 mutant(s) - ConditionalExpression"
+        },
+        {
+          "file": "server/ollama-client.ts",
+          "line": 145,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 1 mutant(s) - StringLiteral"
+        },
+        {
+          "file": "server/ollama-client.ts",
+          "line": 152,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 2 mutant(s) - ConditionalExpression, EqualityOperator"
+        },
+        {
+          "file": "server/ollama-client.ts",
+          "line": 170,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 1 mutant(s) - BooleanLiteral"
+        },
+        {
+          "file": "server/ollama-client.ts",
+          "line": 171,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 2 mutant(s) - ObjectLiteral, StringLiteral"
+        },
+        {
+          "file": "server/ollama-client.ts",
+          "line": 172,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 1 mutant(s) - StringLiteral"
+        },
+        {
+          "file": "server/ollama-client.ts",
+          "line": 173,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 2 mutant(s) - ObjectLiteral, StringLiteral"
+        },
+        {
+          "file": "server/ollama-client.ts",
+          "line": 178,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 3 mutant(s) - BlockStatement, ConditionalExpression, LogicalOperator"
+        },
+        {
+          "file": "server/ollama-client.ts",
+          "line": 179,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 1 mutant(s) - StringLiteral"
+        },
+        {
+          "file": "server/ollama-client.ts",
+          "line": 185,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 1 mutant(s) - StringLiteral"
+        },
+        {
+          "file": "server/ollama-client.ts",
+          "line": 195,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 1 mutant(s) - StringLiteral"
+        },
+        {
+          "file": "server/ollama-client.ts",
+          "line": 199,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 1 mutant(s) - ConditionalExpression"
+        },
+        {
+          "file": "server/ollama-client.ts",
+          "line": 204,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 2 mutant(s) - ConditionalExpression, MethodExpression"
+        },
+        {
+          "file": "server/ollama-client.ts",
+          "line": 206,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 2 mutant(s) - ConditionalExpression"
+        },
+        {
+          "file": "server/ollama-client.ts",
+          "line": 207,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 2 mutant(s) - ConditionalExpression"
+        },
+        {
+          "file": "server/ollama-client.ts",
+          "line": 220,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 1 mutant(s) - MethodExpression"
+        },
+        {
+          "file": "server/ollama-client.ts",
+          "line": 221,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 3 mutant(s) - BooleanLiteral, ConditionalExpression, ObjectLiteral"
+        },
+        {
+          "file": "server/ollama-client.ts",
+          "line": 232,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 1 mutant(s) - StringLiteral"
+        },
+        {
+          "file": "server/ollama-client.ts",
+          "line": 239,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 1 mutant(s) - OptionalChaining"
+        },
+        {
+          "file": "server/ollama-client.ts",
+          "line": 240,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 2 mutant(s) - StringLiteral"
+        },
+        {
+          "file": "server/ollama-client.ts",
+          "line": 242,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 1 mutant(s) - OptionalChaining"
+        },
+        {
+          "file": "server/ollama-client.ts",
+          "line": 247,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 2 mutant(s) - OptionalChaining"
+        },
+        {
+          "file": "server/ollama-client.ts",
+          "line": 248,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 1 mutant(s) - OptionalChaining"
+        },
+        {
+          "file": "server/ollama-client.ts",
+          "line": 249,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 1 mutant(s) - OptionalChaining"
+        },
+        {
+          "file": "server/ollama-client.ts",
+          "line": 258,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 8 mutant(s) - ConditionalExpression, EqualityOperator, LogicalOperator"
+        },
+        {
+          "file": "server/ollama-client.ts",
+          "line": 260,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 1 mutant(s) - ConditionalExpression"
+        },
+        {
+          "file": "server/ollama-client.ts",
+          "line": 261,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 1 mutant(s) - ConditionalExpression"
+        },
+        {
+          "file": "server/ollama-client.ts",
+          "line": 266,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 1 mutant(s) - CallExpression"
+        },
+        {
+          "file": "server/ollama-client.ts",
+          "line": 270,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 1 mutant(s) - CallExpression"
+        },
+        {
+          "file": "server/ollama-client.ts",
+          "line": 280,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 1 mutant(s) - MethodExpression"
+        },
+        {
+          "file": "server/ollama-client.ts",
+          "line": 292,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 3 mutant(s) - LogicalOperator, StringLiteral"
+        },
+        {
+          "file": "server/ollama-client.ts",
+          "line": 296,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 2 mutant(s) - ConditionalExpression, StringLiteral"
+        },
+        {
+          "file": "server/ollama-client.ts",
+          "line": 297,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 1 mutant(s) - MethodExpression"
+        },
+        {
+          "file": "server/ollama-client.ts",
+          "line": 313,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 1 mutant(s) - ConditionalExpression"
+        }
+      ],
+      "note": "pre-existing, not introduced by epic-compaction-tool; classification carried over (untriaged in this gate run); Decider ACCEPT 2026-10-03"
+    },
+    {
+      "module": "server/openai-client.ts",
+      "residuals": [
+        {
+          "file": "server/openai-client.ts",
+          "line": 59,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 1 mutant(s) - BooleanLiteral"
+        },
+        {
+          "file": "server/openai-client.ts",
+          "line": 75,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 1 mutant(s) - StringLiteral"
+        },
+        {
+          "file": "server/openai-client.ts",
+          "line": 77,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 1 mutant(s) - ObjectLiteral"
+        },
+        {
+          "file": "server/openai-client.ts",
+          "line": 78,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 2 mutant(s) - ObjectLiteral, StringLiteral"
+        },
+        {
+          "file": "server/openai-client.ts",
+          "line": 82,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 4 mutant(s) - BlockStatement, BooleanLiteral, ConditionalExpression"
+        },
+        {
+          "file": "server/openai-client.ts",
+          "line": 84,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 1 mutant(s) - StringLiteral"
+        },
+        {
+          "file": "server/openai-client.ts",
+          "line": 89,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 2 mutant(s) - ArrowFunction, ObjectLiteral"
+        },
+        {
+          "file": "server/openai-client.ts",
+          "line": 116,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 5 mutant(s) - BlockStatement, ConditionalExpression, EqualityOperator"
+        },
+        {
+          "file": "server/openai-client.ts",
+          "line": 117,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 2 mutant(s) - ArrowFunction, ObjectLiteral"
+        },
+        {
+          "file": "server/openai-client.ts",
+          "line": 118,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 1 mutant(s) - StringLiteral"
+        },
+        {
+          "file": "server/openai-client.ts",
+          "line": 119,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 1 mutant(s) - ObjectLiteral"
+        },
+        {
+          "file": "server/openai-client.ts",
+          "line": 127,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 4 mutant(s) - BlockStatement, ConditionalExpression, EqualityOperator"
+        },
+        {
+          "file": "server/openai-client.ts",
+          "line": 131,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 4 mutant(s) - BlockStatement, ConditionalExpression, EqualityOperator"
+        },
+        {
+          "file": "server/openai-client.ts",
+          "line": 135,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 4 mutant(s) - BlockStatement, ConditionalExpression, EqualityOperator"
+        },
+        {
+          "file": "server/openai-client.ts",
+          "line": 137,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 5 mutant(s) - ConditionalExpression, EqualityOperator, StringLiteral"
+        },
+        {
+          "file": "server/openai-client.ts",
+          "line": 140,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 1 mutant(s) - StringLiteral"
+        },
+        {
+          "file": "server/openai-client.ts",
+          "line": 141,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 1 mutant(s) - StringLiteral"
+        },
+        {
+          "file": "server/openai-client.ts",
+          "line": 142,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 1 mutant(s) - ObjectLiteral"
+        },
+        {
+          "file": "server/openai-client.ts",
+          "line": 143,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 1 mutant(s) - StringLiteral"
+        },
+        {
+          "file": "server/openai-client.ts",
+          "line": 144,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 2 mutant(s) - ObjectLiteral, StringLiteral"
+        },
+        {
+          "file": "server/openai-client.ts",
+          "line": 150,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 3 mutant(s) - BlockStatement, ConditionalExpression, LogicalOperator"
+        },
+        {
+          "file": "server/openai-client.ts",
+          "line": 151,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 1 mutant(s) - StringLiteral"
+        },
+        {
+          "file": "server/openai-client.ts",
+          "line": 158,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 1 mutant(s) - StringLiteral"
+        },
+        {
+          "file": "server/openai-client.ts",
+          "line": 159,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 1 mutant(s) - StringLiteral"
+        },
+        {
+          "file": "server/openai-client.ts",
+          "line": 180,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 1 mutant(s) - StringLiteral"
+        },
+        {
+          "file": "server/openai-client.ts",
+          "line": 204,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 4 mutant(s) - BlockStatement, ConditionalExpression, MethodExpression"
+        },
+        {
+          "file": "server/openai-client.ts",
+          "line": 205,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 2 mutant(s) - BlockStatement, StringLiteral"
+        },
+        {
+          "file": "server/openai-client.ts",
+          "line": 213,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 1 mutant(s) - BlockStatement"
+        },
+        {
+          "file": "server/openai-client.ts",
+          "line": 214,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 1 mutant(s) - BlockStatement"
+        },
+        {
+          "file": "server/openai-client.ts",
+          "line": 221,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 1 mutant(s) - StringLiteral"
+        },
+        {
+          "file": "server/openai-client.ts",
+          "line": 226,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 2 mutant(s) - ConditionalExpression, LogicalOperator"
+        },
+        {
+          "file": "server/openai-client.ts",
+          "line": 228,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 2 mutant(s) - ConditionalExpression, OptionalChaining"
+        },
+        {
+          "file": "server/openai-client.ts",
+          "line": 231,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 2 mutant(s) - ConditionalExpression, OptionalChaining"
+        },
+        {
+          "file": "server/openai-client.ts",
+          "line": 256,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 1 mutant(s) - EqualityOperator"
+        },
+        {
+          "file": "server/openai-client.ts",
+          "line": 267,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 1 mutant(s) - ArithmeticOperator"
+        },
+        {
+          "file": "server/openai-client.ts",
+          "line": 268,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 3 mutant(s) - ConditionalExpression, EqualityOperator"
+        },
+        {
+          "file": "server/openai-client.ts",
+          "line": 285,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 1 mutant(s) - MethodExpression"
+        },
+        {
+          "file": "server/openai-client.ts",
+          "line": 286,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 8 mutant(s) - BlockStatement, ConditionalExpression, LogicalOperator, StringLiteral"
+        },
+        {
+          "file": "server/openai-client.ts",
+          "line": 293,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 1 mutant(s) - BlockStatement"
+        },
+        {
+          "file": "server/openai-client.ts",
+          "line": 297,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 1 mutant(s) - OptionalChaining"
+        },
+        {
+          "file": "server/openai-client.ts",
+          "line": 306,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 1 mutant(s) - LogicalOperator"
+        },
+        {
+          "file": "server/openai-client.ts",
+          "line": 309,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 2 mutant(s) - ConditionalExpression"
+        },
+        {
+          "file": "server/openai-client.ts",
+          "line": 310,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 1 mutant(s) - OptionalChaining"
+        },
+        {
+          "file": "server/openai-client.ts",
+          "line": 311,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 2 mutant(s) - ConditionalExpression, OptionalChaining"
+        },
+        {
+          "file": "server/openai-client.ts",
+          "line": 314,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 1 mutant(s) - ConditionalExpression"
+        },
+        {
+          "file": "server/openai-client.ts",
+          "line": 319,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 1 mutant(s) - ConditionalExpression"
+        },
+        {
+          "file": "server/openai-client.ts",
+          "line": 336,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 1 mutant(s) - ArrayDeclaration"
+        },
+        {
+          "file": "server/openai-client.ts",
+          "line": 342,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 1 mutant(s) - StringLiteral"
+        },
+        {
+          "file": "server/openai-client.ts",
+          "line": 348,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 3 mutant(s) - ConditionalExpression, MethodExpression, StringLiteral"
+        },
+        {
+          "file": "server/openai-client.ts",
+          "line": 350,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 7 mutant(s) - BlockStatement, ConditionalExpression, EqualityOperator, LogicalOperator, OptionalChaining"
+        },
+        {
+          "file": "server/openai-client.ts",
+          "line": 353,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 1 mutant(s) - ConditionalExpression"
+        },
+        {
+          "file": "server/openai-client.ts",
+          "line": 355,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 2 mutant(s) - StringLiteral"
+        },
+        {
+          "file": "server/openai-client.ts",
+          "line": 357,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 1 mutant(s) - StringLiteral"
+        },
+        {
+          "file": "server/openai-client.ts",
+          "line": 375,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 1 mutant(s) - MethodExpression"
+        },
+        {
+          "file": "server/openai-client.ts",
+          "line": 377,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 1 mutant(s) - MethodExpression"
+        }
+      ],
+      "note": "pre-existing, not introduced by epic-compaction-tool; classification carried over (untriaged in this gate run); Decider ACCEPT 2026-10-03"
+    },
+    {
+      "module": "src/components/request-json-dialog.tsx",
+      "residuals": [
+        {
+          "file": "src/components/request-json-dialog.tsx",
+          "line": 46,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 1 mutant(s) - BooleanLiteral"
+        },
+        {
+          "file": "src/components/request-json-dialog.tsx",
+          "line": 50,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 1 mutant(s) - StringLiteral"
+        },
+        {
+          "file": "src/components/request-json-dialog.tsx",
+          "line": 63,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 2 mutant(s) - ConditionalExpression"
+        }
+      ],
+      "note": "pre-existing, not introduced by epic-compaction-tool; classification carried over (untriaged in this gate run); Decider ACCEPT 2026-10-03"
+    },
+    {
+      "module": "src/components/request-preview-extras.tsx",
+      "residuals": [
+        {
+          "file": "src/components/request-preview-extras.tsx",
+          "line": 55,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 1 mutant(s) - StringLiteral"
+        },
+        {
+          "file": "src/components/request-preview-extras.tsx",
+          "line": 56,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 1 mutant(s) - BooleanLiteral"
+        },
+        {
+          "file": "src/components/request-preview-extras.tsx",
+          "line": 78,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 1 mutant(s) - ConditionalExpression"
+        },
+        {
+          "file": "src/components/request-preview-extras.tsx",
+          "line": 91,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 1 mutant(s) - ConditionalExpression"
+        },
+        {
+          "file": "src/components/request-preview-extras.tsx",
+          "line": 95,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 1 mutant(s) - BlockStatement"
+        },
+        {
+          "file": "src/components/request-preview-extras.tsx",
+          "line": 96,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 1 mutant(s) - BooleanLiteral"
+        },
+        {
+          "file": "src/components/request-preview-extras.tsx",
+          "line": 107,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 1 mutant(s) - ConditionalExpression"
+        },
+        {
+          "file": "src/components/request-preview-extras.tsx",
+          "line": 173,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 2 mutant(s) - ConditionalExpression, StringLiteral"
+        }
+      ],
+      "note": "pre-existing, not introduced by epic-compaction-tool; classification carried over (untriaged in this gate run); Decider ACCEPT 2026-10-03"
+    },
+    {
+      "module": "src/components/step-card.tsx",
+      "residuals": [
+        {
+          "file": "src/components/step-card.tsx",
+          "line": 43,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 1 mutant(s) - StringLiteral"
+        },
+        {
+          "file": "src/components/step-card.tsx",
+          "line": 44,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 1 mutant(s) - StringLiteral"
+        },
+        {
+          "file": "src/components/step-card.tsx",
+          "line": 45,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 1 mutant(s) - StringLiteral"
+        },
+        {
+          "file": "src/components/step-card.tsx",
+          "line": 46,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 1 mutant(s) - LogicalOperator"
+        },
+        {
+          "file": "src/components/step-card.tsx",
+          "line": 52,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 3 mutant(s) - ObjectLiteral, StringLiteral"
+        },
+        {
+          "file": "src/components/step-card.tsx",
+          "line": 57,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 3 mutant(s) - BlockStatement, CallExpression"
+        },
+        {
+          "file": "src/components/step-card.tsx",
+          "line": 69,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 1 mutant(s) - ConditionalExpression"
+        },
+        {
+          "file": "src/components/step-card.tsx",
+          "line": 89,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 4 mutant(s) - ConditionalExpression, EqualityOperator, StringLiteral"
+        },
+        {
+          "file": "src/components/step-card.tsx",
+          "line": 91,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 2 mutant(s) - ConditionalExpression, StringLiteral"
+        },
+        {
+          "file": "src/components/step-card.tsx",
+          "line": 93,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 2 mutant(s) - ConditionalExpression, StringLiteral"
+        },
+        {
+          "file": "src/components/step-card.tsx",
+          "line": 95,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 2 mutant(s) - ConditionalExpression, StringLiteral"
+        },
+        {
+          "file": "src/components/step-card.tsx",
+          "line": 97,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 2 mutant(s) - ConditionalExpression, StringLiteral"
+        },
+        {
+          "file": "src/components/step-card.tsx",
+          "line": 99,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 2 mutant(s) - ConditionalExpression, StringLiteral"
+        },
+        {
+          "file": "src/components/step-card.tsx",
+          "line": 101,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 2 mutant(s) - ConditionalExpression, StringLiteral"
+        },
+        {
+          "file": "src/components/step-card.tsx",
+          "line": 103,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 2 mutant(s) - ConditionalExpression, StringLiteral"
+        },
+        {
+          "file": "src/components/step-card.tsx",
+          "line": 107,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 1 mutant(s) - ConditionalExpression"
+        },
+        {
+          "file": "src/components/step-card.tsx",
+          "line": 113,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 2 mutant(s) - ConditionalExpression, StringLiteral"
+        },
+        {
+          "file": "src/components/step-card.tsx",
+          "line": 115,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 2 mutant(s) - ConditionalExpression, StringLiteral"
+        },
+        {
+          "file": "src/components/step-card.tsx",
+          "line": 117,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 2 mutant(s) - ConditionalExpression, StringLiteral"
+        },
+        {
+          "file": "src/components/step-card.tsx",
+          "line": 119,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 2 mutant(s) - ConditionalExpression, StringLiteral"
+        },
+        {
+          "file": "src/components/step-card.tsx",
+          "line": 121,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 2 mutant(s) - ConditionalExpression, StringLiteral"
+        },
+        {
+          "file": "src/components/step-card.tsx",
+          "line": 123,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 2 mutant(s) - ConditionalExpression, StringLiteral"
+        },
+        {
+          "file": "src/components/step-card.tsx",
+          "line": 125,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 2 mutant(s) - ConditionalExpression, StringLiteral"
+        },
+        {
+          "file": "src/components/step-card.tsx",
+          "line": 129,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 1 mutant(s) - ConditionalExpression"
+        }
+      ],
+      "note": "pre-existing, not introduced by epic-compaction-tool; classification carried over (untriaged in this gate run); Decider ACCEPT 2026-10-03"
+    },
+    {
+      "module": "src/components/transcript-step.tsx",
+      "residuals": [
+        {
+          "file": "src/components/transcript-step.tsx",
+          "line": 68,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 1 mutant(s) - ConditionalExpression"
+        },
+        {
+          "file": "src/components/transcript-step.tsx",
+          "line": 69,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 4 mutant(s) - ConditionalExpression, EqualityOperator, StringLiteral"
+        },
+        {
+          "file": "src/components/transcript-step.tsx",
+          "line": 85,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 1 mutant(s) - ArrowFunction"
+        },
+        {
+          "file": "src/components/transcript-step.tsx",
+          "line": 99,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 1 mutant(s) - StringLiteral"
+        },
+        {
+          "file": "src/components/transcript-step.tsx",
+          "line": 101,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 1 mutant(s) - StringLiteral"
+        },
+        {
+          "file": "src/components/transcript-step.tsx",
+          "line": 102,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 10 mutant(s) - BooleanLiteral, ConditionalExpression, EqualityOperator, LogicalOperator, StringLiteral"
+        },
+        {
+          "file": "src/components/transcript-step.tsx",
+          "line": 166,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 5 mutant(s) - ConditionalExpression, EqualityOperator, LogicalOperator, StringLiteral"
+        },
+        {
+          "file": "src/components/transcript-step.tsx",
+          "line": 173,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 1 mutant(s) - ArrowFunction"
+        },
+        {
+          "file": "src/components/transcript-step.tsx",
+          "line": 174,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 1 mutant(s) - LogicalOperator"
+        },
+        {
+          "file": "src/components/transcript-step.tsx",
+          "line": 195,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 1 mutant(s) - CallExpression"
+        },
+        {
+          "file": "src/components/transcript-step.tsx",
+          "line": 198,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 3 mutant(s) - BlockStatement, ConditionalExpression, StringLiteral"
+        },
+        {
+          "file": "src/components/transcript-step.tsx",
+          "line": 199,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 1 mutant(s) - CallExpression"
+        },
+        {
+          "file": "src/components/transcript-step.tsx",
+          "line": 200,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 1 mutant(s) - CallExpression"
+        },
+        {
+          "file": "src/components/transcript-step.tsx",
+          "line": 214,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 6 mutant(s) - ArrayDeclaration, Regex, StringLiteral"
+        },
+        {
+          "file": "src/components/transcript-step.tsx",
+          "line": 219,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 5 mutant(s) - Regex, StringLiteral"
+        },
+        {
+          "file": "src/components/transcript-step.tsx",
+          "line": 220,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 4 mutant(s) - ConditionalExpression, EqualityOperator, StringLiteral"
+        },
+        {
+          "file": "src/components/transcript-step.tsx",
+          "line": 222,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 5 mutant(s) - ConditionalExpression, EqualityOperator, StringLiteral"
+        },
+        {
+          "file": "src/components/transcript-step.tsx",
+          "line": 223,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 1 mutant(s) - StringLiteral"
+        },
+        {
+          "file": "src/components/transcript-step.tsx",
+          "line": 238,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 1 mutant(s) - BlockStatement"
+        },
+        {
+          "file": "src/components/transcript-step.tsx",
+          "line": 239,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 4 mutant(s) - ConditionalExpression, EqualityOperator"
+        },
+        {
+          "file": "src/components/transcript-step.tsx",
+          "line": 240,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 9 mutant(s) - ArrayDeclaration, ConditionalExpression, EqualityOperator, MethodExpression, StringLiteral"
+        },
+        {
+          "file": "src/components/transcript-step.tsx",
+          "line": 242,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 10 mutant(s) - BlockStatement, ConditionalExpression, EqualityOperator, LogicalOperator, StringLiteral"
+        },
+        {
+          "file": "src/components/transcript-step.tsx",
+          "line": 243,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 1 mutant(s) - StringLiteral"
+        },
+        {
+          "file": "src/components/transcript-step.tsx",
+          "line": 244,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 1 mutant(s) - StringLiteral"
+        }
+      ],
+      "note": "pre-existing, not introduced by epic-compaction-tool; classification carried over (untriaged in this gate run); Decider ACCEPT 2026-10-03"
+    },
+    {
+      "module": "src/components/transcript.tsx",
+      "residuals": [
+        {
+          "file": "src/components/transcript.tsx",
+          "line": 90,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 1 mutant(s) - StringLiteral"
+        },
+        {
+          "file": "src/components/transcript.tsx",
+          "line": 92,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 1 mutant(s) - BooleanLiteral"
+        },
+        {
+          "file": "src/components/transcript.tsx",
+          "line": 94,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 1 mutant(s) - StringLiteral"
+        },
+        {
+          "file": "src/components/transcript.tsx",
+          "line": 98,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 1 mutant(s) - BlockStatement"
+        },
+        {
+          "file": "src/components/transcript.tsx",
+          "line": 99,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 1 mutant(s) - CallExpression"
+        },
+        {
+          "file": "src/components/transcript.tsx",
+          "line": 100,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 1 mutant(s) - StringLiteral"
+        },
+        {
+          "file": "src/components/transcript.tsx",
+          "line": 101,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 1 mutant(s) - ArrayDeclaration"
+        },
+        {
+          "file": "src/components/transcript.tsx",
+          "line": 104,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 3 mutant(s) - ConditionalExpression, EqualityOperator"
+        },
+        {
+          "file": "src/components/transcript.tsx",
+          "line": 105,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 2 mutant(s) - ConditionalExpression, EqualityOperator"
+        },
+        {
+          "file": "src/components/transcript.tsx",
+          "line": 107,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 1 mutant(s) - ConditionalExpression"
+        },
+        {
+          "file": "src/components/transcript.tsx",
+          "line": 108,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 4 mutant(s) - ObjectLiteral, OptionalChaining, StringLiteral"
+        },
+        {
+          "file": "src/components/transcript.tsx",
+          "line": 116,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 1 mutant(s) - MethodExpression"
+        },
+        {
+          "file": "src/components/transcript.tsx",
+          "line": 120,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 1 mutant(s) - ConditionalExpression"
+        },
+        {
+          "file": "src/components/transcript.tsx",
+          "line": 122,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 1 mutant(s) - ArrayDeclaration"
+        },
+        {
+          "file": "src/components/transcript.tsx",
+          "line": 125,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 4 mutant(s) - BlockStatement, ConditionalExpression, LogicalOperator"
+        },
+        {
+          "file": "src/components/transcript.tsx",
+          "line": 129,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 1 mutant(s) - CallExpression"
+        },
+        {
+          "file": "src/components/transcript.tsx",
+          "line": 131,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 1 mutant(s) - CallExpression"
+        },
+        {
+          "file": "src/components/transcript.tsx",
+          "line": 136,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 1 mutant(s) - StringLiteral"
+        },
+        {
+          "file": "src/components/transcript.tsx",
+          "line": 140,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 1 mutant(s) - MethodExpression"
+        },
+        {
+          "file": "src/components/transcript.tsx",
+          "line": 141,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 1 mutant(s) - CallExpression"
+        },
+        {
+          "file": "src/components/transcript.tsx",
+          "line": 142,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 1 mutant(s) - ConditionalExpression"
+        },
+        {
+          "file": "src/components/transcript.tsx",
+          "line": 147,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 1 mutant(s) - BlockStatement"
+        },
+        {
+          "file": "src/components/transcript.tsx",
+          "line": 148,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 1 mutant(s) - BlockStatement"
+        },
+        {
+          "file": "src/components/transcript.tsx",
+          "line": 150,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 2 mutant(s) - BlockStatement"
+        },
+        {
+          "file": "src/components/transcript.tsx",
+          "line": 151,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 3 mutant(s) - ObjectLiteral, StringLiteral"
+        },
+        {
+          "file": "src/components/transcript.tsx",
+          "line": 153,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 1 mutant(s) - ObjectLiteral"
+        },
+        {
+          "file": "src/components/transcript.tsx",
+          "line": 154,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 2 mutant(s) - StringLiteral"
+        },
+        {
+          "file": "src/components/transcript.tsx",
+          "line": 190,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 4 mutant(s) - ConditionalExpression, EqualityOperator"
+        },
+        {
+          "file": "src/components/transcript.tsx",
+          "line": 224,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 1 mutant(s) - StringLiteral"
+        },
+        {
+          "file": "src/components/transcript.tsx",
+          "line": 225,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 1 mutant(s) - ArithmeticOperator"
+        },
+        {
+          "file": "src/components/transcript.tsx",
+          "line": 226,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 1 mutant(s) - StringLiteral"
+        },
+        {
+          "file": "src/components/transcript.tsx",
+          "line": 227,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 1 mutant(s) - StringLiteral"
+        },
+        {
+          "file": "src/components/transcript.tsx",
+          "line": 229,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 1 mutant(s) - StringLiteral"
+        },
+        {
+          "file": "src/components/transcript.tsx",
+          "line": 230,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 1 mutant(s) - StringLiteral"
+        },
+        {
+          "file": "src/components/transcript.tsx",
+          "line": 231,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 1 mutant(s) - StringLiteral"
+        },
+        {
+          "file": "src/components/transcript.tsx",
+          "line": 236,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 4 mutant(s) - BooleanLiteral, ConditionalExpression, LogicalOperator"
+        },
+        {
+          "file": "src/components/transcript.tsx",
+          "line": 240,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 2 mutant(s) - BooleanLiteral, ObjectLiteral"
+        },
+        {
+          "file": "src/components/transcript.tsx",
+          "line": 245,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 1 mutant(s) - ArrowFunction"
+        },
+        {
+          "file": "src/components/transcript.tsx",
+          "line": 254,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 1 mutant(s) - ArrowFunction"
+        },
+        {
+          "file": "src/components/transcript.tsx",
+          "line": 260,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 1 mutant(s) - ArrowFunction"
+        },
+        {
+          "file": "src/components/transcript.tsx",
+          "line": 261,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 5 mutant(s) - MethodExpression, Regex, StringLiteral"
+        },
+        {
+          "file": "src/components/transcript.tsx",
+          "line": 268,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 4 mutant(s) - ConditionalExpression, EqualityOperator"
+        },
+        {
+          "file": "src/components/transcript.tsx",
+          "line": 270,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 4 mutant(s) - ObjectLiteral, StringLiteral"
+        },
+        {
+          "file": "src/components/transcript.tsx",
+          "line": 273,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 3 mutant(s) - ArrowFunction, BooleanLiteral"
+        },
+        {
+          "file": "src/components/transcript.tsx",
+          "line": 275,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 1 mutant(s) - StringLiteral"
+        },
+        {
+          "file": "src/components/transcript.tsx",
+          "line": 278,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 1 mutant(s) - ArrowFunction"
+        },
+        {
+          "file": "src/components/transcript.tsx",
+          "line": 298,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 1 mutant(s) - StringLiteral"
+        },
+        {
+          "file": "src/components/transcript.tsx",
+          "line": 299,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 1 mutant(s) - StringLiteral"
+        },
+        {
+          "file": "src/components/transcript.tsx",
+          "line": 300,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 1 mutant(s) - StringLiteral"
+        },
+        {
+          "file": "src/components/transcript.tsx",
+          "line": 301,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 1 mutant(s) - StringLiteral"
+        },
+        {
+          "file": "src/components/transcript.tsx",
+          "line": 303,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 1 mutant(s) - StringLiteral"
+        },
+        {
+          "file": "src/components/transcript.tsx",
+          "line": 304,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 1 mutant(s) - StringLiteral"
+        },
+        {
+          "file": "src/components/transcript.tsx",
+          "line": 305,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 1 mutant(s) - StringLiteral"
+        },
+        {
+          "file": "src/components/transcript.tsx",
+          "line": 329,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 1 mutant(s) - ArrowFunction"
+        },
+        {
+          "file": "src/components/transcript.tsx",
+          "line": 330,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 7 mutant(s) - ConditionalExpression, EqualityOperator, StringLiteral"
+        },
+        {
+          "file": "src/components/transcript.tsx",
+          "line": 332,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 1 mutant(s) - StringLiteral"
+        },
+        {
+          "file": "src/components/transcript.tsx",
+          "line": 348,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 3 mutant(s) - ConditionalExpression, EqualityOperator"
+        },
+        {
+          "file": "src/components/transcript.tsx",
+          "line": 350,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 2 mutant(s) - ConditionalExpression, StringLiteral"
+        },
+        {
+          "file": "src/components/transcript.tsx",
+          "line": 351,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 3 mutant(s) - ConditionalExpression, EqualityOperator"
+        }
+      ],
+      "note": "pre-existing, not introduced by epic-compaction-tool; classification carried over (untriaged in this gate run); Decider ACCEPT 2026-10-03"
+    },
+    {
+      "module": "src/lib/chat.ts",
+      "residuals": [
+        {
+          "file": "src/lib/chat.ts",
+          "line": 201,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 3 mutant(s) - LogicalOperator, MethodExpression, StringLiteral"
+        },
+        {
+          "file": "src/lib/chat.ts",
+          "line": 202,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 1 mutant(s) - Regex"
+        }
+      ],
+      "note": "pre-existing, not introduced by epic-compaction-tool; classification carried over (untriaged in this gate run); Decider ACCEPT 2026-10-03"
+    },
+    {
+      "module": "src/lib/ollama.ts",
+      "residuals": [
+        {
+          "file": "src/lib/ollama.ts",
+          "line": 10,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 1 mutant(s) - BlockStatement"
+        },
+        {
+          "file": "src/lib/ollama.ts",
+          "line": 11,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 2 mutant(s) - Regex, StringLiteral"
+        },
+        {
+          "file": "src/lib/ollama.ts",
+          "line": 18,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 1 mutant(s) - BlockStatement"
+        },
+        {
+          "file": "src/lib/ollama.ts",
+          "line": 19,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 1 mutant(s) - StringLiteral"
+        },
+        {
+          "file": "src/lib/ollama.ts",
+          "line": 20,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 4 mutant(s) - BlockStatement, BooleanLiteral, ConditionalExpression"
+        },
+        {
+          "file": "src/lib/ollama.ts",
+          "line": 21,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 1 mutant(s) - StringLiteral"
+        },
+        {
+          "file": "src/lib/ollama.ts",
+          "line": 38,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 2 mutant(s) - ArrowFunction, ObjectLiteral"
+        },
+        {
+          "file": "src/lib/ollama.ts",
+          "line": 54,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 1 mutant(s) - BlockStatement"
+        },
+        {
+          "file": "src/lib/ollama.ts",
+          "line": 55,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 1 mutant(s) - StringLiteral"
+        },
+        {
+          "file": "src/lib/ollama.ts",
+          "line": 56,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 4 mutant(s) - BlockStatement, BooleanLiteral, ConditionalExpression"
+        },
+        {
+          "file": "src/lib/ollama.ts",
+          "line": 57,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 1 mutant(s) - StringLiteral"
+        },
+        {
+          "file": "src/lib/ollama.ts",
+          "line": 69,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 2 mutant(s) - ObjectLiteral, StringLiteral"
+        },
+        {
+          "file": "src/lib/ollama.ts",
+          "line": 70,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 1 mutant(s) - StringLiteral"
+        },
+        {
+          "file": "src/lib/ollama.ts",
+          "line": 71,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 2 mutant(s) - ObjectLiteral, StringLiteral"
+        },
+        {
+          "file": "src/lib/ollama.ts",
+          "line": 72,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 1 mutant(s) - ObjectLiteral"
+        },
+        {
+          "file": "src/lib/ollama.ts",
+          "line": 80,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 2 mutant(s) - LogicalOperator, StringLiteral"
+        },
+        {
+          "file": "src/lib/ollama.ts",
+          "line": 104,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 1 mutant(s) - LogicalOperator"
+        },
+        {
+          "file": "src/lib/ollama.ts",
+          "line": 105,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 1 mutant(s) - LogicalOperator"
+        },
+        {
+          "file": "src/lib/ollama.ts",
+          "line": 106,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 1 mutant(s) - LogicalOperator"
+        },
+        {
+          "file": "src/lib/ollama.ts",
+          "line": 107,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 1 mutant(s) - LogicalOperator"
+        },
+        {
+          "file": "src/lib/ollama.ts",
+          "line": 108,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 1 mutant(s) - LogicalOperator"
+        },
+        {
+          "file": "src/lib/ollama.ts",
+          "line": 109,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 1 mutant(s) - LogicalOperator"
+        },
+        {
+          "file": "src/lib/ollama.ts",
+          "line": 110,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 1 mutant(s) - LogicalOperator"
+        },
+        {
+          "file": "src/lib/ollama.ts",
+          "line": 116,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 1 mutant(s) - ObjectLiteral"
+        }
+      ],
+      "note": "pre-existing, not introduced by epic-compaction-tool; classification carried over (untriaged in this gate run); Decider ACCEPT 2026-10-03"
+    },
+    {
+      "module": "src/lib/stream-steps.ts",
+      "residuals": [
+        {
+          "file": "src/lib/stream-steps.ts",
+          "line": 89,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 1 mutant(s) - Regex"
+        }
+      ],
+      "note": "pre-existing, not introduced by epic-compaction-tool; classification carried over (untriaged in this gate run); Decider ACCEPT 2026-10-03"
+    },
+    {
+      "module": "src/lib/token-view.ts",
+      "residuals": [
+        {
+          "file": "src/lib/token-view.ts",
+          "line": 128,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 1 mutant(s) - ArrayDeclaration"
+        },
+        {
+          "file": "src/lib/token-view.ts",
+          "line": 137,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 2 mutant(s) - ConditionalExpression, StringLiteral"
+        },
+        {
+          "file": "src/lib/token-view.ts",
+          "line": 140,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 1 mutant(s) - ObjectLiteral"
+        },
+        {
+          "file": "src/lib/token-view.ts",
+          "line": 147,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 1 mutant(s) - ConditionalExpression"
+        },
+        {
+          "file": "src/lib/token-view.ts",
+          "line": 151,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 1 mutant(s) - ArrayDeclaration"
+        },
+        {
+          "file": "src/lib/token-view.ts",
+          "line": 153,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 2 mutant(s) - ArrayDeclaration, ObjectLiteral"
+        },
+        {
+          "file": "src/lib/token-view.ts",
+          "line": 194,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 1 mutant(s) - StringLiteral"
+        },
+        {
+          "file": "src/lib/token-view.ts",
+          "line": 203,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 1 mutant(s) - EqualityOperator"
+        },
+        {
+          "file": "src/lib/token-view.ts",
+          "line": 224,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 1 mutant(s) - ConditionalExpression"
+        },
+        {
+          "file": "src/lib/token-view.ts",
+          "line": 248,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 1 mutant(s) - ConditionalExpression"
+        },
+        {
+          "file": "src/lib/token-view.ts",
+          "line": 261,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 2 mutant(s) - BlockStatement, ConditionalExpression"
+        },
+        {
+          "file": "src/lib/token-view.ts",
+          "line": 302,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 2 mutant(s) - ConditionalExpression, StringLiteral"
+        },
+        {
+          "file": "src/lib/token-view.ts",
+          "line": 305,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 1 mutant(s) - ObjectLiteral"
+        },
+        {
+          "file": "src/lib/token-view.ts",
+          "line": 324,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 1 mutant(s) - EqualityOperator"
+        },
+        {
+          "file": "src/lib/token-view.ts",
+          "line": 326,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 2 mutant(s) - ConditionalExpression, EqualityOperator"
+        },
+        {
+          "file": "src/lib/token-view.ts",
+          "line": 332,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 1 mutant(s) - ArrayDeclaration"
+        },
+        {
+          "file": "src/lib/token-view.ts",
+          "line": 333,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 1 mutant(s) - UnaryOperator"
+        },
+        {
+          "file": "src/lib/token-view.ts",
+          "line": 334,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 1 mutant(s) - EqualityOperator"
+        },
+        {
+          "file": "src/lib/token-view.ts",
+          "line": 335,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 2 mutant(s) - ConditionalExpression, EqualityOperator"
+        },
+        {
+          "file": "src/lib/token-view.ts",
+          "line": 340,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 1 mutant(s) - EqualityOperator"
+        },
+        {
+          "file": "src/lib/token-view.ts",
+          "line": 348,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 4 mutant(s) - ConditionalExpression, LogicalOperator"
+        },
+        {
+          "file": "src/lib/token-view.ts",
+          "line": 355,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 1 mutant(s) - ConditionalExpression"
+        },
+        {
+          "file": "src/lib/token-view.ts",
+          "line": 486,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 1 mutant(s) - EqualityOperator"
+        },
+        {
+          "file": "src/lib/token-view.ts",
+          "line": 488,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 1 mutant(s) - ConditionalExpression"
+        },
+        {
+          "file": "src/lib/token-view.ts",
+          "line": 516,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 1 mutant(s) - EqualityOperator"
+        },
+        {
+          "file": "src/lib/token-view.ts",
+          "line": 518,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 3 mutant(s) - BooleanLiteral, ConditionalExpression, StringLiteral"
+        },
+        {
+          "file": "src/lib/token-view.ts",
+          "line": 519,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 2 mutant(s) - ConditionalExpression, StringLiteral"
+        },
+        {
+          "file": "src/lib/token-view.ts",
+          "line": 520,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 5 mutant(s) - BooleanLiteral, ConditionalExpression, EqualityOperator, StringLiteral"
+        },
+        {
+          "file": "src/lib/token-view.ts",
+          "line": 584,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 2 mutant(s) - ArrayDeclaration, ConditionalExpression"
+        },
+        {
+          "file": "src/lib/token-view.ts",
+          "line": 590,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 1 mutant(s) - StringLiteral"
+        },
+        {
+          "file": "src/lib/token-view.ts",
+          "line": 603,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 2 mutant(s) - ObjectLiteral, StringLiteral"
+        },
+        {
+          "file": "src/lib/token-view.ts",
+          "line": 650,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 3 mutant(s) - ArrowFunction, StringLiteral"
+        },
+        {
+          "file": "src/lib/token-view.ts",
+          "line": 661,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 2 mutant(s) - ConditionalExpression, LogicalOperator"
+        },
+        {
+          "file": "src/lib/token-view.ts",
+          "line": 665,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 3 mutant(s) - ConditionalExpression, LogicalOperator"
+        },
+        {
+          "file": "src/lib/token-view.ts",
+          "line": 667,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 1 mutant(s) - ConditionalExpression"
+        },
+        {
+          "file": "src/lib/token-view.ts",
+          "line": 671,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 1 mutant(s) - StringLiteral"
+        },
+        {
+          "file": "src/lib/token-view.ts",
+          "line": 673,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 1 mutant(s) - ConditionalExpression"
+        },
+        {
+          "file": "src/lib/token-view.ts",
+          "line": 677,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 1 mutant(s) - ConditionalExpression"
+        },
+        {
+          "file": "src/lib/token-view.ts",
+          "line": 682,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 1 mutant(s) - BlockStatement"
+        },
+        {
+          "file": "src/lib/token-view.ts",
+          "line": 683,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 1 mutant(s) - BooleanLiteral"
+        },
+        {
+          "file": "src/lib/token-view.ts",
+          "line": 684,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 1 mutant(s) - CallExpression"
+        },
+        {
+          "file": "src/lib/token-view.ts",
+          "line": 723,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 1 mutant(s) - ArrayDeclaration"
+        },
+        {
+          "file": "src/lib/token-view.ts",
+          "line": 724,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 1 mutant(s) - BooleanLiteral"
+        },
+        {
+          "file": "src/lib/token-view.ts",
+          "line": 733,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 4 mutant(s) - ConditionalExpression, LogicalOperator"
+        },
+        {
+          "file": "src/lib/token-view.ts",
+          "line": 741,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 3 mutant(s) - MethodExpression, ObjectLiteral, StringLiteral"
+        },
+        {
+          "file": "src/lib/token-view.ts",
+          "line": 743,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 1 mutant(s) - OptionalChaining"
+        }
+      ],
+      "note": "pre-existing, not introduced by epic-compaction-tool; classification carried over (untriaged in this gate run); Decider ACCEPT 2026-10-03"
+    },
+    {
+      "module": "src/lib/transcript.ts",
+      "residuals": [
+        {
+          "file": "src/lib/transcript.ts",
+          "line": 36,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 1 mutant(s) - ConditionalExpression"
+        },
+        {
+          "file": "src/lib/transcript.ts",
+          "line": 60,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 1 mutant(s) - ConditionalExpression"
+        },
+        {
+          "file": "src/lib/transcript.ts",
+          "line": 62,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 1 mutant(s) - ConditionalExpression"
+        },
+        {
+          "file": "src/lib/transcript.ts",
+          "line": 101,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 1 mutant(s) - EqualityOperator"
+        },
+        {
+          "file": "src/lib/transcript.ts",
+          "line": 125,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 1 mutant(s) - EqualityOperator"
+        },
+        {
+          "file": "src/lib/transcript.ts",
+          "line": 129,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 3 mutant(s) - BlockStatement, ConditionalExpression, StringLiteral"
+        }
+      ],
+      "note": "pre-existing, not introduced by epic-compaction-tool; classification carried over (untriaged in this gate run); Decider ACCEPT 2026-10-03"
+    },
+    {
+      "module": "src/lib/use-sidebar-state.ts",
+      "residuals": [
+        {
+          "file": "src/lib/use-sidebar-state.ts",
+          "line": 32,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 1 mutant(s) - ObjectLiteral"
+        },
+        {
+          "file": "src/lib/use-sidebar-state.ts",
+          "line": 37,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 1 mutant(s) - ArrayDeclaration"
+        },
+        {
+          "file": "src/lib/use-sidebar-state.ts",
+          "line": 45,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 1 mutant(s) - ArrayDeclaration"
+        },
+        {
+          "file": "src/lib/use-sidebar-state.ts",
+          "line": 49,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 1 mutant(s) - ArrayDeclaration"
+        },
+        {
+          "file": "src/lib/use-sidebar-state.ts",
+          "line": 78,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 1 mutant(s) - ArrayDeclaration"
+        },
+        {
+          "file": "src/lib/use-sidebar-state.ts",
+          "line": 85,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 1 mutant(s) - ArrayDeclaration"
+        },
+        {
+          "file": "src/lib/use-sidebar-state.ts",
+          "line": 98,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 1 mutant(s) - ArrayDeclaration"
+        },
+        {
+          "file": "src/lib/use-sidebar-state.ts",
+          "line": 110,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 1 mutant(s) - ArrayDeclaration"
+        },
+        {
+          "file": "src/lib/use-sidebar-state.ts",
+          "line": 125,
+          "category": "real_gap_unresolved",
+          "note": "pre-existing (outside this change; not re-triaged in this gate run): 1 mutant(s) - ArrayDeclaration"
+        }
+      ],
+      "note": "pre-existing, not introduced by epic-compaction-tool; classification carried over (untriaged in this gate run); Decider ACCEPT 2026-10-03"
+    }
+  ],
+  "mutation_gate_escalated": {
+    "modules": [
+      "server/ws-handler.ts",
+      "src/lib/backend-client.ts",
+      "src/lib/use-chat-generation.ts",
+      "src/lib/use-conversations.ts",
+      "src/components/chat-workspace.tsx"
+    ],
+    "reason": "FR-B1 order-sensitive modules with pre-existing real-gap survivors (0 introduced); user chose remediate 2026-10-03",
+    "resolution": "remediated 2026-10-03: all five modules passed"
+  }
+}

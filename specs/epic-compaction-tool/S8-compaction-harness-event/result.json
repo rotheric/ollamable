@@ -1,0 +1,72 @@
+{
+  "story_id": "S8",
+  "status": "done",
+  "remediation_rounds": 1,
+  "files_created": [],
+  "files_modified": [
+    "server/ws-handler.ts",
+    "server/tools/compact-context.ts",
+    "server/types.ts",
+    "src/types/chat.ts",
+    "shared/context-usage.ts",
+    "src/lib/fork.ts",
+    "src/lib/use-chat-generation.ts",
+    "src/lib/transcript.ts",
+    "src/components/transcript-step.tsx",
+    "src/components/transcript.tsx",
+    "src/components/chat-workspace.tsx",
+    "tests/integration/ws-handler-compact-context.test.ts",
+    "tests/integration/ws-handler-compaction-properties.test.ts",
+    "tests/integration/ws-handler-fork.test.ts",
+    "tests/unit/fork.test.ts",
+    "tests/unit/chat-workspace-fork.test.tsx",
+    "tests/unit/use-chat-generation.test.tsx",
+    "tests/unit/use-chat-generation-fork-properties.test.tsx"
+  ],
+  "implementation_summary": "Valid sole compact_context now ends with chat.done carrying the authentic tool_call only (no tool_result); COMPACT_CONTEXT_ACK removed. MetaEventKind gains compaction (server + client). The client appends one meta/compaction harness step (data.forkConversationId) to the original after its chat.done steps and before the fork enters state, selects the fork and, per the scope extension, sends nothing for it (auto-send, withoutCompactContext, fork contextRequest and handoff settledCount bump removed; the original settles once in its finally). The card renders as an app-event meta card with a link selecting the fork, plain stored text when the fork is missing or the data malformed. placeStepsForModel omits unanswered compact_context calls (same id; id-less: same name after) and the harness step; rejected calls with error results are still sent.",
+  "decisions": [
+    "Executor fallback execute() returns a literal string instead of the removed ACK constant.",
+    "Link text uses the live fork title; the stored content keeps the creation-time title and is shown when no link applies.",
+    "PlacementStep gains an optional structural metaEvent.kind so the harness step is recognised without a type import.",
+    "Header label for the card is 'app event: compaction'.",
+    "AC-STRUCT-6 property rewritten: forkExpected iff compaction done applied while original owned the generation; no stream for the fork; original settles once; exactly one harness step after the done steps."
+  ],
+  "tests_added": {
+    "unit": 8,
+    "integration": 6,
+    "property": 0
+  },
+  "test_counts": {
+    "baseline": 1049,
+    "final": 1062
+  },
+  "baseline": {
+    "unit": 625,
+    "integration": 424,
+    "integration_skipped": 2,
+    "lint": "clean",
+    "typecheck": "clean"
+  },
+  "final": {
+    "unit": 633,
+    "integration": 429,
+    "integration_skipped": 2,
+    "lint": "clean",
+    "typecheck": "clean"
+  },
+  "mocks": [],
+  "modules_touched": [
+    "fork-flow",
+    "tool-loop",
+    "context-usage",
+    "compaction-card-ui",
+    "wire-types",
+    "transcript-model"
+  ],
+  "retrospective": {
+    "skipped": true,
+    "reason": "routine"
+  },
+  "final_outcome": "accepted",
+  "completed_at": "2026-10-02T14:07:12Z"
+}

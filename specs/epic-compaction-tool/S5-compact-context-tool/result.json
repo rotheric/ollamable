@@ -1,0 +1,70 @@
+{
+  "story_id": "S5",
+  "status": "done",
+  "remediation_rounds": 1,
+  "files_created": [
+    "server/tools/compact-context.ts",
+    "tests/integration/ws-handler-compact-context.test.ts"
+  ],
+  "files_modified": [
+    "server/ws-handler.ts",
+    "server/index.ts",
+    "server/types.ts",
+    "src/types/chat.ts",
+    "src/lib/backend-client.ts",
+    "tests/integration/http-server.test.ts",
+    "tests/integration/ws-handler-context-note.test.ts",
+    "tests/unit/backend-client-chat.test.ts"
+  ],
+  "implementation_summary": "CompactContextExecutor (id compact-context) is registered in the static dispatcher and every connection dispatcher after web-search and curl and before McpBridge, so MCP cannot reuse the name. In handleChatSend, after the existing budget/enablement/availability/id checks, a response containing compact_context is intercepted: toolCallCount += all calls; a sole call with valid args ends the turn with a neutral tool_result step and chat.done carrying compaction {toolCallStepId, summary, remainingWork?} with no further model invocation; a multi-call response or invalid args executes nothing, emits an error tool_result for every call and continues the loop (usedTokens already updated). BackendClient forwards chat.done.compaction to an optional onCompaction callback before resolving.",
+  "decisions": [
+    "Validation is done by parseCompactContextArgs in the loop (never the dispatcher), so Ajv/exception paths cannot turn a bad compact_context call into chat.error; the executor's execute is a validating fallback never reached on the compaction path.",
+    "Existing check order is kept: budget check first (a rejecting response that would exceed maxToolCalls ends in the budget chat.error before any rejection side effect), then enablement/availability/id, then interception. 'Exhausted' therefore means the next response's calls would exceed the budget, identical to ordinary tools.",
+    "remainingWork is omitted when absent or whitespace-only; the summary is kept verbatim (not trimmed).",
+    "Unknown properties and non-string remaining_work are rejected as errors (schema additionalProperties false mirrors this). No maximum summary length is imposed.",
+    "Valid-call tool_result content is the neutral 'Context summary recorded.'; error tool_results are JSON {error: ...} with title 'Result: <name>' and toolResult.{id,name} of the call.",
+    "Transport: stream promise type unchanged (many callers/tests resolve to ConversationStep[]); payload reaches callers via optional StreamRequest.onCompaction invoked just before resolve. use-chat-generation is intentionally untouched; S6 wires onCompaction.",
+    "Guided tour unaffected: web_search stays first in the registry (builtinTools[0]); asserted in http-server.test.ts."
+  ],
+  "tests_added": {
+    "unit": 2,
+    "integration": 32,
+    "property": 0
+  },
+  "test_counts": {
+    "baseline": 968,
+    "final": 1002
+  },
+  "baseline": {
+    "unit": 590,
+    "integration": 378,
+    "integration_skipped": 2,
+    "lint": "clean",
+    "typecheck": "clean"
+  },
+  "final": {
+    "unit": 592,
+    "integration": 410,
+    "integration_skipped": 2,
+    "lint": "clean",
+    "typecheck": "clean"
+  },
+  "mocks": [],
+  "modules_touched": [
+    "tool-loop",
+    "compact-context-tool",
+    "wire-types",
+    "transport-client",
+    "runtime-route"
+  ],
+  "caveats": [
+    "The client does not yet consume compaction (S6); use-chat-generation ignores it, so a compaction chat.done is currently appended like an ordinary done.",
+    "chat.done steps for a compaction contain the neutral tool_result; the compaction StepKind is S6."
+  ],
+  "retrospective": {
+    "skipped": true,
+    "reason": "clean_run"
+  },
+  "final_outcome": "accepted",
+  "completed_at": "2026-10-02T12:22:14Z"
+}

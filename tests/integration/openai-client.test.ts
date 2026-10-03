@@ -69,3 +69,14 @@ describe("OpenAI final tool arguments", () => {
     expect(steps[0].toolCall).toEqual({ id: "call-1", name: "curl", arguments: { url: "https://example.com" } });
   });
 });
+
+describe("OpenAI-compatible request body (AC-CTX-6)", () => {
+  it("asks for stream usage and never carries num_ctx", async () => {
+    await streamFragments(["hi"]);
+    const [, init] = vi.mocked(globalThis.fetch).mock.calls[0];
+    const body = JSON.parse((init as RequestInit).body as string) as Record<string, unknown>;
+    expect(body.stream).toBe(true);
+    expect(body.stream_options).toEqual({ include_usage: true });
+    expect(JSON.stringify(body)).not.toContain("num_ctx");
+  });
+});

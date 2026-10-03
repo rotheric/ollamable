@@ -15,7 +15,8 @@ const STREAM_PREFIX = "stream-";
 
 type DefaultExpanded = (step: ConversationStep) => boolean;
 
-function isStreamingStep(step: ConversationStep): boolean {
+/** True for an in-flight (still streaming) step. */
+export function isStreamingStep(step: Pick<ConversationStep, "id">): boolean {
   return step.id.startsWith(STREAM_PREFIX);
 }
 

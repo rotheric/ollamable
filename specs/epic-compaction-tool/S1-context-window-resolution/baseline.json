@@ -1,0 +1,24 @@
+{
+  "story_id": "S1",
+  "captured_at": "2026-10-02T12:28:00Z",
+  "baseline": {
+    "status": "PASS",
+    "unit": {
+      "command": "npx vitest run",
+      "files": 23,
+      "passed": 411,
+      "failed": 0,
+      "skipped": 0
+    },
+    "integration": {
+      "command": "npx vitest run -c vitest.server.config.ts",
+      "files": 20,
+      "passed": 322,
+      "failed": 0,
+      "skipped": 2
+    },
+    "lint": "clean",
+    "typecheck": "clean"
+  },
+  "notes": "Unit/integration/lint snapshot taken before any production edit. Typecheck was clean at HEAD (the one transient error seen mid-capture came from an in-progress edit, and the final run is clean)."
+}

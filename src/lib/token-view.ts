@@ -28,13 +28,14 @@
  */
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { ConversationStep } from "@/src/types/chat";
+import type { ConversationStep, RequestContextRecord } from "@/src/types/chat";
 // Relative (not the usual "@/..." alias): this module is also loaded
 // directly by tests/integration/*.test.ts under vitest.server.config.ts
 // (node env, reconciliation-live.test.ts's existing precedent), which has
 // no path-alias plugin configured — a value import (unlike the type-only
 // ConversationStep import above) needs to resolve at runtime there too.
 import { toOllamaMessages } from "../../shared/ollama-format";
+import { COMPACT_CONTEXT_TOOL_NAME, isCompactContextEnabled, lastUsedTokens, placeStepsForModel, type PlaceStepsInput } from "../../shared/context-usage";
 
 /** Token-boundary separator. U+2502 BOX DRAWINGS LIGHT VERTICAL — never ASCII '|'. */
 export const SEPARATOR = "│";
@@ -408,8 +409,63 @@ export interface OllamaMessage {
  * Constraint 5) — never `requestJsonPreview`, which is built by
  * `buildOpenAIRequestBody`/`toOpenAIMessages` and filters differently.
  */
-export function toOllamaFilteredMessages(steps: ConversationStep[]): OllamaMessage[] {
-  return toOllamaMessages(steps).map(({ role, content }) => ({ role, content }));
+export function toOllamaFilteredMessages(
+  steps: ConversationStep[],
+  placement?: PreviewPlacement
+): OllamaMessage[] {
+  const placed = placeStepsForModel(steps, placementInputForPreview(steps, placement));
+  return toOllamaMessages(placed).map(({ role, content }) => ({ role, content }));
+}
+
+/**
+ * What the usage note and placement need beyond the steps: the request's enabled tools, the
+ * resolved window and the model family. Omitted means no note (compaction steps are still mapped).
+ */
+export interface PreviewPlacement {
+  activeTools?: ReadonlyArray<{ name: string }>;
+  contextWindow?: PlaceStepsInput["window"];
+  family?: string;
+  /**
+   * What each sent request's note was built from (`Conversation.requestContexts`). Used only where a
+   * HISTORICAL request is reconstructed (reconciliation); a view of the NEXT request uses the
+   * current inputs above.
+   */
+  requestContexts?: ReadonlyArray<RequestContextRecord>;
+}
+
+/**
+ * The placement the request that produced the step at `targetIndex` was sent with: the latest
+ * record starting at or before it. Falls back to the current inputs when none was recorded
+ * (conversations saved before records existed).
+ */
+export function placementForTurn(placement: PreviewPlacement | undefined, targetIndex: number): PreviewPlacement | undefined {
+  let record: RequestContextRecord | undefined;
+  for (const candidate of placement?.requestContexts ?? []) {
+    if (candidate.startIndex <= targetIndex && (!record || candidate.startIndex >= record.startIndex)) record = candidate;
+  }
+  if (!record) return placement;
+  return {
+    activeTools: record.compactEnabled ? [{ name: COMPACT_CONTEXT_TOOL_NAME }] : [],
+    contextWindow: record.contextWindow,
+    family: record.modelFamily,
+  };
+}
+
+/**
+ * The placement input a request over `steps` would carry: the note's used tokens come from the
+ * last usage in `steps` (the invocation before the one being previewed), exactly as the tool
+ * loop derives it for a request's first invocation.
+ */
+export function placementInputForPreview(
+  steps: ReadonlyArray<Pick<ConversationStep, "kind" | "usage">>,
+  placement: PreviewPlacement = {}
+): PlaceStepsInput {
+  return {
+    compactEnabled: isCompactContextEnabled(placement.activeTools),
+    usedTokens: lastUsedTokens(steps),
+    window: placement.contextWindow,
+    family: placement.family,
+  };
 }
 
 /**
@@ -661,13 +717,15 @@ export function useReconciliation(
   tokenizeText: ((text: string) => Promise<string[]>) | undefined,
   active: boolean,
   cacheKeySuffix?: string,
-  sharedCache?: TokenizeCache
+  sharedCache?: TokenizeCache,
+  placement?: PreviewPlacement
 ): ReconciliationState {
   const target = useMemo(() => findLastUsageStep(steps), [steps]);
   const toolCallTurn = target ? turnHasToolCall(steps, target.index) : false;
   const precedingMessages = useMemo(
-    () => (target && !toolCallTurn ? toOllamaFilteredMessages(steps.slice(0, target.index)) : []),
-    [steps, target, toolCallTurn]
+    // The note is rebuilt from the steps before the target, as the request that produced it saw it.
+    () => (target && !toolCallTurn ? toOllamaFilteredMessages(steps.slice(0, target.index), placementForTurn(placement, target.index)) : []),
+    [steps, target, toolCallTurn, placement]
   );
   const { messages: tokenized, failed } = useTokenizedMessages(
     precedingMessages,

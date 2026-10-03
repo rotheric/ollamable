@@ -1,4 +1,5 @@
 import type { IncomingMessage } from "node:http";
+import { CONTEXT_WINDOW_SOURCES } from "../shared/context-usage.js";
 
 export function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -10,7 +11,9 @@ function optionalString(value: unknown): boolean { return value === undefined ||
 function toolCall(value: unknown): boolean {
   return isRecord(value) && nonempty(value.name) && optionalString(value.id) && isRecord(value.arguments);
 }
-const STEP_KINDS = new Set(["system", "user", "assistant", "reasoning", "tool_call", "tool_result", "meta"]);
+const STEP_KINDS = new Set(["system", "user", "assistant", "reasoning", "tool_call", "tool_result", "meta", "compaction"]);
+
+const CONTEXT_WINDOW_SOURCE_SET = new Set<string>(CONTEXT_WINDOW_SOURCES);
 
 export function validateChatRequest(message: Record<string, unknown>): string | undefined {
   if (!nonempty(message.conversationId) || !optionalString(message.requestId)) return "Invalid conversationId or requestId";
@@ -34,10 +37,13 @@ export function validateChatRequest(message: Record<string, unknown>): string | 
   if (message.temperature !== undefined && (typeof message.temperature !== "number" || !Number.isFinite(message.temperature))) return "Invalid temperature";
   if (message.maxOutputTokens !== undefined && (typeof message.maxOutputTokens !== "number" || !Number.isInteger(message.maxOutputTokens) || message.maxOutputTokens < 1)) return "Invalid maxOutputTokens";
   if (message.reasoningEffort !== undefined && !["disable", "low", "medium", "high"].includes(message.reasoningEffort as string)) return "Invalid reasoningEffort";
-  for (const field of ["maxModelInvocations", "maxToolCalls"] as const) {
+  for (const field of ["maxModelInvocations", "maxToolCalls", "contextWindow"] as const) {
     const value = message[field];
     if (value !== undefined && (typeof value !== "number" || !Number.isInteger(value) || value < 1)) return `Invalid ${field}`;
   }
+  const { contextWindowSource, modelFamily } = message;
+  if (contextWindowSource !== undefined && (typeof contextWindowSource !== "string" || !CONTEXT_WINDOW_SOURCE_SET.has(contextWindowSource))) return "Invalid contextWindowSource";
+  if (modelFamily !== undefined && !nonempty(modelFamily)) return "Invalid modelFamily";
 }
 
 export class HttpInputError extends Error {

@@ -1,0 +1,171 @@
+{
+  "story_id": "S6",
+  "authored_by": "story-planner",
+  "authored_at": "2026-10-02T11:00:00Z",
+  "questions": [
+    {
+      "question_id": "VQ-S6-001",
+      "phase": "pre-impl",
+      "category": "QUALITY",
+      "question": "Do the fork creation, auto-send and `compaction` card contain any vacuous or placeholder path (fork built without copying settings, auto-send that silently no-ops when the hook dependency is un-injected, back-link that renders without a working handler)? State-discriminating: `grep -rn \"forkedFrom\" src/types/chat.ts` has no match pre-impl and >=1 post-impl."
+    },
+    {
+      "question_id": "VQ-S6-002",
+      "phase": "pre-impl",
+      "category": "ARCHITECTURE",
+      "question": "Does S6 comply with boundary rule 6: fork creation plus auto-send composed in the composition root or a hook it calls (`use-chat-generation.ts`/`use-conversations.ts`), components not importing each other's internals, `StepKind \"compaction\"` added consistently on `server/types.ts`, `src/types/chat.ts` and `STEP_KINDS`?"
+    },
+    {
+      "question_id": "VQ-S6-003",
+      "phase": "pre-impl",
+      "category": "ARCHITECTURE",
+      "question": "Could `fork-flow` be deleted and rewritten without modifying any file outside its `dependencies_allowed` list? If not, which cross-module dependencies exist (transport-client, transcript-model, compaction-card-ui, wire-types) and do they flow through the S-COMPACTION-WIRE seam contract?"
+    },
+    {
+      "question_id": "VQ-S6-004",
+      "phase": "pre-impl",
+      "category": "TEST",
+      "question": "Are there hook-level tests driving real event sequences (delta, done with compaction, stop, supersession, finally cleanup), transcript tests for `findResponseStartIndex`/`deleteLastExchangeCutIndex` with compaction, component tests for the card and back-link, and format tests through `shared/ollama-format.ts` and `shared/openai-format.ts`? Verify `grep -rln \"forkedFrom\" tests src --include=*.test.*` (none pre-impl)."
+    },
+    {
+      "question_id": "VQ-S6-005",
+      "phase": "pre-impl",
+      "category": "SPEC",
+      "question": "Does the fork conversation record shape match the contract (`forkedFrom: { conversationId: string, stepId: string }`, fork steps = system steps + exactly one `compaction` step, title suffix \" (compacted)\", `titleEdited: true`) and is the S-COMPACTION-WIRE payload consumed exactly as produced by S5 (field names, optional `remainingWork`)?"
+    },
+    {
+      "question_id": "VQ-S6-006",
+      "phase": "pre-impl",
+      "category": "SECURITY",
+      "question": "Does `validateChatRequest` accept `compaction` steps while still rejecting malformed ones (missing content, wrong kind casing), and is the summary text rendered in the card as plain text (no HTML injection) and serialised into provider messages without escaping that corrupts it?"
+    },
+    {
+      "question_id": "VQ-S6-007",
+      "phase": "pre-impl",
+      "category": "SPEC",
+      "ac_id": "AC-FORK-1",
+      "question": "Does the implementation satisfy AC-FORK-1: \"On a `chat.done` carrying `compaction`, the client MUST create exactly one new conversation whose `forkedFrom` equals `{ conversationId: <original id>, stepId: <toolCallStepId> }`.\"? Demand evidence of (a) the production code (file:line), (b) the test(s) that exercise this AC end-to-end through the real producer path, and (c) confirmation the tests are not pure mock-spy proxies (assertions are on observable output, not on call counts alone)."
+    },
+    {
+      "question_id": "VQ-S6-008",
+      "phase": "pre-impl",
+      "category": "SPEC",
+      "ac_id": "AC-FORK-2",
+      "question": "Does the implementation satisfy AC-FORK-2: \"The fork MUST have the original's `model`, `provider`, `systemPrompt`, `temperature`, `maxOutputTokens`, `reasoningEffort`, `maxModelInvocations`, `maxToolCalls`, `availableTools` and `activeToolIds`, MUST be titled `\"<original title> (compacted)\"` with `titleEdited: true`, and the title MUST be unchanged after the fork's next user send.\"? Demand evidence of (a) the production code (file:line), (b) the test(s) that exercise this AC end-to-end through the real producer path, and (c) confirmation the tests are not pure mock-spy proxies (assertions are on observable output, not on call counts alone)."
+    },
+    {
+      "question_id": "VQ-S6-009",
+      "phase": "pre-impl",
+      "category": "SPEC",
+      "ac_id": "AC-FORK-3",
+      "question": "Does the implementation satisfy AC-FORK-3: \"The fork's steps, before its first response, MUST be exactly the original's `system` steps followed by one `compaction` step whose content contains the `summary` and, when present, the `remainingWork`.\"? Demand evidence of (a) the production code (file:line), (b) the test(s) that exercise this AC end-to-end through the real producer path, and (c) confirmation the tests are not pure mock-spy proxies (assertions are on observable output, not on call counts alone)."
+    },
+    {
+      "question_id": "VQ-S6-010",
+      "phase": "pre-impl",
+      "category": "SPEC",
+      "ac_id": "AC-FORK-4",
+      "question": "Does the implementation satisfy AC-FORK-4: \"The original's steps after compaction MUST equal its steps before the request plus the steps of the request's `chat.done`; no other field of the original MUST change except `updatedAt`.\"? Demand evidence of (a) the production code (file:line), (b) the test(s) that exercise this AC end-to-end through the real producer path, and (c) confirmation the tests are not pure mock-spy proxies (assertions are on observable output, not on call counts alone)."
+    },
+    {
+      "question_id": "VQ-S6-011",
+      "phase": "pre-impl",
+      "category": "SPEC",
+      "ac_id": "AC-FORK-5",
+      "question": "Does the implementation satisfy AC-FORK-5: \"The fork MUST be the selected conversation and MUST appear in the sidebar list returned by `orderVisibleConversations`.\"? Demand evidence of (a) the production code (file:line), (b) the test(s) that exercise this AC end-to-end through the real producer path, and (c) confirmation the tests are not pure mock-spy proxies (assertions are on observable output, not on call counts alone)."
+    },
+    {
+      "question_id": "VQ-S6-012",
+      "phase": "pre-impl",
+      "category": "SPEC",
+      "ac_id": "AC-FORK-6",
+      "question": "Does the implementation satisfy AC-FORK-6: \"The client MUST send a `chat.send` for the fork without user input, and only after the original's `chat.done` has been applied to the original.\"? Demand evidence of (a) the production code (file:line), (b) the test(s) that exercise this AC end-to-end through the real producer path, and (c) confirmation the tests are not pure mock-spy proxies (assertions are on observable output, not on call counts alone)."
+    },
+    {
+      "question_id": "VQ-S6-013",
+      "phase": "pre-impl",
+      "category": "SPEC",
+      "ac_id": "AC-FORK-7",
+      "question": "Does the implementation satisfy AC-FORK-7: \"The fork's first `chat.send` MUST NOT include `compact_context` in `tools`; the fork's next user-initiated `chat.send` MUST include it when it is active.\"? Demand evidence of (a) the production code (file:line), (b) the test(s) that exercise this AC end-to-end through the real producer path, and (c) confirmation the tests are not pure mock-spy proxies (assertions are on observable output, not on call counts alone)."
+    },
+    {
+      "question_id": "VQ-S6-014",
+      "phase": "pre-impl",
+      "category": "SPEC",
+      "ac_id": "AC-FORK-8",
+      "question": "Does the implementation satisfy AC-FORK-8: \"The `compaction` step MUST render as a card labelled with the authoring model and `compact_context`, MUST NOT render as an assistant message, and the fork MUST render a link whose activation selects the original conversation.\"? Demand evidence of (a) the production code (file:line), (b) the test(s) that exercise this AC end-to-end through the real producer path, and (c) confirmation the tests are not pure mock-spy proxies (assertions are on observable output, not on call counts alone)."
+    },
+    {
+      "question_id": "VQ-S6-015",
+      "phase": "pre-impl",
+      "category": "SPEC",
+      "ac_id": "AC-FORK-9",
+      "question": "Does the implementation satisfy AC-FORK-9: \"`validateChatRequest` MUST accept a `chat.send` whose steps contain a `compaction` step.\"? Demand evidence of (a) the production code (file:line), (b) the test(s) that exercise this AC end-to-end through the real producer path, and (c) confirmation the tests are not pure mock-spy proxies (assertions are on observable output, not on call counts alone)."
+    },
+    {
+      "question_id": "VQ-S6-016",
+      "phase": "pre-impl",
+      "category": "SPEC",
+      "ac_id": "AC-FORK-10",
+      "question": "Does the implementation satisfy AC-FORK-10: \"`applyContextPlacement` MUST map a `compaction` step onto the wire position named by the placement data for the request's `modelFamily`, and the serialised messages of `shared/ollama-format.ts` and `shared/openai-format.ts` MUST both contain the summary text.\"? Demand evidence of (a) the production code (file:line), (b) the test(s) that exercise this AC end-to-end through the real producer path, and (c) confirmation the tests are not pure mock-spy proxies (assertions are on observable output, not on call counts alone)."
+    },
+    {
+      "question_id": "VQ-S6-017",
+      "phase": "pre-impl",
+      "category": "SPEC",
+      "ac_id": "AC-FORK-11",
+      "question": "Does the implementation satisfy AC-FORK-11: \"For a `chat.send` whose `tools` do not include `compact_context` and whose steps contain a `compaction` step, the messages the server sends to the mocked provider (Ollama and OpenAI-compatible) MUST contain the summary text.\"? Demand evidence of (a) the production code (file:line), (b) the test(s) that exercise this AC end-to-end through the real producer path, and (c) confirmation the tests are not pure mock-spy proxies (assertions are on observable output, not on call counts alone)."
+    },
+    {
+      "question_id": "VQ-S6-018",
+      "phase": "pre-impl",
+      "category": "SPEC",
+      "ac_id": "AC-FORK-12",
+      "question": "Does the implementation satisfy AC-FORK-12: \"Regenerating the fork's first assistant response and deleting its last exchange MUST both leave the `compaction` step in the fork's steps.\"? Demand evidence of (a) the production code (file:line), (b) the test(s) that exercise this AC end-to-end through the real producer path, and (c) confirmation the tests are not pure mock-spy proxies (assertions are on observable output, not on call counts alone)."
+    },
+    {
+      "question_id": "VQ-S6-019",
+      "phase": "pre-impl",
+      "category": "SPEC",
+      "ac_id": "AC-STRUCT-1",
+      "question": "Does the implementation satisfy AC-STRUCT-1: \"`StepKind` in `server/types.ts` and `src/types/chat.ts` MUST both include `\"compaction\"`, `server/request-validation.ts` `STEP_KINDS` MUST include `\"compaction\"`, and the `chat.done` variant of `ServerMessage` on both sides MUST declare the optional `compaction` field.\"? Demand evidence of (a) the production code (file:line), (b) the test(s) that exercise this AC end-to-end through the real producer path, and (c) confirmation the tests are not pure mock-spy proxies (assertions are on observable output, not on call counts alone)."
+    },
+    {
+      "question_id": "VQ-S6-020",
+      "phase": "pre-impl",
+      "category": "SPEC",
+      "ac_id": "AC-STRUCT-3",
+      "question": "Does the implementation satisfy AC-STRUCT-3: \"`npm run lint`, the unit suites and the release gate MUST pass.\"? Demand evidence of (a) the production code (file:line), (b) the test(s) that exercise this AC end-to-end through the real producer path, and (c) confirmation the tests are not pure mock-spy proxies (assertions are on observable output, not on call counts alone)."
+    },
+    {
+      "question_id": "VQ-S6-021",
+      "phase": "post-impl",
+      "category": "QUALITY",
+      "question": "Fork orchestration lives in use-chat-generation after `stopStreamRef.current === stop` and after appendResponseSteps; the fork's streamConversationResponse is `void`-called and takes stopStreamRef synchronously, so the original's `finally` skips both the clear and the settledCount bump. Is there any path (e.g. fork send early-returning on `!connected` and leaving the original's finally to settle) where streaming can stay true or settledCount double-bump? See tests/unit/use-chat-generation.test.tsx 'fork on compaction'."
+    },
+    {
+      "question_id": "VQ-S6-022",
+      "phase": "post-impl",
+      "category": "SPEC",
+      "question": "The fork is built from the `nextConversation` snapshot taken when the original request was sent. If the user edits the original's title/settings/tools while the compaction request streams, the fork inherits the send-time values. Is that acceptable against AC-FORK-2?"
+    },
+    {
+      "question_id": "VQ-S6-023",
+      "phase": "post-impl",
+      "category": "SPEC",
+      "question": "findLastDeletableStepIndex deliberately does NOT treat `compaction` as a deletable message (unlike findResponseStartIndex and deleteLastExchangeCutIndex, where it is a turn boundary), so a compaction-only fork has nothing to delete and a deleted last exchange never removes it (AC-FORK-12). Confirm this reading of 'turn boundary like user' for the three transcript functions."
+    },
+    {
+      "question_id": "VQ-S6-024",
+      "phase": "post-impl",
+      "category": "TEST",
+      "question": "The fork's first send gets the original's context fields from those captured at the original's send (explicitly passed), because contextRequestRef only resolves for the conversation selected at last render. Is that asserted with a discriminating test (fork request carries contextWindow/source/modelFamily while getContextRequest would return {} for the fork)? See tests/unit/chat-workspace-fork.test.tsx."
+    },
+    {
+      "question_id": "VQ-S6-025",
+      "phase": "post-impl",
+      "category": "QUALITY",
+      "question": "The compaction card offers no 'Inspect OpenAI message' action (a compaction step has no wire form of its own; serialisation goes only through placeStepsForModel) and renders its content via the markdown branch when renderMarkdown is on (react-markdown, no raw HTML) or as plain text otherwise. Any residual path that serialises a compaction step without placeStepsForModel?"
+    }
+  ]
+}

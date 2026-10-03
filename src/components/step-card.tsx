@@ -102,6 +102,8 @@ export function getStepBackgroundColor(
         return alpha(theme.palette.error.dark, 0.22);
       case "meta":
         return alpha("#00bcd4", 0.15);
+      case "compaction":
+        return alpha(theme.palette.secondary.dark, 0.24);
       default:
         return alpha(theme.palette.background.paper, 0.9);
     }
@@ -122,6 +124,8 @@ export function getStepBackgroundColor(
       return alpha(theme.palette.error.light, 0.18);
     case "meta":
       return alpha("#00bcd4", 0.12);
+    case "compaction":
+      return alpha(theme.palette.secondary.light, 0.18);
     default:
       return alpha(theme.palette.background.paper, 0.92);
   }

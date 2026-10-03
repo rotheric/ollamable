@@ -19,8 +19,8 @@ export function orderVisibleConversations(
   conversations: Conversation[],
   conversationOrder: string[] | null
 ): Conversation[] {
-  // A conversation appears in the sidebar once it has a user message.
-  const filtered = conversations.filter((c) => c.steps.some((s) => s.kind === "user"));
+  // A conversation appears in the sidebar once it has a user message, or a compaction summary (a fork).
+  const filtered = conversations.filter((c) => c.steps.some((s) => s.kind === "user" || s.kind === "compaction"));
   if (!conversationOrder) return filtered;
   const byId = new Map(filtered.map((c) => [c.id, c]));
   const ordered: Conversation[] = [];
@@ -109,6 +109,12 @@ export function useConversations(tools: ToolDefinition[]) {
     [tools]
   );
 
+  /** Adds a conversation forked from another and selects it. */
+  const addForkedConversation = useCallback((fork: Conversation) => {
+    setConversations((current) => [fork, ...current]);
+    setSelectedConversationId(fork.id);
+  }, []);
+
   const deleteConversation = useCallback((id: string) => {
     setConversations((current) => {
       const remaining = current.filter((conversation) => conversation.id !== id);
@@ -147,6 +153,7 @@ export function useConversations(tools: ToolDefinition[]) {
     selectedConversation,
     updateConversation,
     addConversation,
+    addForkedConversation,
     deleteConversation,
     reorderConversations,
   };

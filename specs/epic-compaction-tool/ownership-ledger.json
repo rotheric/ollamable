@@ -1,0 +1,292 @@
+{
+  "epic": "compaction-tool",
+  "concepts": [
+    {
+      "id": "context-usage",
+      "name": "Context-usage module: contextPercent, note builder, placement data and transform",
+      "owning_module": "context-usage",
+      "type": "public_contract",
+      "added_by_story": "S3"
+    },
+    {
+      "id": "context-window",
+      "name": "Context window resolution and fill computation (pure)",
+      "owning_module": "context-window",
+      "type": "invariant",
+      "added_by_story": "S1"
+    },
+    {
+      "id": "sidebar-prefs",
+      "name": "Persisted showContextMeter and remembered runtime window per provider/model",
+      "owning_module": "sidebar-prefs",
+      "type": "naming_scheme",
+      "added_by_story": "S1"
+    },
+    {
+      "id": "backend-http-client",
+      "name": "fetchModelRuntime beside fetchModelMeta",
+      "owning_module": "backend-http-client",
+      "type": "public_contract",
+      "added_by_story": "S1"
+    },
+    {
+      "id": "runtime-route",
+      "name": "POST /models/runtime never loads a model",
+      "owning_module": "runtime-route",
+      "type": "invariant",
+      "added_by_story": "S1"
+    },
+    {
+      "id": "compact-context-tool",
+      "name": "compact_context ToolExecutor registered in both dispatchers with one id",
+      "owning_module": "compact-context-tool",
+      "type": "public_contract",
+      "added_by_story": "S5"
+    },
+    {
+      "id": "tool-loop",
+      "name": "Per-invocation placement, sole-call rule and budget accounting; accumulated steps never transformed",
+      "owning_module": "tool-loop",
+      "type": "invariant",
+      "added_by_story": "S4"
+    },
+    {
+      "id": "provider-clients",
+      "name": "OpenAI stream_options.include_usage and no num_ctx",
+      "owning_module": "provider-clients",
+      "type": "validation_rule",
+      "added_by_story": "S4"
+    },
+    {
+      "id": "wire-types",
+      "name": "compaction StepKind, chat.send fields, chat.done.compaction, forkedFrom",
+      "owning_module": "wire-types",
+      "type": "public_contract",
+      "added_by_story": "S4"
+    },
+    {
+      "id": "transport-client",
+      "name": "Carry new chat.send fields and the compaction payload",
+      "owning_module": "transport-client",
+      "type": "public_contract",
+      "added_by_story": "S4"
+    },
+    {
+      "id": "transcript-model",
+      "name": "compaction as visible turn boundary",
+      "owning_module": "transcript-model",
+      "type": "invariant",
+      "added_by_story": "S6"
+    },
+    {
+      "id": "fork-flow",
+      "name": "Fork creation, selection and auto-send without compact_context",
+      "owning_module": "fork-flow",
+      "type": "invariant",
+      "added_by_story": "S6"
+    },
+    {
+      "id": "meter-ui",
+      "name": "Context meter rendering and data-level bands",
+      "owning_module": "meter-ui",
+      "type": "public_contract",
+      "added_by_story": "S2"
+    },
+    {
+      "id": "compaction-card-ui",
+      "name": "Compaction card and back-link rendering",
+      "owning_module": "compaction-card-ui",
+      "type": "public_contract",
+      "added_by_story": "S6"
+    },
+    {
+      "id": "preview-parity",
+      "name": "Request preview and token view apply the same placement and note",
+      "owning_module": "preview-parity",
+      "type": "invariant",
+      "added_by_story": "S4"
+    },
+    {
+      "id": "research",
+      "name": "Placement research document and decision",
+      "owning_module": "research",
+      "type": "public_contract",
+      "added_by_story": "S3"
+    }
+  ],
+  "stories": [
+    {
+      "id": "S1",
+      "reviewed_at": "2026-10-02T10:46:14Z",
+      "surfaces_touched": [
+        "context-window: resolveContextWindow, computeContextFill (raw-ratio levels), recordRuntimeWindow, rememberedWindow, rememberedKey (:latest normalisation)",
+        "context-usage: contextPercent only",
+        "sidebar-prefs: SidebarState.rememberedContextWindows, rememberContextWindow",
+        "backend-http-client: fetchModelRuntime, fetchModelMetaIfAvailable(model, runtime?)",
+        "runtime-route: POST /models/runtime -> {loaded, metadata, contextLength?}; shared handleModelRequest",
+        "provider-clients: stream_options.include_usage",
+        "wire-types: ContextWindowSource, ModelRuntimeInfo/ModelRuntime, chat.send context fields (server), validateChatRequest",
+        "transport-client: StreamRequest declares context fields (not serialised)"
+      ],
+      "findings_resolved": [
+        "duplicated_invariant x2",
+        "models/show 500 for OpenAI",
+        "rounded bands",
+        "remembered key normalisation",
+        "comment_rot types.ts ContextWindowSource"
+      ],
+      "obligations": [
+        "S2: call rememberContextWindow after every resolve and chat.done re-query; fetch runtime first and pass it to fetchModelMetaIfAvailable; level bands use raw ratio (display 100% may still be warn)",
+        "S4: serialise contextWindow/contextWindowSource/modelFamily in backend-client chat.send; update server/types.ts \"not yet acted on by the server\" comment; note builder MUST use contextPercent"
+      ]
+    },
+    {
+      "id": "S2",
+      "reviewed_at": "2026-10-02T11:01:47Z",
+      "surfaces_touched": [
+        "meter-ui: ContextMeter presentational; loading … vs unknown —; data-level from raw-ratio level; provenance word; no window size",
+        "context-window composition: useContextWindow (enabled-gated; meta cached only when defined; settledCount re-query)",
+        "sidebar-prefs: showContextMeter + settings row",
+        "fork-flow: use-chat-generation settledCount, bumped once in finally only by the owning generation"
+      ],
+      "findings_resolved": [
+        "meta cache stuck-undefined",
+        "loading vs unknown",
+        "no re-query on stop/error",
+        "missing supersession test"
+      ],
+      "obligations": [
+        "S4: chat.send contextWindow/contextWindowSource must come from the same useContextWindow resolution; decouple fetching from the meter toggle when compact_context is enabled (no second resolution)",
+        "S6: fork auto-send may take stopStreamRef before the original finally; do not add a separate bump for the original; never clear stopStreamRef for the fork from the original path"
+      ]
+    },
+    {
+      "id": "S3",
+      "reviewed_at": "2026-10-02T11:45:21Z",
+      "surfaces_touched": [
+        "research: docs/research/compaction-placement.md (machine-parsed Decision, note+summary tables)",
+        "context-usage: NOTE_PLACEMENTS, SUMMARY_PLACEMENTS, CONTEXT_PLACEMENT {note:trailing-user, summary:user, exceptions:{}}"
+      ],
+      "findings_resolved": [
+        "OpenAI-compatible adjacency via collate semantics",
+        "count-check wording",
+        "tool-loop position column",
+        "summary table test",
+        "recall caveat",
+        "error band runtime qualification"
+      ],
+      "also_resolved": [
+        "S2 codex: metadata fallback when /models/runtime fails",
+        "S2 settledCount supersession test (tests/unit/use-chat-generation.test.tsx)",
+        "codex P1 provider-less conversation: false positive, covered by existing migration; regression test added"
+      ],
+      "obligations": [
+        "S4: applyContextPlacement implements only trailing-user/user with collate semantics (append to last user message else separate user message after assistant/tool); clone, never mutate (AC-NOTE-9); preview, token view and toOllamaFilteredMessages use the same rule; chat.send.modelFamily must equal /models/show details.family; reuse the useContextWindow resolution (decouple fetching from the meter toggle when compact_context is enabled)",
+        "S6: collate the user next message with the user-role summary so no two user messages are adjacent on the wire",
+        "S5/MV: small models rarely act on the note in tool loops (recall 0/6 outside qwen3)"
+      ]
+    },
+    {
+      "id": "S4",
+      "reviewed_at": "2026-10-02T12:08:03Z",
+      "surfaces_touched": [
+        "context-usage: buildContextUsageNote, lastUsedTokens, applyContextPlacement (collate; compaction->user with next-user collation; clone), placeStepsForModel (THE recipe), isCompactContextEnabled (single gate), COMPACT_CONTEXT_TOOL_NAME, isWireStep mirrors formatter payload predicates",
+        "tool-loop: per-invocation placed copy; usedTokens tracked from lastUsedTokens(responseSteps)",
+        "transport-client: chat.send serialises contextWindow/contextWindowSource/modelFamily",
+        "fork-flow/use-chat-generation: getContextRequest; requestContexts record per send (pruned on resend)",
+        "composition root: useContextWindow enabled = showContextMeter || compactContextActive",
+        "preview-parity: request-json-dialog, request-preview-extras, token-view (placementForTurn for reconciliation)"
+      ],
+      "findings_resolved": [
+        "reconciliation used current inputs",
+        "compact predicate duplicated x3",
+        "isWireStep payload mismatch",
+        "placementForTurn multi-record test"
+      ],
+      "obligations": [
+        "S5: note gate matches by tool NAME via isCompactContextEnabled only; prevent MCP tools named compact_context colliding with the builtin (reserved name via McpBridge reservedNames); sole-call rejection path must still update usedTokens from the rejected invocation response and advance budgets; register compact_context after web-search and curl and before McpBridge construction",
+        "S6: any fork serialisation goes through placeStepsForModel; fork starts with requestContexts empty (never inherit the original records); fork keeps exactly one system step; fork first send must carry the original resolved context fields explicitly (contextRequestRef only covers the selected conversation at last render); compaction steps must never directly follow a user wire step"
+      ]
+    },
+    {
+      "id": "S5",
+      "reviewed_at": "2026-10-02T12:22:14Z",
+      "surfaces_touched": [
+        "compact-context-tool: CompactContextExecutor id compact-context, parseCompactContextArgs, COMPACT_CONTEXT_ACK; registered in both dispatchers after curl, before McpBridge",
+        "tool-loop: interception after budget+enablement checks; sole valid -> chat.done{steps, compaction}; else error tool_results for every call, continue; toolCallCount += all calls",
+        "wire-types: CompactionPayload mirrored; chat.done.compaction",
+        "transport-client: StreamRequest.onCompaction fired before resolve inside try/finally"
+      ],
+      "findings_resolved": [
+        "onCompaction throwing left stream unsettled",
+        "AC-TOOL-5 amended for budget ordering"
+      ],
+      "review_notes": [
+        "codex P2 (not actioned): computeContextFill/lastUsedTokens reach back to the most recent usage-carrying step when the latest response lacks usage — matches the spec fill definition; OpenAI streams now request usage",
+        "codex P1 (S6 scope): compaction ends the turn without a fork until S6 wires onCompaction"
+      ],
+      "obligations": [
+        "S6: do not create/select the fork inside onCompaction — stash the payload, then after the stopStreamRef ownership check and the original appendResponseSteps build the fork and auto-send",
+        "S6: verify toolCallStepId survives appendResponseSteps/normalizeResponseSteps in the stored original (back-link)"
+      ]
+    },
+    {
+      "id": "S6",
+      "reviewed_at": "2026-10-02T12:55:52Z",
+      "surfaces_touched": [
+        "fork-flow: src/lib/fork.ts buildFork; use-chat-generation stash onCompaction -> after ownership+appendResponseSteps buildFork, onFork, void auto-send (withoutCompactContext, captured contextRequest); settledCount bump at handoff only when the fork took the token",
+        "fork-flow: use-conversations addForkedConversation; visibility user|compaction",
+        "transcript-model: compaction visible turn boundary, never deletable",
+        "compaction-card-ui: card + back-link",
+        "wire-types: StepKind compaction both sides; STEP_KINDS; Conversation.forkedFrom",
+        "shared/model-name.ts withDefaultTag (S1 surface fix: registry ports)"
+      ],
+      "findings_resolved": [
+        "AC-FORK-4/AC-STRUCT-1 amended",
+        "codex registry-port tag detection",
+        "codex AC-UX-4 refresh at compaction handoff",
+        "handoff double-bump guard"
+      ],
+      "guarantees": [
+        "settledCount: exactly once per generation; compaction original bumps at handoff, fork bumps on settle"
+      ]
+    },
+    {
+      "id": "S7",
+      "reviewed_at": "2026-10-02T13:12:07Z",
+      "surfaces_touched": [
+        "tests only: ws-handler-compaction-properties (AC-STRUCT-4/5), use-chat-generation-fork-properties (AC-STRUCT-6)"
+      ],
+      "findings": [],
+      "notes": "fixed seed 20261002; 13 mutations caught"
+    },
+    {
+      "id": "S8",
+      "reviewed_at": "2026-10-02T14:07:12Z",
+      "surfaces_touched": [
+        "tool-loop: valid sole compact_context -> chat.done with tool_call only, no tool_result",
+        "context-usage: placeStepsForModel -> omitCompactionArtifacts (harness meta step; unanswered compact_context calls by id or nearest-preceding id-less pairing)",
+        "fork-flow: harness meta step appended to the original before onFork; no auto-send; original settles in its own finally",
+        "compaction-card-ui: harness event card linking to the fork"
+      ],
+      "findings_resolved": [
+        "id-less pairing",
+        "doc comment"
+      ],
+      "superseded": [
+        "handoff settledCount bump",
+        "fork auto-send ordering",
+        "captured contextRequest for fork first send",
+        "re-compaction guard",
+        "tool_call+tool_result(ACK) pair"
+      ],
+      "review_notes": [
+        "codex P2 (twice, not actioned): fill/note fall back to the most recent usage-carrying step when the latest response lacks usage — matches the spec fill definition; raised to the user"
+      ]
+    }
+  ],
+  "reviewer_state": {
+    "last_story_reviewed": "S8",
+    "model_at": "2026-10-02T14:07:12Z"
+  }
+}

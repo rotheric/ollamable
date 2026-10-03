@@ -1,0 +1,70 @@
+{
+  "module_name": "tool-loop",
+  "purpose": "Tool loop of server/ws-handler.ts extended with compact_context interception (sole-call rule, explicit error tool_results, budget accounting, chat.done.compaction), plus the small compact-context-tool executor registration deliverable and the wire/transport carriage of the compaction payload.",
+  "public_api": [
+    {
+      "name": "CompactContextExecutor",
+      "signature": "class implements ToolExecutor (server/tools/compact-context.ts)",
+      "description": "Definition {id 'compact-context', name 'compact_context', inputSchema summary(string, pattern \\S) required + optional remaining_work string, additionalProperties false}; registered in the static dispatcher and every connection dispatcher after web-search and curl, before McpBridge."
+    },
+    {
+      "name": "parseCompactContextArgs",
+      "signature": "(args: unknown) => { ok: true; summary: string; remainingWork?: string } | { ok: false; error: string }",
+      "description": "Boundary validation used by the loop; never throws; remainingWork omitted when absent/blank."
+    },
+    {
+      "name": "COMPACT_CONTEXT_TOOL_ID / COMPACT_CONTEXT_ACK",
+      "signature": "string constants",
+      "description": "Stable tool id and the neutral acknowledgement content of the recorded tool_result."
+    },
+    {
+      "name": "CompactionPayload",
+      "signature": "{ toolCallStepId: string; summary: string; remainingWork?: string }",
+      "description": "Seam S-COMPACTION-WIRE; declared in server/types.ts and src/types/chat.ts (duplicated, no cross-import); optional on chat.done."
+    },
+    {
+      "name": "StreamRequest.onCompaction",
+      "signature": "(compaction: CompactionPayload) => void (optional)",
+      "description": "BackendClient calls it with the chat.done payload just before the stream promise resolves with the steps (resolve type unchanged)."
+    }
+  ],
+  "private_files": [
+    "server/ws-handler.ts"
+  ],
+  "owned_data": [
+    "toolCallCount accounting (every tool call incl. rejected compact_context counts)",
+    "compaction interception and sole-call rule"
+  ],
+  "dependencies_allowed": [
+    "compact-context-tool",
+    "context-usage",
+    "provider-clients",
+    "wire-types",
+    "transport-client"
+  ],
+  "dependencies_forbidden": [
+    "fork-flow",
+    "transcript-model"
+  ],
+  "external_ports": [],
+  "events_emitted": [
+    "chat.steps",
+    "chat.done (+compaction)",
+    "chat.error"
+  ],
+  "events_consumed": [
+    "chat.send"
+  ],
+  "test_targets": [
+    "tests/integration/ws-handler-compact-context.test.ts",
+    "tests/integration/http-server.test.ts",
+    "tests/unit/backend-client-chat.test.ts"
+  ],
+  "seam": {
+    "name": "S-COMPACTION-WIRE",
+    "cross_story": true,
+    "consumed_by": [
+      "S6"
+    ]
+  }
+}

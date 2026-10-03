@@ -1,4 +1,6 @@
 import type {
+  CompactionPayload,
+  ContextWindowSource,
   ConversationStep,
   MetaEventPayload,
   ReasoningEffort,
@@ -61,6 +63,7 @@ interface ServerMessage {
   requestId?: string;
   conversationId?: string;
   steps?: ConversationStep[];
+  compaction?: CompactionPayload;
   message?: string;
   event?: {
     id: string;
@@ -90,9 +93,19 @@ interface StreamRequest {
   reasoningEffort?: ReasoningEffort;
   maxModelInvocations?: number;
   maxToolCalls?: number;
+  /** Mirrors server `chat.send`: the resolved window and model family, used by the server for the usage note and placement. */
+  contextWindow?: number;
+  contextWindowSource?: ContextWindowSource;
+  modelFamily?: string;
   onDelta: (steps: ConversationStep[]) => void;
   onStableSteps: (steps: ConversationStep[]) => void;
   onMetaEvent: (step: ConversationStep) => void;
+  /**
+   * Called with the `chat.done` compaction payload (when the model ended the turn with a valid
+   * `compact_context` call) immediately before the stream promise resolves with the steps.
+   * Existing callers resolve and ignore it; the fork flow consumes it.
+   */
+  onCompaction?: (compaction: CompactionPayload) => void;
 }
 
 interface PendingStream {
@@ -144,7 +157,12 @@ export class BackendClient {
 
     if (msg.type === "chat.done" && msg.steps) {
       this.pending.delete(msg.conversationId);
-      stream.resolve(msg.steps);
+      try {
+        if (msg.compaction) stream.request.onCompaction?.(msg.compaction);
+      } finally {
+        // A throwing consumer must not leave the stream unsettled (the pending entry is already gone).
+        stream.resolve(msg.steps);
+      }
     }
 
     if (msg.type === "chat.error") {
@@ -176,7 +194,7 @@ export class BackendClient {
     send: (data: unknown) => boolean,
     request: StreamRequest
   ): { promise: Promise<ConversationStep[]>; stop: () => void } {
-    const { conversationId, model, provider, steps, tools, temperature, maxOutputTokens, reasoningEffort, maxModelInvocations, maxToolCalls } = request;
+    const { conversationId, model, provider, steps, tools, temperature, maxOutputTokens, reasoningEffort, maxModelInvocations, maxToolCalls, contextWindow, contextWindowSource, modelFamily } = request;
 
     const requestId = createId();
     this.pending.get(conversationId)?.reject(new Error("Generation superseded by a newer request."));
@@ -184,7 +202,8 @@ export class BackendClient {
       this.pending.set(conversationId, { requestId, request, resolve, reject });
       try {
         if (!send({ type: "chat.send", requestId, conversationId, model, provider, steps, tools,
-          temperature, maxOutputTokens, reasoningEffort, maxModelInvocations, maxToolCalls })) {
+          temperature, maxOutputTokens, reasoningEffort, maxModelInvocations, maxToolCalls,
+          contextWindow, contextWindowSource, modelFamily })) {
           throw new Error("Chat send failed: socket not open");
         }
       } catch (error) {
